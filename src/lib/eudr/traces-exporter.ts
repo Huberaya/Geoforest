@@ -30,6 +30,9 @@ function escapeXml(value: string): string {
 }
 
 function featureCollection(row: ParcelAuditRow): Record<string, unknown> {
+  if (row.geometry && typeof row.geometry === "object" && (row.geometry as Record<string, unknown>).type === "FeatureCollection") {
+    return row.geometry as Record<string, unknown>;
+  }
   return {
     type: "FeatureCollection",
     features: [

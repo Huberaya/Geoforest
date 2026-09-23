@@ -270,3 +270,76 @@ class TestTracesExport:
         response = client.get("/api/v1/audits")
         assert response.status_code == 200
         assert len(response.json()) == 2
+
+
+# --------------------------------------------------------------------------- 5. Multi-parcelles & Précision
+class TestMultiParcelAndPrecision:
+    def test_mixed_point_and_polygon_composite_batch(self) -> None:
+        mixed = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"name": "Smallholder 1", "area_ha": 1.5},
+                    "geometry": {"type": "Point", "coordinates": [38.201234, 6.161234]},
+                },
+                {
+                    "type": "Feature",
+                    "properties": {"name": "Estate 2", "area_ha": 6.0},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [38.201234, 6.161234],
+                            [38.205234, 6.161234],
+                            [38.205234, 6.165234],
+                            [38.201234, 6.165234],
+                            [38.201234, 6.161234],
+                        ]],
+                    },
+                },
+            ],
+        }
+        res = validate_geometry(mixed)
+        assert res["valid"] is True
+        assert res["geometry_type"] == "FeatureCollection"
+        assert any(w["code"] == "COMPOSITE_BATCH" for w in res["warnings"])
+
+    def test_multi_points_per_plot_4ha_rule(self) -> None:
+        # 5 parcelles de 1 ha (total 5 ha) -> points autorisés car chaque parcelle < 4 ha
+        points = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"name": f"P{i}", "area_ha": 1.0},
+                    "geometry": {"type": "Point", "coordinates": [38.201234 + i * 0.001, 6.161234]},
+                }
+                for i in range(5)
+            ],
+        }
+        res = validate_geometry(points, declared_area_ha=5.0)
+        assert res["valid"] is True
+        assert res["eudr_geometry_rule"] == "POINT_ALLOWED"
+
+    def test_multi_points_one_point_above_4ha_rejected(self) -> None:
+        bad_points = {
+            "type": "FeatureCollection",
+            "features": [
+                {"type": "Feature", "properties": {"name": "Small", "area_ha": 1.0}, "geometry": {"type": "Point", "coordinates": [38.201234, 6.161234]}},
+                {"type": "Feature", "properties": {"name": "TooBig", "area_ha": 4.5}, "geometry": {"type": "Point", "coordinates": [38.202234, 6.161234]}},
+            ],
+        }
+        res = validate_geometry(bad_points)
+        assert res["valid"] is False
+        assert any(e["code"] == "POLYGON_REQUIRED" and "TooBig" in e["message"] for e in res["errors"])
+
+    def test_precision_with_trailing_zeros_in_property(self) -> None:
+        zero_coord = {
+            "type": "Feature",
+            "properties": {"name": "ZeroCoord", "min_decimals": 6},
+            "geometry": {"type": "Point", "coordinates": [38.2012, 6.1612]},
+        }
+        res = validate_geometry(zero_coord)
+        assert res["valid"] is True
+        assert res["precision_ok"] is True
+

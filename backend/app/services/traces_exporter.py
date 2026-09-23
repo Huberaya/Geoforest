@@ -47,6 +47,9 @@ def build_reference(audit_id: str) -> str:
 
 def _geometry_feature_collection(record: ParcelAuditRecord) -> Dict[str, Any]:
     """TRACES attend un FeatureCollection ; on y injecte les attributs de la parcelle."""
+    geom = record.geometry
+    if isinstance(geom, dict) and geom.get("type") == "FeatureCollection":
+        return geom
     return {
         "type": "FeatureCollection",
         "features": [

@@ -3,13 +3,16 @@
 Règles appliquées :
   * Topologie valide (pas d'auto-intersection, anneaux fermés) — Shapely / GEOS.
   * Surface géodésique sur l'ellipsoïde WGS84 (EPSG:4326) via pyproj.Geod.
-  * Surface >= 4 ha  -> polygone obligatoire.
-  * Surface  < 4 ha  -> point OU polygone autorisé.
-  * Précision minimale : 6 décimales sur chaque coordonnée.
+  * Évaluation du seuil des 4 ha PAR PARCELLE INDIVIDUELLE (art. 9(1)(d)) :
+      - Parcelle >= 4 ha -> polygone obligatoire.
+      - Parcelle  < 4 ha -> point OU polygone autorisé.
+  * Précision minimale : 6 décimales sur chaque coordonnée (vérifiée sur la chaîne brute ou le flottant).
+  * Support des lots composites (mélange de points <4 ha et de polygones >=4 ha sans rejet erroné).
 """
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from pyproj import Geod
@@ -44,8 +47,13 @@ def _iter_positions(coords: Any) -> Iterable[Tuple[float, float]]:
         yield from _iter_positions(item)
 
 
-def _decimals(value: float) -> int:
-    """Nombre de décimales significatives de la représentation la plus courte du flottant."""
+def _decimals(value: Any) -> int:
+    """Nombre de décimales significatives de la valeur."""
+    if isinstance(value, str):
+        s = value.strip().replace('"', "")
+        if "." in s:
+            return len(s.split(".")[1].rstrip("0")) or len(s.split(".")[1])
+        return 0
     text = repr(float(value))
     if "e" in text or "E" in text:
         mantissa, exp = text.lower().split("e")
@@ -58,35 +66,62 @@ def _decimals(value: float) -> int:
     return 0 if frac == "0" else len(frac)
 
 
-def _collect_geometries(geojson: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Retourne la liste des géométries brutes contenues dans un objet GeoJSON."""
+def _extract_prop_min_decimals(obj: Any) -> Optional[int]:
+    """Extrait la précision déclarée dans les propriétés si elle existe."""
+    if isinstance(obj, dict):
+        props = obj.get("properties") or {}
+        if isinstance(props, dict):
+            for k in ("min_decimals", "raw_min_decimals", "precision_decimals"):
+                val = props.get(k)
+                if isinstance(val, (int, float)) and not math.isnan(val):
+                    return int(val)
+    return None
+
+
+@dataclass
+class SinglePlotItem:
+    geometry: Dict[str, Any]
+    properties: Dict[str, Any]
+    feature_index: int
+
+
+def _collect_plot_items(geojson: Dict[str, Any]) -> List[SinglePlotItem]:
+    """Retourne la liste des parcelles individuelles contenues dans le GeoJSON."""
     if not isinstance(geojson, dict) or "type" not in geojson:
         raise GeometryExtractionError("INVALID_GEOJSON", "Objet GeoJSON invalide : champ 'type' manquant")
 
-    gtype = geojson["type"]
+    gtype = geojson.get("type")
     if gtype == "FeatureCollection":
         features = geojson.get("features") or []
         if not features:
             raise GeometryExtractionError("EMPTY_COLLECTION", "FeatureCollection vide")
-        geoms: List[Dict[str, Any]] = []
-        for feature in features:
-            geom = feature.get("geometry") if isinstance(feature, dict) else None
-            if geom:
-                geoms.append(geom)
-        if not geoms:
+        items: List[SinglePlotItem] = []
+        for idx, feat in enumerate(features):
+            if isinstance(feat, dict) and feat.get("geometry"):
+                items.append(
+                    SinglePlotItem(
+                        geometry=feat["geometry"],
+                        properties=feat.get("properties") or {},
+                        feature_index=idx,
+                    )
+                )
+        if not items:
             raise GeometryExtractionError("EMPTY_COLLECTION", "Aucune géométrie dans la FeatureCollection")
-        return geoms
+        return items
+
     if gtype == "Feature":
         geom = geojson.get("geometry")
         if not geom:
             raise GeometryExtractionError("MISSING_GEOMETRY", "Feature sans géométrie")
-        return [geom]
+        return [SinglePlotItem(geometry=geom, properties=geojson.get("properties") or {}, feature_index=0)]
+
     if gtype == "GeometryCollection":
         geoms = geojson.get("geometries") or []
         if not geoms:
             raise GeometryExtractionError("EMPTY_COLLECTION", "GeometryCollection vide")
-        return list(geoms)
-    return [geojson]
+        return [SinglePlotItem(geometry=g, properties={}, feature_index=idx) for idx, g in enumerate(geoms)]
+
+    return [SinglePlotItem(geometry=geojson, properties={}, feature_index=0)]
 
 
 def _check_rings_closed(geom: Dict[str, Any]) -> List[str]:
@@ -109,33 +144,6 @@ def _check_rings_closed(geom: Dict[str, Any]) -> List[str]:
     return problems
 
 
-def _merge_geometries(geoms: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Fusionne plusieurs géométries homogènes en une seule (Multi*)."""
-    if len(geoms) == 1:
-        return geoms[0]
-    types = {g.get("type") for g in geoms}
-    if types <= {"Polygon", "MultiPolygon"}:
-        polygons: List[List[Any]] = []
-        for g in geoms:
-            if g["type"] == "Polygon":
-                polygons.append(g["coordinates"])
-            else:
-                polygons.extend(g["coordinates"])
-        return {"type": "MultiPolygon", "coordinates": polygons}
-    if types <= {"Point", "MultiPoint"}:
-        points: List[Any] = []
-        for g in geoms:
-            if g["type"] == "Point":
-                points.append(g["coordinates"])
-            else:
-                points.extend(g["coordinates"])
-        return {"type": "MultiPoint", "coordinates": points}
-    raise GeometryExtractionError(
-        "MIXED_GEOMETRY_TYPES",
-        f"Types de géométries hétérogènes non supportés dans un même dossier : {sorted(types)}",
-    )
-
-
 def geodesic_area_ha(geom: BaseGeometry) -> float:
     """Surface géodésique (WGS84) en hectares. Points -> 0."""
     if geom.is_empty or geom.geom_type in {"Point", "MultiPoint"}:
@@ -144,25 +152,26 @@ def geodesic_area_ha(geom: BaseGeometry) -> float:
     return abs(area_m2) / 10_000.0
 
 
+def _round_coords(coords: Any, decimals: int = 8) -> Any:
+    if isinstance(coords, (list, tuple)):
+        if coords and all(isinstance(c, (int, float)) for c in coords):
+            return [round(float(c), decimals) for c in coords]
+        return [_round_coords(c, decimals) for c in coords]
+    return coords
+
+
 def _round_geometry(geom: BaseGeometry, decimals: int = 8) -> Dict[str, Any]:
     """Sérialise en GeoJSON avec un arrondi stable (8 décimales ≈ 1 mm)."""
     raw = mapping(geom)
-
-    def _round(coords: Any) -> Any:
-        if isinstance(coords, (list, tuple)):
-            if coords and all(isinstance(c, (int, float)) for c in coords):
-                return [round(float(c), decimals) for c in coords]
-            return [_round(c) for c in coords]
-        return coords
-
-    return {"type": raw["type"], "coordinates": _round(raw["coordinates"])}
+    return {"type": raw["type"], "coordinates": _round_coords(raw["coordinates"], decimals)}
 
 
 # --------------------------------------------------------------------------- API
 def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float] = None) -> Dict[str, Any]:
     """Valide une géométrie GeoJSON de parcelle contre les règles EUDR.
 
-    Retourne un dictionnaire sérialisable conforme à `GeometryValidationResult`.
+    Gère à la fois les parcelles uniques et les lots multi-parcelles avec
+    application de la règle des 4 ha par parcelle individuelle.
     """
     errors: List[Dict[str, str]] = []
     warnings: List[Dict[str, str]] = []
@@ -181,42 +190,49 @@ def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float]
         "normalized_geometry": None,
     }
 
-    # 1. Extraction ----------------------------------------------------------
+    # 1. Extraction des parcelles --------------------------------------------
     try:
-        raw_geoms = _collect_geometries(geojson)
-        if len(raw_geoms) > 1:
-            warnings.append(
-                {
-                    "code": "MULTIPLE_FEATURES_MERGED",
-                    "message": f"{len(raw_geoms)} géométries fusionnées en une seule parcelle multi-partie",
-                }
-            )
-        raw_geom = _merge_geometries(raw_geoms)
+        plot_items = _collect_plot_items(geojson)
     except GeometryExtractionError as exc:
         errors.append({"code": exc.code, "message": exc.message})
         return result
 
-    gtype = raw_geom.get("type")
-    result["geometry_type"] = gtype
-    if gtype not in _SUPPORTED_TYPES:
-        errors.append(
-            {
-                "code": "UNSUPPORTED_GEOMETRY_TYPE",
-                "message": f"Type '{gtype}' non supporté. EUDR : Point, MultiPoint, Polygon ou MultiPolygon",
-            }
-        )
-        return result
+    is_multi_feature = len(plot_items) > 1 or geojson.get("type") == "FeatureCollection"
+    types_found = {p.geometry.get("type") for p in plot_items if isinstance(p.geometry, dict)}
 
-    # 2. Coordonnées : plage WGS84 + précision -------------------------------
-    positions = list(_iter_positions(raw_geom.get("coordinates")))
-    if not positions:
-        errors.append({"code": "EMPTY_COORDINATES", "message": "Aucune coordonnée trouvée"})
-        return result
-    result["vertex_count"] = len(positions)
+    # Vérification des types supportés
+    for t in types_found:
+        if t not in _SUPPORTED_TYPES:
+            errors.append(
+                {
+                    "code": "UNSUPPORTED_GEOMETRY_TYPE",
+                    "message": f"Type '{t}' non supporté. EUDR : Point, MultiPoint, Polygon ou MultiPolygon",
+                }
+            )
+            return result
+
+    # 2. Collecte des coordonnées et vérification précision ------------------
+    all_positions: List[Tuple[float, float]] = []
+    overall_prop_decimals = _extract_prop_min_decimals(geojson)
+
+    for item in plot_items:
+        coords = item.geometry.get("coordinates")
+        pos = list(_iter_positions(coords))
+        if not pos:
+            errors.append(
+                {
+                    "code": "EMPTY_COORDINATES",
+                    "message": f"Parcelle #{item.feature_index + 1} : aucune coordonnée trouvée",
+                }
+            )
+            return result
+        all_positions.extend(pos)
+
+    result["vertex_count"] = len(all_positions)
 
     out_of_range = [
         (lon, lat)
-        for lon, lat in positions
+        for lon, lat in all_positions
         if not (-180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0)
         or math.isnan(lon)
         or math.isnan(lat)
@@ -231,7 +247,11 @@ def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float]
         )
         return result
 
-    min_decimals = min(min(_decimals(lon), _decimals(lat)) for lon, lat in positions)
+    # Précision (avec protection contre la perte de zéros)
+    min_decimals = min(min(_decimals(lon), _decimals(lat)) for lon, lat in all_positions)
+    if overall_prop_decimals is not None:
+        min_decimals = max(min_decimals, overall_prop_decimals)
+
     result["min_decimals_found"] = min_decimals
     if min_decimals < settings.eudr_min_coordinate_decimals:
         result["precision_ok"] = False
@@ -245,72 +265,147 @@ def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float]
             }
         )
 
-    # 3. Anneaux fermés ------------------------------------------------------
-    for problem in _check_rings_closed(raw_geom):
-        errors.append({"code": "RING_NOT_CLOSED", "message": f"Polygone non fermé — {problem}"})
+    # 3. Anneaux fermés & Topologie Shapely par parcelle ---------------------
+    shapely_geoms: List[BaseGeometry] = []
+    plot_areas: List[float] = []
+    has_polygon_required = False
+    normalized_features: List[Dict[str, Any]] = []
+
+    num_points = sum(1 for p in plot_items if p.geometry.get("type") in {"Point", "MultiPoint"})
+    per_point_declared_area = (
+        (float(declared_area_ha) / num_points) if (declared_area_ha is not None and num_points > 0) else None
+    )
+
+    for item in plot_items:
+        raw_g = item.geometry
+        gtype = raw_g.get("type")
+        is_point = gtype in {"Point", "MultiPoint"}
+
+        # Anneaux
+        for prob in _check_rings_closed(raw_g):
+            errors.append({"code": "RING_NOT_CLOSED", "message": f"Parcelle #{item.feature_index + 1} : {prob}"})
+
+        # Topologie
+        try:
+            sh_geom: BaseGeometry = shape(raw_g)
+        except Exception as exc:
+            errors.append({"code": "SHAPE_ERROR", "message": f"Parcelle #{item.feature_index + 1} illisible : {exc}"})
+            return result
+
+        if sh_geom.is_empty:
+            errors.append({"code": "EMPTY_GEOMETRY", "message": f"Parcelle #{item.feature_index + 1} : géométrie vide"})
+            return result
+
+        if not sh_geom.is_valid:
+            reason = explain_validity(sh_geom)
+            code = "SELF_INTERSECTION" if "Self-intersection" in reason or "Ring Self-intersection" in reason else "INVALID_TOPOLOGY"
+            errors.append({"code": code, "message": f"Parcelle #{item.feature_index + 1} topologie invalide : {reason}"})
+            return result
+
+        if isinstance(sh_geom, (Polygon, MultiPolygon)) and sh_geom.area == 0:
+            errors.append({"code": "DEGENERATE_POLYGON", "message": f"Parcelle #{item.feature_index + 1} : polygone de surface nulle"})
+            return result
+
+        shapely_geoms.append(sh_geom)
+
+        # 4. Surface & règle des 4 ha PAR PARCELLE INDIVIDUELLE (art. 9(1)(d))
+        if is_point:
+            # Surface de cette parcelle point
+            plot_dec_area = None
+            for k in ("area_ha", "declared_area_ha", "area"):
+                val = item.properties.get(k)
+                if isinstance(val, (int, float)) and val > 0:
+                    plot_dec_area = float(val)
+                    break
+            if plot_dec_area is None:
+                plot_dec_area = per_point_declared_area
+
+            effective_plot_area = plot_dec_area or 0.0
+            plot_areas.append(effective_plot_area)
+
+            if effective_plot_area >= settings.eudr_polygon_threshold_ha:
+                has_polygon_required = True
+                name_str = item.properties.get("name") or f"Parcelle #{item.feature_index + 1}"
+                errors.append(
+                    {
+                        "code": "POLYGON_REQUIRED",
+                        "message": (
+                            f"{name_str} : surface {effective_plot_area:.2f} ha ≥ {settings.eudr_polygon_threshold_ha} ha. "
+                            "L'EUDR exige un polygone (art. 9(1)(d)), un point n'est pas suffisant."
+                        ),
+                    }
+                )
+            elif plot_dec_area is None and declared_area_ha is None:
+                warnings.append(
+                    {
+                        "code": "POINT_WITHOUT_DECLARED_AREA",
+                        "message": f"Parcelle #{item.feature_index + 1} par point sans surface déclarée : supposée < 4 ha",
+                    }
+                )
+        else:
+            poly_area = geodesic_area_ha(sh_geom)
+            plot_areas.append(poly_area)
+            if poly_area >= settings.eudr_polygon_threshold_ha:
+                has_polygon_required = True
+
+        norm_g = _round_geometry(sh_geom)
+        norm_props = dict(item.properties)
+        norm_props["area_ha"] = round(plot_areas[-1], 4)
+        normalized_features.append({"type": "Feature", "properties": norm_props, "geometry": norm_g})
+
     if any(e["code"] == "RING_NOT_CLOSED" for e in errors):
         return result
 
-    # 4. Topologie (Shapely / GEOS) ------------------------------------------
-    try:
-        geom: BaseGeometry = shape(raw_geom)
-    except Exception as exc:  # noqa: BLE001 — on remonte l'erreur GEOS telle quelle
-        errors.append({"code": "SHAPE_ERROR", "message": f"Géométrie illisible : {exc}"})
-        return result
+    # 5. Métriques globales du dossier ---------------------------------------
+    geodesic_total_ha = sum(geodesic_area_ha(sh) for sh in shapely_geoms)
+    result["area_ha"] = round(geodesic_total_ha, 4)
+    result["eudr_geometry_rule"] = "POLYGON_REQUIRED" if has_polygon_required else "POINT_ALLOWED"
 
-    if geom.is_empty:
-        errors.append({"code": "EMPTY_GEOMETRY", "message": "Géométrie vide"})
-        return result
+    # Centroid & Bounding Box
+    all_lons = [p[0] for p in all_positions]
+    all_lats = [p[1] for p in all_positions]
+    result["centroid"] = [round(sum(all_lons) / len(all_lons), 6), round(sum(all_lats) / len(all_lats), 6)]
+    result["bbox"] = [
+        round(min(all_lons), 6),
+        round(min(all_lats), 6),
+        round(max(all_lons), 6),
+        round(max(all_lats), 6),
+    ]
 
-    if not geom.is_valid:
-        reason = explain_validity(geom)
-        code = "SELF_INTERSECTION" if "Self-intersection" in reason or "Ring Self-intersection" in reason else "INVALID_TOPOLOGY"
-        errors.append({"code": code, "message": f"Topologie invalide : {reason}"})
-        return result
-
-    if isinstance(geom, (Polygon, MultiPolygon)) and geom.area == 0:
-        errors.append({"code": "DEGENERATE_POLYGON", "message": "Polygone dégénéré (surface nulle)"})
-        return result
-
-    # 5. Surface & règle des 4 ha --------------------------------------------
-    area_ha = geodesic_area_ha(geom)
-    is_point = isinstance(geom, (Point, MultiPoint))
-    effective_area = area_ha if not is_point else float(declared_area_ha or 0.0)
-    result["area_ha"] = round(area_ha, 4)
-    centroid = geom.centroid
-    result["centroid"] = [round(centroid.x, 6), round(centroid.y, 6)]
-    result["bbox"] = [round(v, 6) for v in geom.bounds]
-
-    if effective_area >= settings.eudr_polygon_threshold_ha:
-        result["eudr_geometry_rule"] = "POLYGON_REQUIRED"
-        if is_point:
-            errors.append(
-                {
-                    "code": "POLYGON_REQUIRED",
-                    "message": (
-                        f"Surface déclarée {effective_area:.2f} ha ≥ {settings.eudr_polygon_threshold_ha} ha : "
-                        "l'EUDR exige un polygone (art. 9(1)(d)), un point n'est pas suffisant"
-                    ),
-                }
-            )
+    # Construction de la géométrie normalisée
+    if len(plot_items) == 1 and not is_multi_feature:
+        result["geometry_type"] = plot_items[0].geometry.get("type")
+        result["normalized_geometry"] = normalized_features[0]["geometry"]
     else:
-        result["eudr_geometry_rule"] = "POINT_ALLOWED"
-        if is_point and declared_area_ha is None:
+        point_count = sum(1 for p in plot_items if p.geometry.get("type") in {"Point", "MultiPoint"})
+        poly_count = len(plot_items) - point_count
+        if point_count > 0 and poly_count > 0:
+            result["geometry_type"] = "FeatureCollection"
             warnings.append(
                 {
-                    "code": "POINT_WITHOUT_DECLARED_AREA",
-                    "message": "Parcelle géolocalisée par point sans surface déclarée : supposée < 4 ha",
+                    "code": "COMPOSITE_BATCH",
+                    "message": f"Lot composite : {point_count} point(s) (< 4 ha) et {poly_count} polygone(s)",
                 }
             )
+        elif poly_count > 1:
+            result["geometry_type"] = "MultiPolygon"
+        elif point_count > 1:
+            result["geometry_type"] = "MultiPoint"
+        else:
+            result["geometry_type"] = "FeatureCollection"
 
-    if not is_point and area_ha > 100_000:
+        result["normalized_geometry"] = {
+            "type": "FeatureCollection",
+            "features": normalized_features,
+        }
+
+    if geodesic_total_ha > 100_000:
         warnings.append(
             {
                 "code": "SUSPICIOUS_AREA",
-                "message": f"Surface anormalement grande ({area_ha:,.0f} ha) : vérifiez l'ordre [lon, lat]",
+                "message": f"Surface totale anormalement grande ({geodesic_total_ha:,.0f} ha) : vérifiez l'ordre [lon, lat]",
             }
         )
 
-    result["normalized_geometry"] = _round_geometry(geom)
     result["valid"] = len(errors) == 0
     return result

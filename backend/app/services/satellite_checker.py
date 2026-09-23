@@ -145,18 +145,32 @@ def _extract_simulated_loss_year(geometry: Dict[str, Any]) -> Optional[int]:
 def _to_shapely(geometry: Dict[str, Any]) -> BaseGeometry:
     gtype = geometry.get("type")
     if gtype == "Feature":
-        return shape(geometry["geometry"])
+        sh = shape(geometry["geometry"])
+        return sh.buffer(0.0005) if sh.geom_type in {"Point", "MultiPoint"} else sh
     if gtype == "FeatureCollection":
         from shapely.ops import unary_union
 
-        return unary_union([shape(f["geometry"]) for f in geometry["features"] if f.get("geometry")])
-    return shape(geometry)
+        geoms = []
+        for f in geometry.get("features", []):
+            if isinstance(f, dict) and f.get("geometry"):
+                sh = shape(f["geometry"])
+                if sh.geom_type in {"Point", "MultiPoint"}:
+                    sh = sh.buffer(0.0005)
+                geoms.append(sh)
+        return unary_union(geoms) if geoms else Point(0, 0).buffer(0.0005)
+    sh = shape(geometry)
+    return sh.buffer(0.0005) if sh.geom_type in {"Point", "MultiPoint"} else sh
 
 
 def _analysis_polygon(geom: BaseGeometry) -> Dict[str, Any]:
     """Pour un point, on analyse un disque ~55 m (0.0005°) ; sinon la géométrie elle-même."""
     if geom.geom_type in {"Point", "MultiPoint"}:
         geom = geom.buffer(0.0005)
+    elif geom.geom_type == "GeometryCollection":
+        # Convertit tout élément en polygone
+        from shapely.ops import unary_union
+        polys = [g.buffer(0.0005) if g.geom_type in {"Point", "MultiPoint"} else g for g in geom.geoms]
+        geom = unary_union(polys)
     from shapely.geometry import mapping
 
     return mapping(geom)

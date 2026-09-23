@@ -21,58 +21,50 @@ class ExtractionError extends Error {
   }
 }
 
+interface PlotItem {
+  geometry: Record<string, unknown>;
+  properties: Record<string, unknown>;
+  featureIndex: number;
+}
+
 // ---------------------------------------------------------------- Extraction
-function collectGeometries(input: GeoJsonInput): Record<string, unknown>[] {
+function collectPlotItems(input: GeoJsonInput): PlotItem[] {
   if (!input || typeof input !== "object" || typeof input.type !== "string") {
     throw new ExtractionError("INVALID_GEOJSON", "Objet GeoJSON invalide : champ 'type' manquant");
   }
   const type = input.type;
   if (type === "FeatureCollection") {
     const features = Array.isArray(input.features) ? (input.features as Record<string, unknown>[]) : [];
-    const geoms = features
-      .map((f) => (f && typeof f === "object" ? (f.geometry as Record<string, unknown> | null) : null))
-      .filter((g): g is Record<string, unknown> => Boolean(g));
-    if (geoms.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "FeatureCollection vide");
-    return geoms;
+    const items: PlotItem[] = [];
+    features.forEach((f, idx) => {
+      if (f && typeof f === "object" && f.geometry && typeof f.geometry === "object") {
+        items.push({
+          geometry: f.geometry as Record<string, unknown>,
+          properties: (f.properties as Record<string, unknown>) ?? {},
+          featureIndex: idx,
+        });
+      }
+    });
+    if (items.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "FeatureCollection vide");
+    return items;
   }
   if (type === "Feature") {
     const geom = input.geometry as Record<string, unknown> | null | undefined;
     if (!geom) throw new ExtractionError("MISSING_GEOMETRY", "Feature sans géométrie");
-    return [geom];
+    return [
+      {
+        geometry: geom,
+        properties: (input.properties as Record<string, unknown>) ?? {},
+        featureIndex: 0,
+      },
+    ];
   }
   if (type === "GeometryCollection") {
     const geoms = Array.isArray(input.geometries) ? (input.geometries as Record<string, unknown>[]) : [];
     if (geoms.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "GeometryCollection vide");
-    return geoms;
+    return geoms.map((g, idx) => ({ geometry: g, properties: {}, featureIndex: idx }));
   }
-  return [input];
-}
-
-function mergeGeometries(geoms: Record<string, unknown>[]): Record<string, unknown> {
-  if (geoms.length === 1) return geoms[0];
-  const types = new Set(geoms.map((g) => g.type as string));
-  const onlyPolys = [...types].every((t) => t === "Polygon" || t === "MultiPolygon");
-  const onlyPoints = [...types].every((t) => t === "Point" || t === "MultiPoint");
-  if (onlyPolys) {
-    const polygons: unknown[] = [];
-    for (const g of geoms) {
-      if (g.type === "Polygon") polygons.push(g.coordinates);
-      else polygons.push(...(g.coordinates as unknown[]));
-    }
-    return { type: "MultiPolygon", coordinates: polygons };
-  }
-  if (onlyPoints) {
-    const points: unknown[] = [];
-    for (const g of geoms) {
-      if (g.type === "Point") points.push(g.coordinates);
-      else points.push(...(g.coordinates as unknown[]));
-    }
-    return { type: "MultiPoint", coordinates: points };
-  }
-  throw new ExtractionError(
-    "MIXED_GEOMETRY_TYPES",
-    `Types de géométries hétérogènes non supportés dans un même dossier : ${[...types].sort().join(", ")}`,
-  );
+  return [{ geometry: input as unknown as Record<string, unknown>, properties: {}, featureIndex: 0 }];
 }
 
 // ---------------------------------------------------------------- Utilitaires numériques
@@ -89,7 +81,7 @@ function* iterPositions(coords: unknown): Generator<Position> {
   for (const item of coords) yield* iterPositions(item);
 }
 
-export function countDecimals(value: number): number {
+export function countDecimals(value: number | string): number {
   const text = String(value);
   if (/e/i.test(text)) {
     const [mantissa, exp] = text.toLowerCase().split("e");
@@ -98,6 +90,19 @@ export function countDecimals(value: number): number {
   }
   if (!text.includes(".")) return 0;
   return text.split(".")[1].length;
+}
+
+function extractPropMinDecimals(obj: unknown): number | null {
+  if (obj && typeof obj === "object") {
+    const props = (obj as { properties?: Record<string, unknown> }).properties ?? (obj as Record<string, unknown>);
+    if (props && typeof props === "object") {
+      for (const k of ["min_decimals", "raw_min_decimals", "precision_decimals"]) {
+        const val = props[k];
+        if (typeof val === "number" && Number.isFinite(val)) return Math.floor(val);
+      }
+    }
+  }
+  return null;
 }
 
 function toRad(deg: number): number {
@@ -118,91 +123,47 @@ function ringArea(ring: Position[]): number {
   return (total * WGS84_RADIUS * WGS84_RADIUS) / 2;
 }
 
-/** Première excentricité au carré de l'ellipsoïde WGS84. */
-const WGS84_E2 = 0.00669437999014;
-
-/**
- * Facteur de correction sphère -> ellipsoïde WGS84 à la latitude φ :
- * (M·N·cosφ) / (a²·cosφ) = (1 - e²) / (1 - e²·sin²φ)²
- * (M = rayon de courbure méridien, N = grande normale).
- */
-function ellipsoidCorrection(latDeg: number): number {
-  const s2 = Math.sin(toRad(latDeg)) ** 2;
-  return (1 - WGS84_E2) / (1 - WGS84_E2 * s2) ** 2;
+/** Surface géodésique totale (ha) d'un polygone avec trous éventuels. */
+function polygonAreaHa(coords: Position[][]): number {
+  if (coords.length === 0) return 0;
+  let area = Math.abs(ringArea(coords[0]));
+  for (let i = 1; i < coords.length; i++) {
+    area -= Math.abs(ringArea(coords[i]));
+  }
+  return Math.max(0, area) / 10000;
 }
 
-function meanLatitude(ring: Position[]): number {
-  return ring.reduce((acc, p) => acc + p[1], 0) / ring.length;
-}
-
-function polygonAreaM2(rings: Position[][]): number {
-  if (rings.length === 0) return 0;
-  let area = Math.abs(ringArea(rings[0])) * ellipsoidCorrection(meanLatitude(rings[0]));
-  for (let i = 1; i < rings.length; i++) area -= Math.abs(ringArea(rings[i])) * ellipsoidCorrection(meanLatitude(rings[i]));
-  return Math.max(area, 0);
-}
-
-export function geodesicAreaHa(geometry: SupportedGeometry): number {
-  if (geometry.type === "Polygon") return polygonAreaM2(geometry.coordinates) / 10_000;
-  if (geometry.type === "MultiPolygon") {
-    return geometry.coordinates.reduce((acc, poly) => acc + polygonAreaM2(poly), 0) / 10_000;
+function geodesicAreaHa(geometry: SupportedGeometry | Record<string, unknown>): number {
+  const type = geometry.type as string;
+  if (type === "Point" || type === "MultiPoint") return 0;
+  if (type === "Polygon") {
+    return polygonAreaHa(geometry.coordinates as Position[][]);
+  }
+  if (type === "MultiPolygon") {
+    const polys = geometry.coordinates as Position[][][];
+    return polys.reduce((acc, p) => acc + polygonAreaHa(p), 0);
   }
   return 0;
 }
 
 // ---------------------------------------------------------------- Topologie
-function orientation(p: Position, q: Position, r: Position): number {
-  const val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1]);
-  if (Math.abs(val) < 1e-18) return 0;
-  return val > 0 ? 1 : 2;
-}
-
-function onSegment(p: Position, q: Position, r: Position): boolean {
-  return (
-    q[0] <= Math.max(p[0], r[0]) && q[0] >= Math.min(p[0], r[0]) && q[1] <= Math.max(p[1], r[1]) && q[1] >= Math.min(p[1], r[1])
-  );
-}
-
-function segmentsIntersect(p1: Position, p2: Position, p3: Position, p4: Position): boolean {
-  const o1 = orientation(p1, p2, p3);
-  const o2 = orientation(p1, p2, p4);
-  const o3 = orientation(p3, p4, p1);
-  const o4 = orientation(p3, p4, p2);
-  if (o1 !== o2 && o3 !== o4) return true;
-  if (o1 === 0 && onSegment(p1, p3, p2)) return true;
-  if (o2 === 0 && onSegment(p1, p4, p2)) return true;
-  if (o3 === 0 && onSegment(p3, p1, p4)) return true;
-  if (o4 === 0 && onSegment(p3, p2, p4)) return true;
-  return false;
-}
-
-/** Détecte une auto-intersection dans un anneau fermé (segments non adjacents). */
-function ringSelfIntersects(ring: Position[]): Position | null {
-  const n = ring.length - 1; // dernier == premier
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const adjacent = j === i + 1 || (i === 0 && j === n - 1);
-      if (adjacent) continue;
-      if (segmentsIntersect(ring[i], ring[i + 1], ring[j], ring[j + 1])) return ring[j];
-    }
-  }
-  return null;
-}
-
 function checkRingsClosed(geom: Record<string, unknown>): string[] {
   const problems: string[] = [];
-  let rings: unknown[] = [];
-  if (geom.type === "Polygon") rings = (geom.coordinates as unknown[]) ?? [];
-  else if (geom.type === "MultiPolygon") {
-    for (const poly of (geom.coordinates as unknown[][]) ?? []) rings.push(...poly);
+  const type = geom.type as string;
+  const rings: Position[][] = [];
+  if (type === "Polygon") {
+    rings.push(...((geom.coordinates as Position[][]) ?? []));
+  } else if (type === "MultiPolygon") {
+    for (const poly of (geom.coordinates as Position[][][]) ?? []) {
+      rings.push(...poly);
+    }
   }
   rings.forEach((ring, idx) => {
     if (!Array.isArray(ring) || ring.length < 4) {
       problems.push(`anneau #${idx + 1} : un polygone fermé requiert au moins 4 positions`);
       return;
     }
-    const first = ring[0] as Position;
-    const last = ring[ring.length - 1] as Position;
+    const [first, last] = [ring[0], ring[ring.length - 1]];
     if (first[0] !== last[0] || first[1] !== last[1]) {
       problems.push(`anneau #${idx + 1} : première et dernière position différentes (anneau non fermé)`);
     }
@@ -210,39 +171,35 @@ function checkRingsClosed(geom: Record<string, unknown>): string[] {
   return problems;
 }
 
-function centroidOf(geometry: SupportedGeometry): [number, number] {
-  const pts = [...iterPositions(geometry.coordinates)];
-  if (geometry.type === "Point" || geometry.type === "MultiPoint") {
-    const sum = pts.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0]);
-    return [sum[0] / pts.length, sum[1] / pts.length];
+function ccw(p1: Position, p2: Position, p3: Position): number {
+  return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]);
+}
+
+function segmentsIntersect(a: Position, b: Position, c: Position, d: Position): boolean {
+  const d1 = ccw(c, d, a);
+  const d2 = ccw(c, d, b);
+  const d3 = ccw(a, b, c);
+  const d4 = ccw(a, b, d);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+    return true;
   }
-  // Centroïde pondéré par la surface (formule du lacet sur l'anneau extérieur de chaque polygone)
-  const polys = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
-  let cx = 0;
-  let cy = 0;
-  let totalArea = 0;
-  for (const poly of polys) {
-    const ring = poly[0];
-    let a = 0;
-    let px = 0;
-    let py = 0;
-    for (let i = 0; i < ring.length - 1; i++) {
-      const cross = ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
-      a += cross;
-      px += (ring[i][0] + ring[i + 1][0]) * cross;
-      py += (ring[i][1] + ring[i + 1][1]) * cross;
+  return false;
+}
+
+function ringSelfIntersects(ring: Position[]): Position | null {
+  const n = ring.length - 1;
+  for (let i = 0; i < n; i++) {
+    const a = ring[i];
+    const b = ring[i + 1];
+    for (let j = i + 1; j < n; j++) {
+      if (Math.abs(i - j) <= 1) continue;
+      if (i === 0 && j === n - 1) continue;
+      const c = ring[j];
+      const d = ring[j + 1];
+      if (segmentsIntersect(a, b, c, d)) return a;
     }
-    a /= 2;
-    if (Math.abs(a) < 1e-15) continue;
-    cx += (px / (6 * a)) * Math.abs(a);
-    cy += (py / (6 * a)) * Math.abs(a);
-    totalArea += Math.abs(a);
   }
-  if (totalArea === 0) {
-    const sum = pts.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0]);
-    return [sum[0] / pts.length, sum[1] / pts.length];
-  }
-  return [cx / totalArea, cy / totalArea];
+  return null;
 }
 
 function roundCoords<T>(coords: T, decimals = 8): T {
@@ -272,40 +229,47 @@ export function validateGeometry(geojson: GeoJsonInput, declaredAreaHa?: number 
     normalized_geometry: null,
   };
 
-  let raw: Record<string, unknown>;
+  let plotItems: PlotItem[];
   try {
-    const geoms = collectGeometries(geojson);
-    if (geoms.length > 1) {
-      warnings.push({
-        code: "MULTIPLE_FEATURES_MERGED",
-        message: `${geoms.length} géométries fusionnées en une seule parcelle multi-partie`,
-      });
-    }
-    raw = mergeGeometries(geoms);
+    plotItems = collectPlotItems(geojson);
   } catch (err) {
     const e = err as ExtractionError;
     errors.push({ code: e.code ?? "INVALID_GEOJSON", message: e.message });
     return result;
   }
 
-  const type = raw.type as string;
-  result.geometry_type = type;
-  if (!SUPPORTED.has(type)) {
-    errors.push({
-      code: "UNSUPPORTED_GEOMETRY_TYPE",
-      message: `Type '${type}' non supporté. EUDR : Point, MultiPoint, Polygon ou MultiPolygon`,
-    });
-    return result;
+  const isMultiFeature = plotItems.length > 1 || geojson.type === "FeatureCollection";
+  const typesFound = new Set(plotItems.map((p) => p.geometry.type as string));
+
+  for (const t of typesFound) {
+    if (!SUPPORTED.has(t)) {
+      errors.push({
+        code: "UNSUPPORTED_GEOMETRY_TYPE",
+        message: `Type '${t}' non supporté. EUDR : Point, MultiPoint, Polygon ou MultiPolygon`,
+      });
+      return result;
+    }
   }
 
-  const positions = [...iterPositions(raw.coordinates)];
-  if (positions.length === 0) {
-    errors.push({ code: "EMPTY_COORDINATES", message: "Aucune coordonnée trouvée" });
-    return result;
-  }
-  result.vertex_count = positions.length;
+  // Coordonnées & Précision
+  const allPositions: Position[] = [];
+  const overallPropDecimals = extractPropMinDecimals(geojson);
 
-  const bad = positions.find(
+  for (const item of plotItems) {
+    const pos = [...iterPositions(item.geometry.coordinates)];
+    if (pos.length === 0) {
+      errors.push({
+        code: "EMPTY_COORDINATES",
+        message: `Parcelle #${item.featureIndex + 1} : aucune coordonnée trouvée`,
+      });
+      return result;
+    }
+    allPositions.push(...pos);
+  }
+
+  result.vertex_count = allPositions.length;
+
+  const bad = allPositions.find(
     ([lon, lat]) => !Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90,
   );
   if (bad) {
@@ -316,7 +280,11 @@ export function validateGeometry(geojson: GeoJsonInput, declaredAreaHa?: number 
     return result;
   }
 
-  const minDecimals = Math.min(...positions.map(([lon, lat]) => Math.min(countDecimals(lon), countDecimals(lat))));
+  let minDecimals = Math.min(...allPositions.map(([lon, lat]) => Math.min(countDecimals(lon), countDecimals(lat))));
+  if (overallPropDecimals !== null) {
+    minDecimals = Math.max(minDecimals, overallPropDecimals);
+  }
+
   result.min_decimals_found = minDecimals;
   if (minDecimals < EUDR_MIN_COORD_DECIMALS) {
     result.precision_ok = false;
@@ -326,43 +294,100 @@ export function validateGeometry(geojson: GeoJsonInput, declaredAreaHa?: number 
     });
   }
 
-  const ringProblems = checkRingsClosed(raw);
-  if (ringProblems.length > 0) {
-    ringProblems.forEach((p) => errors.push({ code: "RING_NOT_CLOSED", message: `Polygone non fermé — ${p}` }));
-    return result;
-  }
+  // Topologie & Règle des 4 ha par parcelle individuelle
+  let totalGeodesicAreaHa = 0;
+  let hasPolygonRequired = false;
+  const normalizedFeatures: Record<string, unknown>[] = [];
 
-  const geometry = raw as unknown as SupportedGeometry;
-  const isPoint = geometry.type === "Point" || geometry.type === "MultiPoint";
+  const numPoints = plotItems.filter((p) => p.geometry.type === "Point" || p.geometry.type === "MultiPoint").length;
+  const perPointDeclared =
+    declaredAreaHa !== null && declaredAreaHa !== undefined && numPoints > 0
+      ? Number(declaredAreaHa) / numPoints
+      : null;
 
-  if (!isPoint) {
-    const polys = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
-    for (const poly of polys) {
-      for (const ring of poly) {
-        const hit = ringSelfIntersects(ring);
-        if (hit) {
-          errors.push({
-            code: "SELF_INTERSECTION",
-            message: `Topologie invalide : Self-intersection au voisinage de [${hit[0]}, ${hit[1]}]`,
-          });
-          return result;
+  for (const item of plotItems) {
+    const g = item.geometry;
+    const isPoint = g.type === "Point" || g.type === "MultiPoint";
+
+    // Anneaux fermés
+    const ringProblems = checkRingsClosed(g);
+    if (ringProblems.length > 0) {
+      ringProblems.forEach((p) => errors.push({ code: "RING_NOT_CLOSED", message: `Parcelle #${item.featureIndex + 1} : ${p}` }));
+    }
+
+    // Auto-intersection
+    if (!isPoint) {
+      const polys = g.type === "Polygon" ? [(g.coordinates as Position[][])] : (g.coordinates as Position[][][]);
+      for (const poly of polys ?? []) {
+        for (const ring of poly) {
+          const hit = ringSelfIntersects(ring);
+          if (hit) {
+            errors.push({
+              code: "SELF_INTERSECTION",
+              message: `Parcelle #${item.featureIndex + 1} topologie invalide : Self-intersection au voisinage de [${hit[0]}, ${hit[1]}]`,
+            });
+            return result;
+          }
         }
       }
     }
+
+    const plotArea = isPoint ? 0 : geodesicAreaHa(g);
+    if (!isPoint && plotArea <= 0) {
+      errors.push({ code: "DEGENERATE_POLYGON", message: `Parcelle #${item.featureIndex + 1} : polygone de surface nulle` });
+      return result;
+    }
+    totalGeodesicAreaHa += plotArea;
+
+    // Règle 4 ha par parcelle
+    let effectivePlotArea = plotArea;
+    if (isPoint) {
+      let plotDecArea: number | null = null;
+      for (const k of ["area_ha", "declared_area_ha", "area"]) {
+        const v = item.properties[k];
+        if (typeof v === "number" && v > 0) {
+          plotDecArea = v;
+          break;
+        }
+      }
+      if (plotDecArea === null) plotDecArea = perPointDeclared;
+      effectivePlotArea = plotDecArea ?? 0;
+
+      if (effectivePlotArea >= EUDR_POLYGON_THRESHOLD_HA) {
+        hasPolygonRequired = true;
+        const nameStr = (item.properties.name as string) ?? `Parcelle #${item.featureIndex + 1}`;
+        errors.push({
+          code: "POLYGON_REQUIRED",
+          message: `${nameStr} : surface ${effectivePlotArea.toFixed(2)} ha ≥ ${EUDR_POLYGON_THRESHOLD_HA} ha. L'EUDR exige un polygone (art. 9(1)(d)), un point n'est pas suffisant.`,
+        });
+      } else if (plotDecArea === null && (declaredAreaHa === null || declaredAreaHa === undefined)) {
+        warnings.push({
+          code: "POINT_WITHOUT_DECLARED_AREA",
+          message: `Parcelle #${item.featureIndex + 1} par point sans surface déclarée : supposée < 4 ha`,
+        });
+      }
+    } else if (plotArea >= EUDR_POLYGON_THRESHOLD_HA) {
+      hasPolygonRequired = true;
+    }
+
+    const normG = { type: g.type, coordinates: roundCoords(g.coordinates) };
+    const normProps = { ...item.properties, area_ha: Number(effectivePlotArea.toFixed(4)) };
+    normalizedFeatures.push({ type: "Feature", properties: normProps, geometry: normG });
   }
 
-  const areaHa = geodesicAreaHa(geometry);
-  if (!isPoint && areaHa <= 0) {
-    errors.push({ code: "DEGENERATE_POLYGON", message: "Polygone dégénéré (surface nulle)" });
+  if (errors.some((e) => e.code === "RING_NOT_CLOSED")) {
     return result;
   }
 
-  const effectiveArea = isPoint ? Number(declaredAreaHa ?? 0) : areaHa;
-  result.area_ha = Number(areaHa.toFixed(4));
-  const [cx, cy] = centroidOf(geometry);
-  result.centroid = [Number(cx.toFixed(6)), Number(cy.toFixed(6))];
-  const lons = positions.map((p) => p[0]);
-  const lats = positions.map((p) => p[1]);
+  result.area_ha = Number(totalGeodesicAreaHa.toFixed(4));
+  result.eudr_geometry_rule = hasPolygonRequired ? "POLYGON_REQUIRED" : "POINT_ALLOWED";
+
+  const lons = allPositions.map((p) => p[0]);
+  const lats = allPositions.map((p) => p[1]);
+  result.centroid = [
+    Number((lons.reduce((a, b) => a + b, 0) / lons.length).toFixed(6)),
+    Number((lats.reduce((a, b) => a + b, 0) / lats.length).toFixed(6)),
+  ];
   result.bbox = [
     Number(Math.min(...lons).toFixed(6)),
     Number(Math.min(...lats).toFixed(6)),
@@ -370,32 +395,39 @@ export function validateGeometry(geojson: GeoJsonInput, declaredAreaHa?: number 
     Number(Math.max(...lats).toFixed(6)),
   ];
 
-  if (effectiveArea >= EUDR_POLYGON_THRESHOLD_HA) {
-    result.eudr_geometry_rule = "POLYGON_REQUIRED";
-    if (isPoint) {
-      errors.push({
-        code: "POLYGON_REQUIRED",
-        message: `Surface déclarée ${effectiveArea.toFixed(2)} ha ≥ ${EUDR_POLYGON_THRESHOLD_HA} ha : l'EUDR exige un polygone (art. 9(1)(d)), un point n'est pas suffisant`,
-      });
-    }
+  if (!isMultiFeature && plotItems.length === 1) {
+    result.geometry_type = plotItems[0].geometry.type as string;
+    result.normalized_geometry = normalizedFeatures[0].geometry as SupportedGeometry;
   } else {
-    result.eudr_geometry_rule = "POINT_ALLOWED";
-    if (isPoint && (declaredAreaHa === null || declaredAreaHa === undefined)) {
+    const pointCount = plotItems.filter((p) => p.geometry.type === "Point" || p.geometry.type === "MultiPoint").length;
+    const polyCount = plotItems.length - pointCount;
+    if (pointCount > 0 && polyCount > 0) {
+      result.geometry_type = "FeatureCollection";
       warnings.push({
-        code: "POINT_WITHOUT_DECLARED_AREA",
-        message: "Parcelle géolocalisée par point sans surface déclarée : supposée < 4 ha",
+        code: "COMPOSITE_BATCH",
+        message: `Lot composite : ${pointCount} point(s) (< 4 ha) et ${polyCount} polygone(s)`,
       });
+    } else if (polyCount > 1) {
+      result.geometry_type = "MultiPolygon";
+    } else if (pointCount > 1) {
+      result.geometry_type = "MultiPoint";
+    } else {
+      result.geometry_type = "FeatureCollection";
     }
+
+    result.normalized_geometry = {
+      type: "FeatureCollection",
+      features: normalizedFeatures,
+    } as unknown as SupportedGeometry;
   }
 
-  if (!isPoint && areaHa > 100_000) {
+  if (totalGeodesicAreaHa > 100_000) {
     warnings.push({
       code: "SUSPICIOUS_AREA",
-      message: `Surface anormalement grande (${Math.round(areaHa).toLocaleString("fr-FR")} ha) : vérifiez l'ordre [lon, lat]`,
+      message: `Surface totale anormalement grande (${Math.round(totalGeodesicAreaHa).toLocaleString("fr-FR")} ha) : vérifiez l'ordre [lon, lat]`,
     });
   }
 
-  result.normalized_geometry = { type: geometry.type, coordinates: roundCoords(geometry.coordinates) } as SupportedGeometry;
   result.valid = errors.length === 0;
   return result;
 }
