@@ -55,7 +55,7 @@ Pour brancher le dashboard sur le backend FastAPI : `NEXT_PUBLIC_API_URL=http://
 ## Tests
 
 ```bash
-cd backend && pip install -r requirements.txt && pytest -q     # 22 tests : conforme, non conforme 2022, formats invalides, export TRACES
+cd backend && pip install -r requirements.txt && pytest -q     # 26 tests : conforme, non conforme 2022, formats invalides, multi-parcelles, export TRACES
 ```
 
 ## Endpoints

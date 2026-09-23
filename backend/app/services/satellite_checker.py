@@ -18,8 +18,9 @@ from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from shapely.geometry import shape
+from shapely.geometry import Point, mapping, shape
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import unary_union
 
 from app.core.config import settings
 
@@ -148,8 +149,6 @@ def _to_shapely(geometry: Dict[str, Any]) -> BaseGeometry:
         sh = shape(geometry["geometry"])
         return sh.buffer(0.0005) if sh.geom_type in {"Point", "MultiPoint"} else sh
     if gtype == "FeatureCollection":
-        from shapely.ops import unary_union
-
         geoms = []
         for f in geometry.get("features", []):
             if isinstance(f, dict) and f.get("geometry"):
@@ -168,10 +167,8 @@ def _analysis_polygon(geom: BaseGeometry) -> Dict[str, Any]:
         geom = geom.buffer(0.0005)
     elif geom.geom_type == "GeometryCollection":
         # Convertit tout élément en polygone
-        from shapely.ops import unary_union
         polys = [g.buffer(0.0005) if g.geom_type in {"Point", "MultiPoint"} else g for g in geom.geoms]
         geom = unary_union(polys)
-    from shapely.geometry import mapping
 
     return mapping(geom)
 
