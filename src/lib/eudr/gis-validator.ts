@@ -133,7 +133,7 @@ function polygonAreaHa(coords: Position[][]): number {
   return Math.max(0, area) / 10000;
 }
 
-function geodesicAreaHa(geometry: SupportedGeometry | Record<string, unknown>): number {
+export function geodesicAreaHa(geometry: SupportedGeometry | Record<string, unknown>): number {
   const type = geometry.type as string;
   if (type === "Point" || type === "MultiPoint") return 0;
   if (type === "Polygon") {
