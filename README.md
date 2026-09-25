@@ -63,3 +63,7 @@ cd backend && pip install -r requirements.txt && pytest -q     # 26 tests : conf
 - `POST /api/v1/audit/parcel` — `{ geojson, commodity, harvest_date, operator?, declared_area_ha? }` → audit complet.
 - `POST /api/v1/export/traces` — `{ audit_id, format: "xml"|"json", operator?, net_weight_kg? }` → fichier DDS.
 - `GET /api/v1/audits`, `GET /api/v1/audits/{id}` — historique.
+
+## Implémentation complémentaire des chantiers C1–C5
+
+Le travail issu d'une architecture locale distincte est ajouté sous [`agent-work/chantiers-c1-c5/`](agent-work/chantiers-c1-c5/), sans remplacer l'application historique à la racine. Il n'est pas encore intégré au runtime de cette application. Voir [`AGENT_WORK_INTEGRATION.md`](AGENT_WORK_INTEGRATION.md) pour le périmètre, les limites et la suite recommandée.

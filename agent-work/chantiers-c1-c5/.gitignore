@@ -1,0 +1,46 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Environnements virtuels Python
+venv/
+.venv/
+env/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+coverage/
+dist/
+build/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+
+# Données locales
+backend/data/
+backend/geoforest.db
+/tmp/
+*.pid

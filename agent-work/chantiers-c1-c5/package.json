@@ -1,0 +1,21 @@
+{
+  "name": "geoforest-trace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GeoForest Trace — Plateforme SaaS de diligence raisonnée EUDR.",
+  "scripts": {
+    "dev": "concurrently -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:web": "cd frontend && next dev -p 3000",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "cd backend && echo 'Backend est du Python — pas de build requis.'",
+    "build:web": "cd frontend && npm run build",
+    "test:api": "cd backend && python -m pytest",
+    "test:web": "cd frontend && npm run test",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

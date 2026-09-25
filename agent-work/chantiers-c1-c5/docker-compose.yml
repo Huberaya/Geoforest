@@ -1,0 +1,106 @@
+# GeoForest Trace — stack locale de développement
+#   PostgreSQL 16 + PostGIS  :5432
+#   Redis 7                  :6379
+#   Backend FastAPI          :8000 (/docs pour la doc OpenAPI)
+#   Frontend Next.js         :3000
+#
+# Démarrage : docker-compose up --build
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: geoforest-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: geoforest
+    ports:
+      - "5432:5432"
+    volumes:
+      - geoforest-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d geoforest"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: geoforest-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - geoforest-redis:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: geoforest-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - geoforest-minio:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: geoforest-backend
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/geoforest
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-only-change-me-please-32chars-minimum-xxxxxxxxxxxx
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin123
+      S3_BUCKET: geoforest-documents
+      APP_URL: http://localhost:3000
+      GFW_API_KEY: ${GFW_API_KEY:-}
+      GFW_API_ORIGIN: ${GFW_API_ORIGIN:-}
+      GFW_DATASET: ${GFW_DATASET:-umd_tree_cover_loss}
+      GFW_DATASET_VERSION: ${GFW_DATASET_VERSION:-v1.13}
+      GFW_CANOPY_THRESHOLD_PCT: ${GFW_CANOPY_THRESHOLD_PCT:-10}
+      GFW_SENSITIVITY_CANOPY_THRESHOLD_PCT: ${GFW_SENSITIVITY_CANOPY_THRESHOLD_PCT:-30}
+      GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-false}
+      GFW_CONTRACT_VERIFIED: ${GFW_CONTRACT_VERIFIED:-false}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: geoforest-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ""
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+
+volumes:
+  geoforest-pgdata:
+  geoforest-redis:
+  geoforest-minio:
