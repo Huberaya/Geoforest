@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.database import async_session_factory, init_db
+from app.core.database import async_session_factory, verify_db_schema
 from app.db.seed import seed_if_empty
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.security import RateLimitMiddleware, SecurityHeadersMiddleware
@@ -25,7 +25,7 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    await init_db()
+    await verify_db_schema()
     if settings.environment in ("development", "demo"):
         async with async_session_factory() as session:
             await seed_if_empty(session)

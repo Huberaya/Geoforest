@@ -20,10 +20,17 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
-    if url and url.startswith("postgresql://"):
+    """Require an explicitly injected PostgreSQL URL; never fall back to a local DSN."""
+    url = (os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url") or "").strip()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL est obligatoire pour Alembic; fournissez-le via le gestionnaire de secrets."
+        )
+    if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return url or ""
+    if not url.startswith("postgresql+asyncpg://"):
+        raise RuntimeError("Alembic attend une URL PostgreSQL avec le pilote asyncpg.")
+    return url
 
 
 def run_migrations_offline() -> None:

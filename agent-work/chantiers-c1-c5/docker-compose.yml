@@ -1,5 +1,5 @@
 # GeoForest Trace — stack locale de développement
-#   PostgreSQL 16 + PostGIS  :5432
+#   PostgreSQL 16            :5432 (image locale avec PostGIS optionnel; schéma actuel sans dépendance)
 #   Redis 7                  :6379
 #   Backend FastAPI          :8000 (/docs pour la doc OpenAPI)
 #   Frontend Next.js         :3000
@@ -81,7 +81,7 @@ services:
     volumes:
       - ./backend:/app
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:

@@ -1,13 +1,17 @@
-"""Configuration de la base de données (PostgreSQL + PostGIS, async SQLAlchemy 2.0).
+"""Configuration PostgreSQL/SQLAlchemy 2.0 et contrôle read-only des migrations.
 
-En dev/test sans Postgres, le moteur peut tourner sur SQLite/aiosqlite (sans PostGIS).
+Le modèle stocke les géométries en JSONB et les traite dans l'application; PostGIS
+n'est pas requis par le schéma actuel. SQLite/aiosqlite reste réservé aux tests.
 """
 from __future__ import annotations
 
 import logging
 import uuid
+from pathlib import Path
 from typing import AsyncGenerator
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import String, TypeDecorator, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -24,7 +28,7 @@ IS_SQLITE = DATABASE_URL.startswith("sqlite")
 
 
 class UUIDType(TypeDecorator):
-    """UUID portable : native UUID sous PG, CHAR(36) sous SQLite (tests/dev)."""
+    """UUID applicatif sérialisé en VARCHAR(36) sous PostgreSQL comme sous SQLite."""
 
     impl = String(36)
     cache_ok = True
@@ -73,21 +77,40 @@ class Base(DeclarativeBase):
     """Classe de base déclarative pour tous les modèles."""
 
 
-async def init_db() -> None:
-    """Crée les extensions PG si nécessaire puis les tables."""
-    from app.models import all_models  # noqa: F401
+async def verify_db_schema() -> None:
+    """Vérifie que la base est au head Alembic; ne crée/modifie aucun objet DB."""
+    if settings.environment.lower() == "test" and IS_SQLITE:
+        # Les tests créent leurs schémas isolés dans leurs fixtures SQLAlchemy.
+        return
+
+    backend_dir = Path(__file__).resolve().parents[2]
+    alembic_config = Config(str(backend_dir / "alembic.ini"))
+    alembic_config.set_main_option("script_location", str(backend_dir / "alembic"))
+    expected_heads = sorted(ScriptDirectory.from_config(alembic_config).get_heads())
+    if not expected_heads:
+        raise RuntimeError("Aucune révision Alembic n'est disponible dans le déploiement.")
+
+    from app.models import all_models  # noqa: F401 -- ensure model modules are loaded
 
     try:
-        async with engine.begin() as conn:
-            if not IS_SQLITE:
-                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info(
-            "Base de données initialisée (%s).",
-            "SQLite" if IS_SQLITE else "PostgreSQL + PostGIS",
+        async with engine.connect() as conn:
+            result = await conn.execute(
+                text("SELECT version_num FROM alembic_version ORDER BY version_num")
+            )
+            applied_heads = sorted(result.scalars().all())
+    except Exception as exc:
+        raise RuntimeError(
+            "Schéma DB absent ou inaccessible; exécutez `alembic upgrade head` "
+            "avec un rôle de migration avant de démarrer l'API."
+        ) from exc
+
+    if applied_heads != expected_heads:
+        raise RuntimeError(
+            "La base n'est pas au head Alembic attendu "
+            f"(appliqué={applied_heads}, attendu={expected_heads}); "
+            "exécutez `alembic upgrade head` avant de démarrer l'API."
         )
-    except Exception as exc:  # pragma: no cover
-        logger.warning("Initialisation DB impossible (démarrage ?): %s", exc)
+    logger.info("Schéma DB vérifié au head Alembic %s.", applied_heads)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

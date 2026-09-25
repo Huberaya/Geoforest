@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     demo_admin_email: str = Field(default="", validation_alias="DEMO_ADMIN_EMAIL")
     demo_admin_password: str = Field(default="", validation_alias="DEMO_ADMIN_PASSWORD")
 
-    # --- Base de données (PostgreSQL + PostGIS) ---
+    # --- Base de données (PostgreSQL + JSONB; géométries traitées côté application) ---
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/geoforest",
         validation_alias="DATABASE_URL",
