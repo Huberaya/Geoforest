@@ -42,7 +42,7 @@
 - Pas de test réel d'upload MinIO/ClamAV dans ce sandbox; les routes ont été testées avec stockage simulé et avec indisponibilité antivirus.
 - La migration n'a pas été appliquée sur PostgreSQL ni sur Neon enfant. Préflight sécurisé effectué sans lire ni afficher de valeurs : aucun binding `DATABASE_URL`, `NEON_DATABASE_URL`, `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_BRANCH_ID`, `PGHOST` ou `PGDATABASE` n'est injecté dans l'environnement; aucune connexion n'a donc été tentée. Aucun DSN/token n'a été demandé ou reçu.
 - Pas de migration ou écriture sur `production`.
-- Pas de push effectué : le checkout ne présente actuellement aucun remote Git configuré, aucun helper/secret d'auth GitHub sûr, aucun agent SSH chargé. Le jeton ponctuel déjà utilisé auparavant n'a pas été réutilisé.
+- Push C7 effectué vers `origin/agent/chantiers-c1-c5-complement` sur GitHub, après vérification que la branche distante était au parent local et pouvait avancer sans réécriture. Le commit d'implémentation C7 est `cb279a9`; aucune force-push. Le secret Git fourni a été transmis à Git via un helper `ASKPASS` temporaire, sans être affiché ni ajouté au dépôt.
 
 ## Tests et validation
 
