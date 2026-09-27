@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     s3_secret_key: str | None = Field(default=None, validation_alias="S3_SECRET_KEY")
     s3_bucket: str = Field(default="geoforest-documents", validation_alias="S3_BUCKET")
     s3_region: str = Field(default="eu-west-1", validation_alias="S3_REGION")
+    # URL joignable par le navigateur pour les pré-signatures; vide = proxy sécurisé via l'API.
+    s3_public_endpoint_url: str = Field(default="", validation_alias="S3_PUBLIC_ENDPOINT_URL")
+
+    # Analyse antivirus : sans scanner disponible, l'upload échoue en mode fermé.
+    clamav_host: str = Field(default="", validation_alias="CLAMAV_HOST")
+    clamav_port: int = Field(default=3310, ge=1, le=65535, validation_alias="CLAMAV_PORT")
+    document_upload_max_bytes: int = Field(
+        default=20 * 1024 * 1024, ge=1, le=100 * 1024 * 1024, validation_alias="DOCUMENT_UPLOAD_MAX_BYTES"
+    )
 
     # --- Sécurité / JWT ---
     secret_key: str = Field(

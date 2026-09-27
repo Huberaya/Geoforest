@@ -1,34 +1,45 @@
-# Test de la baseline sur une branche enfant Neon
+# Test de la chaîne de migrations sur une branche enfant Neon
 
-## Statut
+## Statut de sécurité
 
-Ce kit est préparé pour faciliter la suite. Le cycle upgrade/vérification/downgrade/re-upgrade a passé un test local sur PGlite/PostgreSQL embarqué 18.3, mais **aucun DDL n'a été exécuté sur Neon**. La session agent n'a actuellement ni intégration Neon ni `DATABASE_URL` injectée par un coffre de secrets. La branche `production` n'a pas été modifiée.
+Le kit `neon_child_branch_initial_upgrade.sql` reste le script historique C1 pour la seule révision `20260925_0001`. Le schéma courant du checkout C7 est `20260926_0002`.
 
-## Voie préférée : accès sécurisé de l'agent
+Les nouveaux scripts `neon_child_branch_c7_upgrade.sql` (chaîne complète `base -> 20260926_0002`) et `neon_child_branch_c7_incremental_upgrade.sql` (uniquement `20260925_0001 -> 20260926_0002`) sont générés hors ligne par Alembic et ne se connectent à aucune base. `verify_neon_child_branch_c7_schema.sql` ne lit que les catalogues PostgreSQL.
 
-Une fois l'intégration Neon activée pour l'agent, utiliser le DSN uniquement via le gestionnaire de secrets et exécuter dans `backend/` :
+**Aucun de ces scripts n'a été exécuté sur Neon. Aucune écriture n'a été faite sur `production`.** Une branche enfant doit être jetable; le nom/ID affiché par l'interface Neon est la preuve du périmètre, pas une requête SQL.
+
+## Voie préférée — accès sécurisé de l'agent
+
+Une fois l'intégration Neon configurée via le gestionnaire de secrets, créer/confirmer une branche enfant jetable, injecter le DSN uniquement dans l'environnement du processus, puis exécuter depuis `backend/` :
 
 ```bash
 alembic upgrade head
 ```
 
-La révision `20260925_0001` est la source canonique. Ne pas mettre le DSN dans le dépôt, la ligne de commande partagée ou le chat.
+Ne jamais placer le DSN dans le dépôt, les arguments affichés, un journal partagé ou le chat. Confirmer visuellement dans Neon que le sélecteur pointe vers la branche enfant, jamais `production`.
 
-## Voie de secours : exécution manuelle par l'opérateur
+## Voie manuelle de secours — sans transmettre de secret à l'agent
 
-1. Dans l'interface Neon, créer une **branche enfant jetable** depuis la branche confirmée vide. Avant toute écriture, vérifier visuellement que le sélecteur Neon affiche bien la branche enfant et non `production`. Le SQL PostgreSQL générique ne prouve pas l'identité de branche côté control plane; ne pas inventer une fonction de vérification.
-2. Exécuter l'inventaire de schéma read-only déjà utilisé et confirmer que la branche enfant est vide. Si elle ne l'est pas, arrêter; ne pas appliquer cette baseline.
-3. Si l'agent n'a toujours pas d'accès sécurisé, ouvrir `neon_child_branch_initial_upgrade.sql` et l'exécuter **en entier, comme une seule transaction**, sur cette branche enfant seulement. Le fichier est le SQL offline exact généré par Alembic; il crée les objets et inscrit la révision dans `alembic_version`. Ne pas retirer `BEGIN`/`COMMIT` pour contourner une erreur de l'éditeur; arrêter et utiliser la voie sécurisée si l'éditeur ne prend pas le script complet.
-4. Exécuter `verify_neon_child_branch_initial_schema.sql` (lecture seule), puis comparer les résultats attendus ci-dessous. Garder le nom/ID de branche affiché dans l'interface Neon avec le rapport.
-5. Ne pas exécuter le downgrade sur `production`. La branche enfant étant jetable, la supprimer dans Neon après le test plutôt que d'y conserver un environnement ambigu.
+1. Dans l'interface Neon, créer une branche enfant jetable depuis la branche que l'opérateur a confirmée vide. Vérifier visuellement le nom/ID sélectionné avant toute écriture.
+2. Sur la branche enfant seulement, exécuter l'inventaire read-only `inspect_postgres_schema.sql`. Si la branche contient déjà des tables métier inattendues, arrêter.
+3. Choisir le script selon la révision réellement vérifiée :
+   - Branche enfant vide : exécuter **en entier et comme une seule transaction** `neon_child_branch_c7_upgrade.sql`.
+   - Branche enfant vérifiée à `20260925_0001` : exécuter en entier `neon_child_branch_c7_incremental_upgrade.sql`.
+   - Tout autre état : arrêter et faire auditer l'état Alembic avant d'appliquer un DDL.
+4. Exécuter `verify_neon_child_branch_c7_schema.sql` et sauvegarder le résultat avec le nom/ID de branche visible dans l'interface.
+5. Si un test downgrade/re-upgrade est requis, le faire uniquement sur la branche enfant jetable. La supprimer après le test; ne pas la convertir en environnement partagé.
 
-## Résultats attendus après l'upgrade
+Ne pas retirer `BEGIN`/`COMMIT` pour contourner un échec de l'éditeur SQL. En cas d'échec, arrêter et utiliser une voie d'exécution qui gère le script transactionnel complet.
 
-- `alembic_versions` : `20260925_0001`.
-- `application_table_count` : 9; `missing_application_tables` et `unexpected_base_tables` : tableaux vides.
-- `named_application_indexes_ix` : 31; `physical_indexes_on_application_tables` : 43 (31 index explicites, 9 index PK et 3 index des contraintes uniques).
-- `foreign_key_count` : 16; `missing_enum_types` : tableau vide; 10 enums attendus.
-- `jsonb_columns` : 8 colonnes, dont `plots.geometry`.
-- `postgis_extension_installed` : `false` attendu pour cette baseline.
+## Résultats attendus après upgrade C7
 
-Ces vérifications confirment la présence des objets, pas l'isolation inter-tenant, la sûreté réglementaire ou une validation de production. Aucun résultat ne doit être qualifié de test Neon tant que la migration n'a pas été exécutée sur la branche enfant.
+- `alembic_versions` : `20260926_0002`.
+- `application_table_count` : **13**; `missing_application_tables` et `unexpected_base_tables` : tableaux vides.
+- `named_application_indexes_ix` : **46**; `physical_indexes_on_application_tables` : **65** (46 index nommés `ix_`, 13 index de PK et 6 index de contraintes uniques).
+- `foreign_key_count` : **26**; 10 types enum attendus, aucun enum manquant/inattendu.
+- `jsonb_column_count` : **8**; mêmes colonnes JSONB que la baseline précédente.
+- `postgis_extension_installed` : `false` attendu.
+
+Le C7 ajoute `documents`, `document_versions`, `document_links` et `document_checklist_items`, sans nouveaux types enum ni nouvelles colonnes JSONB.
+
+Ces vérifications confirment uniquement la présence des objets SQL. Elles ne remplacent pas les tests d'isolation tenant/RBAC et ne constituent ni un test de production, ni un avis juridique. Aucun résultat ne doit être qualifié de « test Neon » tant que l'exécution n'a pas eu lieu sur une branche enfant identifiée dans l'interface Neon.

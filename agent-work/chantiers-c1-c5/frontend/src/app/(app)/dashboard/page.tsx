@@ -70,7 +70,6 @@ export default function DashboardPage() {
 
   const k = data.kpis;
   const completed = data.onboarding.completed;
-  const total = data.onboarding.total;
   const isEmptyState = completed === 0;
 
   return (
@@ -141,18 +140,18 @@ export default function DashboardPage() {
         <KpiCard label="Produits" value={formatNumber(k.products_count)} icon={<span>📦</span>} onClick={() => (window.location.href = "/products")} />
         <KpiCard label="Lots" value={formatNumber(k.shipments_count)} icon={<span>🚚</span>} onClick={() => (window.location.href = "/shipments")} />
         <KpiCard
-          label="Documents expirés"
+          label="Documents bientôt échus"
           value={formatNumber(k.documents_expiring_soon)}
           icon={<span>📄</span>}
           tone={k.documents_expiring_soon > 0 ? "amber" : "slate"}
-          comingSoon
+          onClick={() => (window.location.href = "/documents")}
         />
         <KpiCard
-          label="Données manquantes"
+          label="Checklist manquante / expirée"
           value={formatNumber(k.documents_missing)}
           icon={<span>❗</span>}
           tone={k.documents_missing > 0 ? "amber" : "slate"}
-          comingSoon
+          onClick={() => (window.location.href = "/documents")}
         />
         <KpiCard
           label="Membres équipe"

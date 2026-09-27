@@ -13,6 +13,8 @@ from app.api.v1.endpoints.plots import router as plots_router
 from app.api.v1.endpoints.products import router as products_router
 from app.api.v1.endpoints.shipments import router as shipments_router
 from app.api.v1.endpoints.supplier_portal import router as supplier_portal_router
+from app.api.v1.endpoints.supplier_documents import router as supplier_documents_router
+from app.api.v1.endpoints.documents import router as documents_router
 from app.api.v1.endpoints.suppliers import router as suppliers_router
 from app.api.v1.endpoints.users import router as users_router
 
@@ -23,6 +25,8 @@ api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(orgs_router, prefix="/organizations", tags=["organizations"])
 api_router.include_router(users_router, prefix="/users", tags=["users"])
 api_router.include_router(supplier_portal_router, prefix="/supplier-portal", tags=["supplier-portal"])
+api_router.include_router(supplier_documents_router, prefix="/supplier-portal/documents", tags=["supplier-documents"])
+api_router.include_router(documents_router, prefix="", tags=["documents"])
 api_router.include_router(suppliers_router, prefix="", tags=["suppliers"])
 api_router.include_router(products_router, prefix="", tags=["products"])
 api_router.include_router(shipments_router, prefix="", tags=["shipments"])

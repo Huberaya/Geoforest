@@ -5,7 +5,7 @@ des valeurs réelles tirées des modèles correspondants.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -21,6 +21,8 @@ async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, A
     from app.models.plots import Plot, PlotStatus
     from app.models.products import Product, Shipment
     from app.models.suppliers import Supplier
+    from app.models.documents import Document, DocumentChecklistItem, DocumentVersion
+    from app.services.documents.metadata import checklist_out
 
     def _count(model, where=None):
         q = select(func.count()).select_from(model).where(model.organization_id == organization_id)
@@ -37,6 +39,30 @@ async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, A
     # `valid` signifie validation géométrique seulement ; seule l'analyse prévue au chantier 5-6
     # peut incrémenter le KPI `plots_analyzed`.
     plots_analyzed = (await db.execute(_count(Plot, Plot.status == PlotStatus.analyzed))).scalar_one() or 0
+
+    today = date.today()
+    documents_count = (await db.execute(_count(Document, Document.is_archived.is_(False)))).scalar_one() or 0
+    documents_expiring_soon = (await db.execute(
+        select(func.count(func.distinct(Document.id)))
+        .join(DocumentVersion, DocumentVersion.document_id == Document.id)
+        .where(
+            Document.organization_id == organization_id,
+            Document.is_archived.is_(False),
+            Document.expires_at >= today,
+            Document.expires_at <= today + timedelta(days=30),
+            DocumentVersion.version_number == Document.current_version_number,
+            DocumentVersion.scan_status == "clean",
+        )
+    )).scalar_one() or 0
+    checklist_items = (await db.execute(select(DocumentChecklistItem).where(
+        DocumentChecklistItem.organization_id == organization_id,
+        DocumentChecklistItem.is_active.is_(True),
+    ).limit(300))).scalars().all()
+    documents_missing = 0
+    for checklist_item in checklist_items:
+        current_state = await checklist_out(db, checklist_item)
+        if current_state["state"] in {"missing", "expired"}:
+            documents_missing += 1
 
     # --- Alertes par niveau
     levels = ["critical", "warning", "info", "success"]
@@ -63,7 +89,7 @@ async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, A
     recent_alerts = [_serialize_alert(a) for a in res_alerts.scalars().all()]
 
     onboarding_steps = _build_onboarding_steps(
-        users_count, suppliers_count, products_count, shipments_count, plots_total
+        users_count, suppliers_count, products_count, shipments_count, plots_total, documents_count
     )
 
     # Conformité globale : null tant qu'aucun DDR (chantier 9).
@@ -80,8 +106,8 @@ async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, A
         "dds_ready": 0,
         "dds_incomplete": 0,
         "dds_at_risk": 0,
-        "documents_expiring_soon": 0,
-        "documents_missing": 0,
+        "documents_expiring_soon": documents_expiring_soon,
+        "documents_missing": documents_missing,
         "users_count": users_count,
         "unread_alerts": total_unread_alerts,
         "critical_alerts": alert_counts["critical"],
@@ -89,9 +115,7 @@ async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, A
         "alerts_by_level": alert_counts,
     }
 
-    note = (
-        "Les modules Documents et Diligence raisonnée seront activés par les chantiers 7 et 9."
-    )
+    note = "Le coffre documentaire est disponible. Les indicateurs de conformité EUDR et la déclaration restent à traiter par des étapes dédiées."
     if suppliers_count == 0 and products_count == 0 and shipments_count == 0:
         note = (
             "Commencez par créer un fournisseur, un produit EUDR, puis un premier lot. "
@@ -114,7 +138,8 @@ async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, A
 
 
 def _build_onboarding_steps(
-    users_count: int, suppliers_count: int, products_count: int, shipments_count: int, plots_count: int = 0
+    users_count: int, suppliers_count: int, products_count: int, shipments_count: int, plots_count: int = 0,
+    documents_count: int = 0,
 ) -> dict[str, Any]:
     steps: list[dict[str, Any]] = [
         {
@@ -154,16 +179,16 @@ def _build_onboarding_steps(
         {
             "key": "document",
             "title": "Déposer les documents de légalité",
-            "description": "Titres fonciers, certificats, autorisations d'exploitation.",
+            "description": "Déposez des pièces et suivez une checklist configurée par votre organisation; elle n'est pas une liste légale exhaustive.",
             "href": "/documents",
-            "done": False,
-            "available": False,
+            "done": documents_count > 0,
+            "available": True,
             "available_chantier": 7,
         },
         {
             "key": "dds",
             "title": "Générer votre premier dossier de diligence raisonnée",
-            "description": "Une fois les données collectées, le système assemble le DDR prêt pour TRACES.",
+            "description": "Une étape ultérieure préparera un dossier de diligence à vérifier; aucune déclaration TRACES n'est effectuée ici.",
             "href": "/dds",
             "done": False,
             "available": False,

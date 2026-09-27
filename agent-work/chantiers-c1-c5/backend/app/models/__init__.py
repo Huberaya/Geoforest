@@ -133,5 +133,20 @@ from app.models.suppliers import Supplier, SupplierInvitation  # noqa: E402,F401
 from app.models.products import Product, Shipment  # noqa: E402,F401
 from app.models.plots import Plot  # noqa: E402,F401
 from app.models.audit import AuditEvent  # noqa: E402,F401
+from app.models.documents import Document, DocumentChecklistItem, DocumentLink, DocumentVersion  # noqa: E402,F401
 
-all_models = (Organization, User, Alert, Supplier, SupplierInvitation, Product, Shipment, Plot, AuditEvent)
+all_models = (
+    Organization,
+    User,
+    Alert,
+    Supplier,
+    SupplierInvitation,
+    Product,
+    Shipment,
+    Plot,
+    AuditEvent,
+    Document,
+    DocumentVersion,
+    DocumentLink,
+    DocumentChecklistItem,
+)

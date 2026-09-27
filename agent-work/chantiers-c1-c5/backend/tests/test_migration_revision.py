@@ -1,4 +1,4 @@
-"""Smoke tests for the frozen initial PostgreSQL migration (offline only)."""
+"""Smoke tests for the PostgreSQL migration chain (offline only; no DB writes)."""
 
 from __future__ import annotations
 
@@ -19,6 +19,10 @@ EXPECTED_TABLES = (
     "shipments",
     "plots",
     "audit_events",
+    "documents",
+    "document_versions",
+    "document_links",
+    "document_checklist_items",
 )
 
 
@@ -37,19 +41,24 @@ def _run_alembic_offline(*args: str) -> str:
     return result.stdout
 
 
-def test_initial_upgrade_compiles_complete_postgresql_schema_offline() -> None:
+def test_full_upgrade_compiles_complete_postgresql_schema_offline() -> None:
     sql = _run_alembic_offline("upgrade", "head")
 
     for table in EXPECTED_TABLES:
         assert f"CREATE TABLE {table} (" in sql
     assert sql.count("CREATE TYPE ") == 10
-    assert sql.count("CREATE INDEX ") + sql.count("CREATE UNIQUE INDEX ") == 31
+    assert sql.count("CREATE INDEX ") + sql.count("CREATE UNIQUE INDEX ") == 46
+    assert "CREATE TABLE document_versions (" in sql
+    assert "CREATE TABLE document_links (" in sql
+    assert "CREATE TABLE document_checklist_items (" in sql
+    assert "uq_document_version_storage_key" in sql
+    assert "ck_document_checklist_scope_id" in sql
     assert "CREATE TABLE alembic_version (" in sql
     assert "CREATE EXTENSION" not in sql.upper()
 
 
-def test_initial_downgrade_compiles_enum_cleanup_offline() -> None:
-    sql = _run_alembic_offline("downgrade", "20260925_0001:base")
+def test_full_downgrade_compiles_enum_cleanup_offline() -> None:
+    sql = _run_alembic_offline("downgrade", "20260926_0002:base")
 
     assert sql.count("DROP TYPE ") == 10
     for table in EXPECTED_TABLES:

@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   type SupplierPortalProfile,
   type SupplierPortalProfileUpdate,
+  type DocumentPublic,
   type UserPublic,
   acceptSupplierMagicLink,
   clearStoredAuth,
@@ -13,6 +14,10 @@ import {
   getSupplierPortalProfile,
   requestSupplierMagicLink,
   updateSupplierPortalProfile,
+  supplierDocumentList,
+  createSupplierDocument,
+  supplierDocumentDownloadLink,
+  fetchAuthorizedDownload,
 } from "@/lib/api";
 
 const EDITABLE_FIELDS: Array<{
@@ -36,6 +41,18 @@ type View = "booting" | "public" | "portal" | "operator";
 type EditableKey = keyof SupplierPortalProfileUpdate;
 type EditableValues = Record<EditableKey, string>;
 
+function triggerSupplierDownload(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = window.document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename || "document";
+  anchor.rel = "noreferrer";
+  window.document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+}
+
 function editableFromProfile(profile: SupplierPortalProfile): EditableValues {
   return {
     legal_name: profile.legal_name || "",
@@ -56,6 +73,8 @@ export default function SupplierPortalPage() {
   const [user, setUser] = useState<UserPublic | null>(null);
   const [profile, setProfile] = useState<SupplierPortalProfile | null>(null);
   const [values, setValues] = useState<EditableValues | null>(null);
+  const [supplierDocuments, setSupplierDocuments] = useState<DocumentPublic[]>([]);
+  const [documentsBusy, setDocumentsBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -63,6 +82,54 @@ export default function SupplierPortalPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const bootStarted = useRef(false);
+
+  async function refreshSupplierDocuments() {
+    setDocumentsBusy(true);
+    try {
+      const result = await supplierDocumentList();
+      setSupplierDocuments(result.items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de charger les documents.");
+    } finally {
+      setDocumentsBusy(false);
+    }
+  }
+
+  async function onSupplierUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await createSupplierDocument(new FormData(form));
+      form.reset();
+      setNotice("Document déposé après contrôle du fichier et analyse antivirus.");
+      await refreshSupplierDocuments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Le document n'a pas pu être déposé.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSupplierDownload(document: DocumentPublic) {
+    setBusy(true);
+    setError(null);
+    try {
+      const link = await supplierDocumentDownloadLink(document.id, document.latest_version?.id);
+      if (link.presigned) {
+        window.location.assign(link.url);
+      } else {
+        const result = await fetchAuthorizedDownload(link.url, document.latest_version?.original_filename || "document");
+        triggerSupplierDownload(result.blob, result.filename);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Téléchargement impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (bootStarted.current) return;
@@ -85,6 +152,7 @@ export default function SupplierPortalPage() {
           setAuthUser(tokens.user);
           setProfile(nextProfile);
           setValues(editableFromProfile(nextProfile));
+          await refreshSupplierDocuments();
           setView("portal");
         } catch (err) {
           if (alive) {
@@ -112,6 +180,7 @@ export default function SupplierPortalPage() {
           setAuthUser(currentUser);
           setProfile(currentProfile);
           setValues(editableFromProfile(currentProfile));
+          await refreshSupplierDocuments();
           setView("portal");
         } else {
           setUser(currentUser);
@@ -127,7 +196,7 @@ export default function SupplierPortalPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [setAuthUser]);
 
   async function onRequestLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -172,6 +241,7 @@ export default function SupplierPortalPage() {
     setUser(null);
     setProfile(null);
     setValues(null);
+    setSupplierDocuments([]);
     setView("public");
     setRequestSent(false);
     setNotice("Vous êtes déconnecté.");
@@ -327,6 +397,80 @@ export default function SupplierPortalPage() {
                   <p className="max-w-lg text-xs leading-5 text-slate-500">Le niveau de risque affiché ({profile.risk_label}) est défini et suivi par l'opérateur, pas par ce formulaire.</p>
                   <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer mon profil"}</button>
                 </div>
+              </form>
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+              <div className="card space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Mes documents</h2>
+                    <p className="mt-1 text-xs text-slate-500">Pièces déposées par votre compte ou partagées avec votre profil fournisseur.</p>
+                  </div>
+                  <button type="button" className="btn btn-secondary px-3 py-2 text-xs" onClick={() => void refreshSupplierDocuments()} disabled={documentsBusy}>{documentsBusy ? "Actualisation…" : "Actualiser"}</button>
+                </div>
+                {supplierDocuments.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Aucun document accessible pour le moment.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {supplierDocuments.map((document) => (
+                      <article key={document.id} className="rounded-xl border border-slate-200 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-semibold text-slate-900">{document.title}</h3>
+                            <p className="mt-1 text-xs text-slate-500">{document.category} · v{document.current_version_number} · {document.latest_version?.original_filename || "Fichier"}{document.expires_at ? ` · expire le ${new Date(`${document.expires_at}T00:00:00`).toLocaleDateString("fr-FR")}` : ""}</p>
+                            <p className="mt-1 text-[11px] text-slate-500">{document.review_status === "reviewed" ? "Une revue a été enregistrée par l'équipe partenaire." : document.review_status === "follow_up" ? "Un suivi a été demandé par l'équipe partenaire." : "En attente d'examen par l'équipe partenaire."}</p>
+                          </div>
+                          <button type="button" className="btn btn-secondary px-3 py-2 text-xs" onClick={() => void onSupplierDownload(document)} disabled={busy}>Télécharger</button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                <p className="border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">Le statut de revue est un suivi de traitement, pas une certification ou une conclusion juridique.</p>
+              </div>
+
+              <form className="card h-fit space-y-4" onSubmit={onSupplierUpload}>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Déposer une pièce</h2>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">Le dépôt est limité à votre profil fournisseur. Formats : PDF, JPG/JPEG, PNG et DOCX · 20 Mio maximum.</p>
+                </div>
+                <div>
+                  <label className="label" htmlFor="supplier-doc-title">Titre *</label>
+                  <input id="supplier-doc-title" name="title" className="input" required maxLength={200} placeholder="Nom du document" />
+                </div>
+                <div>
+                  <label className="label" htmlFor="supplier-doc-category">Catégorie indicative *</label>
+                  <select id="supplier-doc-category" name="category" className="input" defaultValue="other">
+                    <option value="land_rights">Droits fonciers / usage des terres</option>
+                    <option value="permit">Permis et autorisations</option>
+                    <option value="environment">Environnement / gestion</option>
+                    <option value="contract">Contrat ou accord</option>
+                    <option value="social">Éléments sociaux</option>
+                    <option value="audit_certification">Audit / vérification tierce</option>
+                    <option value="other">Autre preuve</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="supplier-doc-file">Fichier *</label>
+                  <input id="supplier-doc-file" name="file" className="input" type="file" required accept=".pdf,.jpg,.jpeg,.png,.docx" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label" htmlFor="supplier-doc-issued">Émis le</label>
+                    <input id="supplier-doc-issued" name="issued_at" className="input" type="date" />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="supplier-doc-expiry">Expire le</label>
+                    <input id="supplier-doc-expiry" name="expires_at" className="input" type="date" />
+                  </div>
+                </div>
+                <div>
+                  <label className="label" htmlFor="supplier-doc-ref">Référence (facultatif)</label>
+                  <input id="supplier-doc-ref" name="reference_number" className="input" maxLength={120} />
+                </div>
+                <button type="submit" className="btn btn-primary w-full" disabled={busy}>{busy ? "Contrôle et dépôt…" : "Déposer le document"}</button>
+                <p className="text-[11px] leading-5 text-slate-500">Le dépôt sera visible dans votre profil et transmis au partenaire associé pour traitement. Les contrôles automatisés ne certifient pas la légalité de la pièce.</p>
               </form>
             </section>
           </div>
