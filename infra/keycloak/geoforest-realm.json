@@ -1,0 +1,8 @@
+{
+ "realm":"geoforest","enabled":true,"registrationAllowed":false,"resetPasswordAllowed":false,
+ "bruteForceProtected":true,"verifyEmail":true,"sslRequired":"external",
+ "clients":[{"clientId":"geoforest","enabled":true,"protocol":"openid-connect","publicClient":false,
+ "secret":"${OIDC_CLIENT_SECRET}","standardFlowEnabled":true,"directAccessGrantsEnabled":false,
+ "redirectUris":["http://localhost:3000/api/auth/callback"],"webOrigins":["http://localhost:3000"],
+ "attributes":{"pkce.code.challenge.method":"S256"}}]
+}

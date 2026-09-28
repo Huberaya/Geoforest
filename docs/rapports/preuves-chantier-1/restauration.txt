@@ -1,0 +1,26 @@
+version_num
+-------------
+ 0001
+(1 row)
+
+            postgis_version
+---------------------------------------
+ 3.5 USE_GEOS=1 USE_PROJ=1 USE_STATS=1
+(1 row)
+
+ organizations
+---------------
+             1
+(1 row)
+
+ events
+--------
+      1
+(1 row)
+
+    relname    | relrowsecurity
+---------------+----------------
+ memberships   | t
+ organizations | t
+ audit_events  | t
+(3 rows)

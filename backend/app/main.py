@@ -1,50 +1,311 @@
-"""Point d'entrée FastAPI — GeoForest Trace (conformité EUDR 2023/1115)."""
-from __future__ import annotations
+import json
+from uuid import UUID
 
-import logging
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from app.api.v1.endpoints import router as v1_router
-from app.core.config import settings
-from app.core.database import get_db
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
-
-
-@asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    get_db()  # crée le schéma SQLite si nécessaire
-    yield
-
+from app.auth import router as auth_router
+from app.config import settings
+from app.database import transaction
+from app.middleware import RequestBoundary
+from app.schemas import MemberInput, OrganizationCreate, OrganizationUpdate
+from app.security import authorize, require_identity, require_mfa
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 app = FastAPI(
-    lifespan=lifespan,
-    title=settings.app_name,
-    version=settings.app_version,
-    description=(
-        "Micro-SaaS de conformité au Règlement (UE) 2023/1115 (EUDR) : validation GIS des parcelles, "
-        "détection de déforestation post-2020 (Hansen / Global Forest Watch) et export TRACES-NT."
-    ),
-    docs_url="/docs",
-    redoc_url="/redoc",
+    title="GeoForest Trace — socle sécurisé",
+    version="0.2.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
-
+app.add_middleware(RequestBoundary)
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Disposition"],
+    SessionMiddleware,
+    secret_key=settings().session_secret,
+    session_cookie="gft-oidc-flow",
+    max_age=600,
+    same_site="lax",
+    https_only=settings().secure_cookie,
 )
+app.add_middleware(
+    TrustedHostMiddleware, allowed_hosts=settings().allowed_hosts.split(",")
+)
+app.include_router(auth_router)
 
-app.include_router(v1_router, prefix=settings.api_v1_prefix)
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error(request: Request, exc):
+    return JSONResponse(
+        {
+            "detail": "Opération indisponible. Réessayez ou contactez votre administrateur."
+        },
+        status_code=503,
+    )
 
 
-@app.get("/health", tags=["system"])
-def root_health() -> dict:
-    return {"status": "ok", "service": settings.app_name, "version": settings.app_version}
+@app.get("/health/live")
+def liveness():
+    return {"status": "ok"}
+
+
+@app.get("/health/ready")
+def readiness():
+    with transaction() as conn:
+        version = conn.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+        postgis = conn.execute(text("SELECT postgis_version()")).scalar_one()
+    return {"status": "ok", "migration": version, "postgis": bool(postgis)}
+
+
+@app.get("/api/v1/me")
+def me(identity=Depends(require_identity)):
+    with transaction(identity.id) as conn:
+        orgs = (
+            conn.execute(
+                text("""SELECT o.id,o.name,o.version,m.role,m.supplier_id
+          FROM organizations o JOIN memberships m ON m.organization_id=o.id
+          WHERE m.user_id=:u ORDER BY o.created_at,o.id"""),
+                {"u": identity.id},
+            )
+            .mappings()
+            .all()
+        )
+    return {
+        "user": {
+            "id": identity.id,
+            "email": identity.email,
+            "name": identity.display_name,
+        },
+        "csrf_token": identity.csrf_token,
+        "organizations": orgs,
+        "environment": settings().app_env,
+        "admin_mfa_required": bool(settings().admin_acr),
+        "admin_mfa_satisfied": not settings().admin_acr
+        or identity.acr == settings().admin_acr,
+    }
+
+
+@app.post("/api/v1/organizations", status_code=201)
+def create_organization(body: OrganizationCreate, identity=Depends(require_identity)):
+    require_mfa(identity)
+    with transaction(identity.id) as conn:
+        # Serialize provisioning for an identity to keep the abuse bound deterministic.
+        conn.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:id,0))"),
+            {"id": str(identity.id)},
+        )
+        if (
+            conn.execute(
+                text(
+                    "SELECT count(*) FROM memberships WHERE user_id=:u AND role='Admin'"
+                ),
+                {"u": identity.id},
+            ).scalar_one()
+            >= 10
+        ):
+            raise HTTPException(
+                409, "Limite de dix organisations administrées atteinte"
+            )
+        org = conn.execute(
+            text("SELECT authz.create_organization(:n)"), {"n": body.name}
+        ).scalar_one()
+    return {"id": org, "name": body.name, "version": 1, "role": "Admin"}
+
+
+def event(conn, org, identity, action, kind, object_id, before, after):
+    conn.execute(
+        text("""INSERT INTO audit_events(organization_id,actor_id,action,object_type,object_id,previous_value,new_value)
+      VALUES(:o,:u,:a,:k,:id,CAST(:b AS jsonb),CAST(:n AS jsonb))"""),
+        {
+            "o": org,
+            "u": identity.id,
+            "a": action,
+            "k": kind,
+            "id": object_id,
+            "b": json.dumps(before, default=str) if before is not None else None,
+            "n": json.dumps(after, default=str) if after is not None else None,
+        },
+    )
+
+
+@app.patch("/api/v1/organizations/{org}")
+def rename(org: UUID, body: OrganizationUpdate, identity=Depends(require_identity)):
+    with transaction(identity.id, org) as conn:
+        authorize(conn, org, identity, {"Admin"})
+        before = (
+            conn.execute(
+                text("SELECT name,version FROM organizations WHERE id=:o FOR UPDATE"),
+                {"o": org},
+            )
+            .mappings()
+            .one()
+        )
+        if before["version"] != body.version:
+            raise HTTPException(
+                409, "Organisation modifiée entre-temps : rechargez la page"
+            )
+        conn.execute(
+            text("UPDATE organizations SET name=:n,version=version+1 WHERE id=:o"),
+            {"n": body.name, "o": org},
+        )
+        event(
+            conn,
+            org,
+            identity,
+            "organization.updated",
+            "organization",
+            org,
+            dict(before),
+            {"name": body.name, "version": body.version + 1},
+        )
+    return {"id": org, "name": body.name, "version": body.version + 1}
+
+
+@app.get("/api/v1/organizations/{org}/members")
+def members(org: UUID, identity=Depends(require_identity)):
+    with transaction(identity.id, org) as conn:
+        authorize(conn, org, identity, {"Admin"})
+        return (
+            conn.execute(
+                text("""SELECT m.user_id,m.role,m.supplier_id,u.email,u.display_name
+          FROM memberships m JOIN users u ON u.id=m.user_id WHERE organization_id=:o ORDER BY u.email"""),
+                {"o": org},
+            )
+            .mappings()
+            .all()
+        )
+
+
+@app.put("/api/v1/organizations/{org}/members")
+def set_member(org: UUID, body: MemberInput, identity=Depends(require_identity)):
+    with transaction(identity.id, org) as conn:
+        authorize(conn, org, identity, {"Admin"})
+        conn.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:o,0))"),
+            {"o": str(org)},
+        )
+        matches = (
+            conn.execute(
+                text("SELECT id FROM users WHERE lower(email)=lower(:e)"),
+                {"e": body.email},
+            )
+            .scalars()
+            .all()
+        )
+        if len(matches) != 1:
+            raise HTTPException(
+                422,
+                "Le compte doit se connecter une première fois avec une adresse vérifiée et unique",
+            )
+        target = matches[0]
+        old = (
+            conn.execute(
+                text(
+                    "SELECT role,supplier_id FROM memberships WHERE organization_id=:o AND user_id=:u"
+                ),
+                {"o": org, "u": target},
+            )
+            .mappings()
+            .first()
+        )
+        protect_last_admin(conn, org, old, body.role)
+        conn.execute(
+            text("""INSERT INTO memberships(organization_id,user_id,role,supplier_id) VALUES(:o,:u,:r,:s)
+          ON CONFLICT(organization_id,user_id) DO UPDATE SET role=excluded.role,supplier_id=excluded.supplier_id"""),
+            {"o": org, "u": target, "r": body.role, "s": body.supplier_id},
+        )
+        event(
+            conn,
+            org,
+            identity,
+            "membership.updated" if old else "membership.created",
+            "membership",
+            target,
+            dict(old) if old else None,
+            {"role": body.role, "supplier_id": body.supplier_id},
+        )
+    return {"user_id": target, "role": body.role, "supplier_id": body.supplier_id}
+
+
+def protect_last_admin(conn, org, old, new_role=None):
+    if old and old["role"] == "Admin" and new_role != "Admin":
+        count = conn.execute(
+            text(
+                "SELECT count(*) FROM memberships WHERE organization_id=:o AND role='Admin'"
+            ),
+            {"o": org},
+        ).scalar_one()
+        if count <= 1:
+            raise HTTPException(
+                409, "Le dernier administrateur ne peut pas être retiré ou rétrogradé"
+            )
+
+
+@app.delete("/api/v1/organizations/{org}/members/{user_id}", status_code=204)
+def remove_member(org: UUID, user_id: UUID, identity=Depends(require_identity)):
+    with transaction(identity.id, org) as conn:
+        authorize(conn, org, identity, {"Admin"})
+        conn.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:o,0))"),
+            {"o": str(org)},
+        )
+        old = (
+            conn.execute(
+                text(
+                    "SELECT role,supplier_id FROM memberships WHERE organization_id=:o AND user_id=:u"
+                ),
+                {"o": org, "u": user_id},
+            )
+            .mappings()
+            .first()
+        )
+        if not old:
+            raise HTTPException(404, "Membre introuvable")
+        protect_last_admin(conn, org, old)
+        event(
+            conn,
+            org,
+            identity,
+            "membership.removed",
+            "membership",
+            user_id,
+            dict(old),
+            None,
+        )
+        conn.execute(
+            text("DELETE FROM memberships WHERE organization_id=:o AND user_id=:u"),
+            {"o": org, "u": user_id},
+        )
+
+
+@app.get("/api/v1/organizations/{org}/audit")
+def audit(
+    org: UUID, limit: int = Query(50, ge=1, le=100), identity=Depends(require_identity)
+):
+    with transaction(identity.id, org) as conn:
+        authorize(conn, org, identity, {"Admin", "Compliance Manager"})
+        return (
+            conn.execute(
+                text("""SELECT id,actor_id,action,object_type,object_id,previous_value,new_value,source,created_at
+           FROM audit_events WHERE organization_id=:o ORDER BY created_at DESC,id DESC LIMIT :l"""),
+                {"o": org, "l": limit},
+            )
+            .mappings()
+            .all()
+        )
+
+
+@app.api_route(
+    "/api/v1/{retired:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    include_in_schema=False,
+)
+def retired_endpoint(retired: str, identity=Depends(require_identity)):
+    raise HTTPException(
+        410,
+        "Fonctionnalité indisponible : ancien prototype retiré. Aucune analyse ni déclaration réglementaire réalisée.",
+    )

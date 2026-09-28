@@ -1,0 +1,15 @@
+CREATE DATABASE
+You are now connected to database "geoforest_install_test" as user "postgres".
+CREATE EXTENSION
+GRANT
+GRANT
+REVOKE
+ current_user  | version_num
+---------------+-------------
+ geoforest_app | 0001
+(1 row)
+
+ visible_organizations_without_identity
+----------------------------------------
+                                      0
+(1 row)

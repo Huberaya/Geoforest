@@ -1,62 +1,70 @@
-# GeoForest Trace — lancement complet : `docker-compose up --build`
-#   Frontend (Next.js)  : http://localhost:3000
-#   Backend  (FastAPI)  : http://localhost:8000/docs
-#   PostgreSQL          : localhost:5432 (persistance des audits côté Next.js)
+# Development stack only. Production requires managed secrets, TLS, qualified OIDC/MFA and backups.
 services:
   db:
-    image: postgres:16-alpine
-    container_name: geoforest-db
+    image: postgis/postgis:17-3.5
     environment:
+      POSTGRES_DB: geoforest
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app_db
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?required}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?required}
     volumes:
-      - geoforest-pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/bootstrap-db.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      test: [CMD-SHELL, pg_isready -U postgres -d geoforest]
       interval: 5s
-      timeout: 5s
-      retries: 10
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: geoforest-backend
+      retries: 20
+    networks: [internal]
+  migrate:
+    build: ./backend
     environment:
-      DATABASE_PATH: /app/data/geoforest.db
-      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
-      GFW_API_KEY: ${GFW_API_KEY:-}
-      GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
-    ports:
-      - "8000:8000"
-    volumes:
-      - geoforest-backend-data:/app/data
-    restart: unless-stopped
-
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?required}
+    command: [alembic, -c, alembic.ini, upgrade, head]
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+    restart: "no"
+  backend:
+    build: ./backend
+    environment:
+      APP_ENV: development
+      DATABASE_URL: ${DATABASE_URL:?required}
+      PUBLIC_ORIGIN: http://localhost:3000
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend,frontend
+      OIDC_ISSUER: http://localhost:3000/identity/realms/geoforest
+      OIDC_BACKCHANNEL_ORIGIN: http://keycloak:8080
+      OIDC_CLIENT_ID: geoforest
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?required}
+      SESSION_SECRET: ${SESSION_SECRET:?required}
+      ADMIN_ACR: ${ADMIN_ACR:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [internal, edge]
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: geoforest-frontend
+      args:
+        APP_ENV: development
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [backend]
+    networks: [edge]
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.6
+    command: [start-dev, --import-realm, --http-relative-path=/identity]
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
-      # Laisser vide pour utiliser les routes API Next.js intégrées (PostgreSQL),
-      # ou pointer vers le backend FastAPI : http://localhost:8000
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-      GFW_API_KEY: ${GFW_API_KEY:-}
-      GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
-    ports:
-      - "3000:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-      backend:
-        condition: service_started
-    restart: unless-stopped
-
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-local-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?required}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?required}
+      KC_HOSTNAME: http://localhost:3000/identity
+    ports: ["127.0.0.1:8080:8080"]
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+      - keycloakdata:/opt/keycloak/data
+    networks: [edge]
+networks:
+  internal: { internal: true }
+  edge: {}
 volumes:
-  geoforest-pgdata:
-  geoforest-backend-data:
+  pgdata: {}
+  keycloakdata: {}

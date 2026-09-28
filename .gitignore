@@ -71,3 +71,13 @@ pnpm-debug.log*
 .vscode/
 *.swp
 *.swo
+
+# Secrets / transient browser sessions
+.env.*
+!.env.example
+.cache/
+test-results/
+playwright-report/
+*.pem
+*.key
+*.dump

@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+ --set=app_password="$APP_DB_PASSWORD" --set=migrator_password="$MIGRATOR_DB_PASSWORD" <<'SQL'
+CREATE ROLE geoforest_app LOGIN PASSWORD :'app_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+CREATE ROLE geoforest_migrator LOGIN PASSWORD :'migrator_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+CREATE EXTENSION IF NOT EXISTS postgis;
+GRANT CREATE,USAGE ON SCHEMA public TO geoforest_migrator;
+GRANT CREATE ON DATABASE geoforest TO geoforest_migrator;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+SQL

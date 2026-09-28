@@ -1,22 +1,21 @@
-# Frontend Next.js (dashboard GeoForest Trace + routes API /api/v1 persistées en PostgreSQL)
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY package*.json ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN npm ci
 COPY . .
-# DATABASE_URL factice au build : les routes sont dynamiques, aucune connexion n'est ouverte à la compilation.
-ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/app_db
+ENV API_INTERNAL_URL=http://backend:8000 KEYCLOAK_INTERNAL_URL=http://keycloak:8080
+ARG APP_ENV=production
+ENV APP_ENV=$APP_ENV
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/drizzle.config.json /app/next.config.ts /app/tsconfig.json ./
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+RUN addgroup -S app && adduser -S app -G app
+COPY --from=builder --chown=app:app /app/.next/standalone ./
+COPY --from=builder --chown=app:app /app/.next/static ./.next/static
+COPY --from=builder --chown=app:app /app/public ./public
+USER app
 EXPOSE 3000
-# Applique le schéma Drizzle puis démarre le serveur
-CMD ["sh", "-c", "npx drizzle-kit push --force && npm run start"]
+CMD ["node", "server.js"]

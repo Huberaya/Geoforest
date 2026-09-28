@@ -1,0 +1,54 @@
+name: Foundation checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm audit --audit-level=high
+      - run: docker build -t geoforest-frontend:ci .
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: ci-postgres-only
+          POSTGRES_DB: geoforest_test
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://geoforest_app:ci-app-only@127.0.0.1:5432/geoforest_test
+      MIGRATION_DATABASE_URL: postgresql+psycopg://geoforest_migrator:ci-migrator-only@127.0.0.1:5432/geoforest_test
+      SESSION_SECRET: test-only-session-secret-at-least-thirty-two-characters
+      OIDC_CLIENT_SECRET: ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -r backend/requirements.lock
+      - name: Bootstrap isolated database roles
+        env: { PGPASSWORD: ci-postgres-only }
+        run: |
+          psql -h 127.0.0.1 -U postgres -d geoforest_test -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE geoforest_app LOGIN PASSWORD 'ci-app-only' NOSUPERUSER NOBYPASSRLS;
+          CREATE ROLE geoforest_migrator LOGIN PASSWORD 'ci-migrator-only' NOSUPERUSER NOBYPASSRLS;
+          ALTER DATABASE geoforest_test OWNER TO geoforest_migrator;
+          GRANT CREATE,USAGE ON SCHEMA public TO geoforest_migrator;
+          REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+          CREATE EXTENSION IF NOT EXISTS postgis;
+          SQL
+      - run: alembic -c backend/alembic.ini upgrade head
+      - run: alembic -c backend/alembic.ini upgrade head
+      - run: python -m pytest -c backend/pytest.ini backend/tests -q
+      - run: pip install pip-audit && pip-audit -r backend/requirements.lock
+      - run: docker build -t geoforest-backend:ci backend
