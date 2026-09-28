@@ -2,7 +2,7 @@
 
 28 septembre 2026 — GO du propriétaire reçu après livraison locale du chantier 4.
 
-**Statut : accès à la demande choisi explicitement par le propriétaire ; premier noyau de lecture/qualification implémenté. Chantier non livré.**
+**Statut : connecteur GFC intégré et recetté en 0.6.0 / 0005 ; chantier global ouvert en attente du choix pour le second connecteur.**
 
 Branche `chantier-5/forest-signals`, créée depuis `425e29d`. Aucune modification de production, aucun push ni chantier 6 autorisé. Application 0.5.0 / schéma 0004 inchangés à ce stade.
 
@@ -61,3 +61,9 @@ Bilan FAIT/NON FAIT/PROBLÈMES/RISQUES avant validation finale du propriétaire.
 Lecture réelle de trois fenêtres 64×64 dans GFC v1.13 via requêtes partielles épinglées par génération/ETag ; environ 2,81 Mio réservés au total pour cette fenêtre. Géotransformation réelle 0,00025° ; fichiers organisés en bandes d’une ligne de 40 000 pixels, **pas COG supposé**. Adaptateur dédié avec contrôle CRS/grille/classes et budgets, cache LRU de blocs publics en mémoire par session. Synthèse de signaux sans verdict. 64 tests ciblés réussis ; détails dans `docs/rapports/05-chantier-5-avancement.md`.
 
 **Non intégré à l’API/UI**, pas de migration 0005 ni de traitement de parcelle réelle. Isolation du décodeur natif en processus, limites globales multi-fenêtres/multi-sources, intersection géométrique et cache persistant restent à traiter avant exposition.
+
+## Intégration fonctionnelle suivante — 0.6.0 / 0005
+
+Le premier connecteur est désormais intégré : intersections pixel/parcelle GEOS après validation PostGIS, worker sous limites Linux, budget réseau agrégé, verrous PostgreSQL de session (deux travaux globaux, un par organisation), sans transaction métier ouverte pendant les lectures. Résultats/preuves append-only sous RLS ; réauthentification et autorisation après calcul ; UI et téléchargement privé. 572 tests backend et 7 E2E verts, migration/restauration vérifiées.
+
+La distribution officielle JRC examinée ignore Range (HTTP 200 pour bytes=0-15) et ne fournit pas de validateur de version dans les en-têtes examinés ; aucun téléchargement complet ou miroir admis tacitement. Choix d’accès au second connecteur ou acceptation explicite d’un périmètre GFC seul nécessaire. Voir `docs/rapports/05-chantier-5-integration.md`. Le chantier global reste ouvert.

@@ -124,3 +124,22 @@ La géométrie et le pays proviennent du snapshot de révision autorisé. Le ré
 Analyst/Viewer/Supplier OIDC : lecture uniquement ; Supplier limité à son fournisseur. Portail par lien : aucun accès à ces routes OIDC. L’ancienne collecte/proposition du portail reste inchangée ; les contrôles persistants concernent le référentiel entreprise, y compris ses anciennes révisions et archives.
 
 Erreurs 404 pour parcelle/révision absente ou hors périmètre ; 403 droits/CSRF ; 422 entrée invalide ; 409 réutilisation incompatible ; indisponibilité générale DB : 503. Une panne pendant le calcul référentiel est classée `SOURCE_UNAVAILABLE`, isolée par savepoint, sans transformer l’erreur en correspondance.
+
+## Observations forestières — chantier 5 / API 0.6.0 / migration 0005
+
+Préfixe `O=/api/v1/organizations/{org}`. Les calculs sont indicatifs et restent `NOT_ASSESSED`, revue humaine obligatoire.
+
+| Méthode | Route sous O | Description |
+|---|---|---|
+| GET | `/forest/sources` | Activation serveur, source GFC, candidat JRC non qualifié |
+| POST | `/plots/{plot}/forest-analyses` | `{revision,request_id,allow_public_tile_requests:true}` ; types stricts ; source/géométrie déterminées côté serveur |
+| GET | `/plots/{plot}/forest-analyses?revision=1&page=1` | Historique paginé 20, sans les gros blocs de preuves |
+| GET | `/plots/{plot}/forest-analyses/{analysis}` | Preuves complètes privées, octets comprimés, masques, versions/empreintes |
+
+Écriture Admin/Compliance Manager/Procurement ; lecture Analyst/Viewer et Supplier OIDC limité à son fournisseur. Aucun accès nouveau par portail de lien. CSRF/Origin et audit existants conservés.
+
+Activation explicite `FOREST_ANALYSIS_ENABLED=true`, sinon nouveau calcul 503. Les anciennes preuves restent lisibles et une requête déjà enregistrée est rejouable. Session/permissions contrôlées avant puis après le travail ; résultat attaché à la révision demandée, pas remplacé lors d’un changement de source.
+
+Une analyse prend au maximum environ 100 secondes de worker ; pas de file asynchrone durable promise. 409 pour une même requête déjà active ou une clé réutilisée avec une autre entrée, 429 si organisation/capacité occupée, 503 pour échec du worker. Le lecteur peut également enregistrer un résultat explicitement `SOURCE_UNAVAILABLE`, `PARTIAL`, `NOT_COVERED` ou `BUDGET_EXCEEDED` : HTTP 200 ne signifie jamais « conforme ». Conserver le même request_id après un problème de transport ; créer un nouvel UUID pour une nouvelle observation explicite.
+
+Le résultat valide la même empreinte géométrique que le snapshot autorisé. Le détail JSON peut atteindre 8 Mio ; les listes omettent `windows`. Les masques binaires packbits et tableaux de pixels zlib/base64 utilisent les dimensions/dtypes/grilles de leurs métadonnées ; ils ne représentent pas une image RGB interprétée comme donnée analytique.

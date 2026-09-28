@@ -1,0 +1,5 @@
+Populated synthetic 0004 -> 0005 and repeat upgrade succeeded; previous complete-row digests unchanged:
+plot_geolocations|2|6d07a1412f2378dafc7385e583ad2ad1
+country_checks|2|8881c542660d7b6d44d6b1113acd5d13
+0005
+0

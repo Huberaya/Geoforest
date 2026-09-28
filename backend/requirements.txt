@@ -14,3 +14,4 @@ pycountry==24.6.1
 defusedxml==0.7.1
 
 rasterio==1.5.1
+shapely==2.1.2

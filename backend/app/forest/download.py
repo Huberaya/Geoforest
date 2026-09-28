@@ -28,6 +28,31 @@ class SourceReadError(OSError):
     """Diagnostic codes only: do not expose URLs/query contents from exceptions."""
 
 
+@dataclass
+class WorkBudget:
+    """Shared across every tile/layer/window of one isolated analysis."""
+
+    bytes_reserved: int = 0
+    requests: int = 0
+    deadline: float = 0
+
+    def __post_init__(self):
+        self.deadline = time.monotonic() + 90
+
+    def check(self):
+        if time.monotonic() >= self.deadline:
+            raise SourceReadError("WORK_TIME_BUDGET")
+
+    def reserve(self, size):
+        self.check()
+        if self.bytes_reserved + size > 64 * 1024**2:
+            raise SourceReadError("WORK_BYTE_BUDGET")
+        if self.requests >= 512:
+            raise SourceReadError("WORK_REQUEST_BUDGET")
+        self.requests += 1
+        self.bytes_reserved += size
+
+
 @dataclass(frozen=True)
 class GFCTile:
     layer: str
@@ -62,11 +87,12 @@ class RangeReader(io.RawIOBase):
     GDAL/Rasterio adapters must still bound decoded pixels/memory separately.
     """
 
-    def __init__(self, tile: GFCTile, *, transport=None):
+    def __init__(self, tile: GFCTile, *, transport=None, budget=None):
         super().__init__()
         if type(tile) is not GFCTile:
             raise ValueError("GFC_TILE_REQUIRED")
         self.tile = tile
+        self.budget = budget
         self.position = 0
         self.transferred = 0
         self.requests = 0
@@ -82,6 +108,8 @@ class RangeReader(io.RawIOBase):
         )
         try:
             self._budget()
+            if self.budget is not None:
+                self.budget.reserve(0)
             self.requests += 1
             # Stream HEAD too: never accept a surprise response body.
             with self.client.stream("HEAD", tile.url) as response:
@@ -115,6 +143,8 @@ class RangeReader(io.RawIOBase):
     def _budget(self):
         if self.closed:
             raise ValueError("READER_CLOSED")
+        if self.budget is not None:
+            self.budget.check()
         if time.monotonic() >= self.deadline:
             raise SourceReadError("SOURCE_TIME_BUDGET")
         if self.requests >= MAX_REQUESTS:
@@ -149,6 +179,8 @@ class RangeReader(io.RawIOBase):
         expected = end - start + 1
         if self.transferred + expected > MAX_TRANSFER:
             raise SourceReadError("SOURCE_BYTE_BUDGET")
+        if self.budget is not None:
+            self.budget.reserve(expected)
         self.requests += 1
         self.transferred += expected  # Reserve even if the request fails.
         try:

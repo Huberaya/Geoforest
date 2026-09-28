@@ -1,6 +1,6 @@
 # Chantier 5 — premier incrément : lectures réelles et signaux forestiers
 
-**28 septembre 2026 · chantier EN COURS, non livré fonctionnellement.**
+**ARCHIVE du premier incrément.** Voir [l’intégration fonctionnelle suivante](05-chantier-5-integration.md) : GFC maintenant intégré ; chantier global encore ouvert pour le second connecteur.
 
 Branche `chantier-5/forest-signals`, issue de `425e29d`. GO reçu pour le chantier 5 ; accès aux données **à la demande** choisi explicitement par le propriétaire après présentation des implications de volume et de confidentialité. Aucun GO6, abonnement payant ou push effectué.
 

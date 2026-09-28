@@ -1,0 +1,22 @@
+[
+  {
+    "method": "HEAD",
+    "url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DeforestationYear&lat=N10&lon=W10",
+    "status": 200,
+    "headers": {
+      "content-disposition": "file; filename=\"JRC_TMF_DeforestationYear_INT_1982_2025_v1_AFR_ID52_N10_W10.tif\"",
+      "content-length": "114721845",
+      "content-type": "application/octet_stream"
+    }
+  },
+  {
+    "method": "GET",
+    "url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DeforestationYear&lat=N10&lon=W10",
+    "status": 200,
+    "headers": {
+      "content-disposition": "file; filename=\"JRC_TMF_DeforestationYear_INT_1982_2025_v1_AFR_ID52_N10_W10.tif\"",
+      "content-length": "114721845",
+      "content-type": "application/octet_stream"
+    }
+  }
+]

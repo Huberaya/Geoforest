@@ -38,6 +38,7 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?required}
       SESSION_SECRET: ${SESSION_SECRET:?required}
       ADMIN_ACR: ${ADMIN_ACR:-}
+      FOREST_ANALYSIS_ENABLED: ${FOREST_ANALYSIS_ENABLED:-false}
     depends_on:
       migrate: { condition: service_completed_successfully }
     networks: [internal, edge]

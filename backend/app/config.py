@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     session_hours: int = 8
     admin_acr: str = ""
     max_body_bytes: int = 65536
+    forest_analysis_enabled: bool = False
 
     @model_validator(mode="after")
     def secure_config(self):

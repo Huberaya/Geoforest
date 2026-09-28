@@ -133,6 +133,8 @@ Natural Earth 1:10 millions, snapshot épinglé, **246 codes ISO de pays et terr
 
 Voir `docs/rapports/04-chantier-4.md`, `docs/reglementation/04-sources-geographiques.md`, `backend/reference/naturalearth/NOTICE.md` et le guide utilisateur. Les six E2E créent quatre organisations par suite : base synthétique dédiée et quota à surveiller, sans modifier les limites de l’application.
 
-## Chantier 5 — en développement, non exposé
+## Chantier 5 — premier connecteur intégré, clôture globale en attente
 
-GO reçu ; accès aux rasters publics à la demande choisi, sans abonnement payant. Premier noyau de lecture bornée/qualification GFC et extraits réels testés ; aucune analyse forestière accessible dans l’API/UI à ce stade. Voir `docs/rapports/05-chantier-5-avancement.md`. Application et schéma restent 0.5.0 / 0004.
+Application **0.6.0 / migration 0005**. GFC à la demande intégré au détail parcellaire, résultats immuables et preuves JSON privées. Activation explicite `FOREST_ANALYSIS_ENABLED=true` et confirmation des lectures publiques dans l’interface ; désactivé par défaut. Pas de conformité EUDR automatique.
+
+572 tests backend et 7 parcours navigateur réussis ; migration peuplée et restauration vérifiées localement. Le deuxième connecteur JRC reste inactif : la distribution primaire testée ne respecte pas les requêtes partielles. Voir `docs/rapports/05-chantier-5-integration.md`. Aucun chantier 6 sans GO.

@@ -17,7 +17,7 @@ MAX_WINDOW_SIDE = 256
 MAX_OPEN_HANDLES = 2
 
 
-def read_gfc_window(tile, row, col, height, width, *, transport=None):
+def read_gfc_window(tile, row, col, height, width, *, transport=None, budget=None):
     if type(tile) is not GFCTile:
         raise ValueError("GFC_TILE_REQUIRED")
     if any(type(x) is not int for x in (row, col, height, width)):
@@ -57,7 +57,7 @@ def read_gfc_window(tile, row, col, height, width, *, transport=None):
             faults.append("SOURCE_OPEN_BUDGET")
             raise SourceReadError("SOURCE_OPEN_BUDGET")
         try:
-            f = ObservedReader(tile, transport=transport)
+            f = ObservedReader(tile, transport=transport, budget=budget)
         except (OSError, ValueError):
             faults.append("SOURCE_OPEN_FAILED")
             raise

@@ -1,0 +1,271 @@
+{
+  "fictional_study_geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -5.5,
+          5.5
+        ],
+        [
+          -5.499,
+          5.5
+        ],
+        [
+          -5.499,
+          5.499
+        ],
+        [
+          -5.5,
+          5.499
+        ],
+        [
+          -5.5,
+          5.5
+        ]
+      ]
+    ]
+  },
+  "result": {
+    "method_version": "gfc-parcel-grid-v1",
+    "geometry_sha256": "d91003c231ef3a9a7e456baaef4b5575e7c67175f573cef75960b9339f923e53",
+    "checked_at": "2026-09-28T15:21:41.554071+00:00",
+    "geos_version": "3.13.1",
+    "status": "OBSERVED",
+    "signal_status": "SIGNAL_OBSERVED",
+    "spatial_coverage": "FULL_GRID_EXTENT",
+    "grid_intersection": "positive-area polygon intersection; half-open east/south point cell, outer edge clamped",
+    "regulatory_status": "NOT_ASSESSED",
+    "human_review_required": true,
+    "confidence_probability": null,
+    "deforested_area_ha": null,
+    "data_period_end_year": 2025,
+    "temporal_gap_after": "2025-12-31",
+    "limitations": [
+      "Perte de couvert arbor\u00e9 cartographi\u00e9e, pas conversion agricole d\u00e9montr\u00e9e.",
+      "Le masque terre/eau/sans donn\u00e9es est fond\u00e9 sur 2000\u20132012, pas sur la visibilit\u00e9 annuelle.",
+      "La source arr\u00eat\u00e9e en 2025 ne couvre pas l'ann\u00e9e 2026 ni une p\u00e9riode ult\u00e9rieure.",
+      "Un pixel peut d\u00e9passer la parcelle ; le signal n'est pas localis\u00e9 plus finement dans ce pixel.",
+      "Aucun seuil de couvert 2000 ne d\u00e9finit \u00e0 lui seul une for\u00eat au 31 d\u00e9cembre 2020.",
+      "Ni probabilit\u00e9 de conformit\u00e9, ni surface de d\u00e9forestation juridique calcul\u00e9e."
+    ],
+    "windows": [
+      {
+        "summary": {
+          "method_version": "gfc-selected-pixels-v1-qualification",
+          "signal_status": "SIGNAL_OBSERVED",
+          "selected_pixels": 16,
+          "historical_land_mask_pixels": 16,
+          "historical_water_mask_pixels": 0,
+          "historical_no_data_mask_pixels": 0,
+          "post_2020_signal_pixels": 6,
+          "signal_outside_historical_land_mask_pixels": 0,
+          "loss_year_pixel_counts": {
+            "2023": 6
+          },
+          "data_period_end_year": 2025,
+          "cutoff_date": "2020-12-31",
+          "coverage_of_entire_parcel": "NOT_ESTABLISHED_BY_THIS_SUMMARY",
+          "forest_state_2020_assessed": false,
+          "agricultural_conversion_assessed": false,
+          "eudr_forest_degradation_assessed": false,
+          "regulatory_status": "NOT_ASSESSED",
+          "human_review_required": true,
+          "confidence_probability": null,
+          "deforested_area_ha": null,
+          "limitations": [
+            "Perte de couvert arbor\u00e9 cartographi\u00e9e, pas conversion agricole d\u00e9montr\u00e9e.",
+            "Le masque terre/eau/sans donn\u00e9es est fond\u00e9 sur 2000\u20132012, pas sur la visibilit\u00e9 annuelle.",
+            "La source arr\u00eat\u00e9e en 2025 ne couvre pas l'ann\u00e9e 2026 ni une p\u00e9riode ult\u00e9rieure.",
+            "Un pixel peut d\u00e9passer la parcelle ; le signal n'est pas localis\u00e9 plus finement dans ce pixel.",
+            "Aucun seuil de couvert 2000 ne d\u00e9finit \u00e0 lui seul une for\u00eat au 31 d\u00e9cembre 2020.",
+            "Ni probabilit\u00e9 de conformit\u00e9, ni surface de d\u00e9forestation juridique calcul\u00e9e."
+          ],
+          "boundary_selected_pixels": 0,
+          "boundary_post_2020_signal_pixels": 0
+        },
+        "evidence": [
+          {
+            "method": "gfc-native-window-v1-qualification",
+            "tile_id": "10N_010W",
+            "layer": "lossyear",
+            "row": 18000,
+            "col": 18000,
+            "height": 5,
+            "width": 5,
+            "transform": [
+              0.00025,
+              0.0,
+              -5.5,
+              0.0,
+              -0.00025,
+              5.5,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "crs": "EPSG:4326",
+            "dtype": "uint8",
+            "native_block_shapes": [
+              [
+                1,
+                40000
+              ]
+            ],
+            "pixel_bytes_sha256": "adbe12f1d647b04b1adfbfd0c6f4522b01baae3fd1cc0971cbec729154cf0705",
+            "source_reads": [
+              {
+                "dataset": "Hansen GFC",
+                "version": "2025-v1.13",
+                "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_lossyear_10N_010W.tif",
+                "generation": "1773684869931215",
+                "etag": "\"1d4f46b44c2c3362871e9aa4feaff54e\"",
+                "upstream_size_bytes": 127404260,
+                "last_modified": "Mon, 16 Mar 2026 18:14:30 GMT",
+                "range_sha256": [
+                  {
+                    "offset": 0,
+                    "length": 65536,
+                    "sha256": "d05589f10209241a65613f061189e80684041cf93a1b0557b743ac7c55c8e4cb"
+                  },
+                  {
+                    "offset": 262144,
+                    "length": 65536,
+                    "sha256": "30e8d9aa95d20c90fed22c8a448587236ecb2f30242637406e902bc58d3b9533"
+                  },
+                  {
+                    "offset": 65536,
+                    "length": 65536,
+                    "sha256": "9c0179fdee03b3c43d92aa106a09cce6dc3e899dd2d37f9a8b0f645c3f0e34b2"
+                  },
+                  {
+                    "offset": 196608,
+                    "length": 65536,
+                    "sha256": "c91fd9ff6531cbac78bb8a29ddba50b3dd90b75578e7416c52b001870f657303"
+                  },
+                  {
+                    "offset": 103677952,
+                    "length": 65536,
+                    "sha256": "9437e4504f3d69ae40bf1fcd008e4609e890361ac27a58250a5efe7b83088f14"
+                  },
+                  {
+                    "offset": 103743488,
+                    "length": 65536,
+                    "sha256": "3af9adb2e86a54db2e582066fe9693562f9fcc59b7549a5a31cbc9342967e13d"
+                  }
+                ],
+                "whole_upstream_sha256": null,
+                "reserved_transfer_bytes": 393216,
+                "requests": 7
+              }
+            ],
+            "rasterio_version": "1.5.1",
+            "gdal_version": "3.12.4",
+            "regulatory_status": "NOT_ASSESSED",
+            "human_review_required": true,
+            "pixels_zlib_base64": "eJwTZwACcTAhjiCAJAAJiADQ"
+          },
+          {
+            "method": "gfc-native-window-v1-qualification",
+            "tile_id": "10N_010W",
+            "layer": "datamask",
+            "row": 18000,
+            "col": 18000,
+            "height": 5,
+            "width": 5,
+            "transform": [
+              0.00025,
+              0.0,
+              -5.5,
+              0.0,
+              -0.00025,
+              5.5,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "crs": "EPSG:4326",
+            "dtype": "uint8",
+            "native_block_shapes": [
+              [
+                1,
+                40000
+              ]
+            ],
+            "pixel_bytes_sha256": "c8139665614f96cfe0af03533e152056b438cc8656d8402fea99e2f275164050",
+            "source_reads": [
+              {
+                "dataset": "Hansen GFC",
+                "version": "2025-v1.13",
+                "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_datamask_10N_010W.tif",
+                "generation": "1773950881347702",
+                "etag": "\"a3fda0f6af1ca1e17ed7ef9aa256c1cc\"",
+                "upstream_size_bytes": 15293782,
+                "last_modified": "Thu, 19 Mar 2026 20:08:01 GMT",
+                "range_sha256": [
+                  {
+                    "offset": 0,
+                    "length": 65536,
+                    "sha256": "f16cef1baef2929ca23acec3afbb6f5008dca097dac244d1653d9a0cb3b0e1da"
+                  },
+                  {
+                    "offset": 262144,
+                    "length": 65536,
+                    "sha256": "ee33f1fa35b5ed39dfe3b1c4256bfd2c76e58d316adfd749a4d0c695264e06ab"
+                  },
+                  {
+                    "offset": 65536,
+                    "length": 65536,
+                    "sha256": "8c89a56d9492c2bf96105b31309b1f6b24576da20a99476b9af05ff89502401c"
+                  },
+                  {
+                    "offset": 196608,
+                    "length": 65536,
+                    "sha256": "22bf0764d8daa04aa83cd9a4c7c27dc160752eaaef65c87b6182c739e559fc14"
+                  },
+                  {
+                    "offset": 7077888,
+                    "length": 65536,
+                    "sha256": "8afc2d7d581d1222c6e06a68b124e54a56582fb662c6951444be488c336b9b21"
+                  }
+                ],
+                "whole_upstream_sha256": null,
+                "reserved_transfer_bytes": 327680,
+                "requests": 6
+              }
+            ],
+            "rasterio_version": "1.5.1",
+            "gdal_version": "3.12.4",
+            "regulatory_status": "NOT_ASSESSED",
+            "human_review_required": true,
+            "pixels_zlib_base64": "eJxjZMQBAAFeABo="
+          }
+        ],
+        "selection_packbits_base64": "973gAA==",
+        "selection_shape": [
+          5,
+          5
+        ],
+        "boundary_packbits_base64": "AAAAAA=="
+      }
+    ],
+    "errors": [],
+    "sources": [
+      {
+        "id": "gfc-2025-v1.13",
+        "license": "CC-BY-4.0",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "attribution": "Source: Hansen/UMD/Google/USGS/NASA",
+        "source_url": "https://glad.earthengine.app/view/global-forest-change"
+      }
+    ],
+    "planned_windows": 1,
+    "completed_windows": 1,
+    "network_budget": {
+      "reserved_bytes": 720896,
+      "requests": 13
+    },
+    "historical_mask_has_gaps_or_water": false,
+    "entire_parcel_assessed": false
+  }
+}

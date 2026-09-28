@@ -1,6 +1,6 @@
 # Parcelles et géolocalisation — guide utilisateur
 
-Version 0.5.0 · 28 septembre 2026 · chantiers 3 et 4
+Version 0.6.0 · 28 septembre 2026 · chantiers 3 à 5
 
 ## Ce que fait ce module
 
@@ -113,3 +113,16 @@ La France et la Guyane ont des contours/code ISO distincts dans cette source. Ne
 « Dans le référentiel » signifie que la géométrie est contenue dans ce contour précis. « Hors du référentiel », « intersection partielle » et « limite géographique » demandent de confronter les données ; aucun de ces messages ne démontre une fausse déclaration ou une fraude.
 
 Le calcul ne consulte aucun service externe. Les liens de source/licence sont accessibles sur clic explicite ; aucun fond cartographique ni suivi GPS supplémentaire n’est activé. Analyst/Viewer et Supplier OIDC ne peuvent que lire les résultats de leur périmètre. Le portail par lien n’expose pas l’historique du référentiel entreprise.
+
+## Observations forestières — premier connecteur GFC
+
+Dans le détail d’une parcelle, choisissez la révision, puis le panneau **Observations forestières**. Si le serveur est activé et votre rôle autorisé, confirmez la lecture des tuiles publiques, puis cliquez **Analyser les signaux forestiers**. Aucun polygone ou nom de fournisseur n’est transmis ; les blocs/tuiles demandés peuvent révéler une zone approximative au fournisseur des fichiers.
+
+Le calcul peut prendre jusqu’à environ 100 secondes. En cas de problème réseau, réessayez : la clé de requête est conservée dans le panneau. Une nouvelle analyse enregistrée a son propre historique. Une révision antérieure n’est jamais réécrite implicitement.
+
+- **Signal observé** : perte de couvert cartographiée après 2020, à examiner ; ni conversion agricole ni non-conformité démontrée.
+- **Aucun signal dans les pixels sélectionnés** : pas une certification « sans déforestation ». Les données arrêtées en 2025 ne surveillent pas 2026.
+- **Partiel / indisponible / hors couverture / limite technique** : revue et preuves complémentaires nécessaires, jamais un feu vert.
+- Un **point** n’observe qu’un pixel, pas toute la surface déclarée. Un pixel de **bord** déborde de la parcelle et peut contenir un signal extérieur à celle-ci.
+
+L’historique fournit source, licence, méthode, période et limites. **Télécharger les preuves JSON** permet de conserver les extraits et empreintes ; ce fichier peut révéler la localisation de vos parcelles, partagez-le seulement avec des destinataires autorisés. JRC TMF reste explicitement inactif en attendant qualification d’un accès adapté. Aucune déclaration officielle ou conformité EUDR n’est délivrée par ce panneau.

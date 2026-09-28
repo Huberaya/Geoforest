@@ -76,3 +76,9 @@ Les accès réellement partiels ont réservé respectivement 851 968, 393 216 et
 Le lecteur générique `rasterio.open(file_like)` a d’abord tenté un téléchargement complet : le budget l’a correctement refusé. Il a été remplacé par un **opener virtuel contrôlé**, refusant fichiers auxiliaires et chemins libres. Les lectures réussies suivantes utilisent ce mécanisme.
 
 Cette qualification limitée ne valide ni toutes les tuiles mondiales, ni l’ensemble de la chaîne d’analyse parcellaire, ni l’absence de biais. Aucun connecteur n’est encore activé dans l’application ; la source TMF reste candidate.
+
+## Admission fonctionnelle GFC et réserve d’accès TMF
+
+Après cette qualification initiale, GFC a été intégré en 0.6.0 avec contrôle de grille/classes/version à chaque accès, intersections de pixels et conservation des preuves. La recette complète est décrite dans `../rapports/05-chantier-5-integration.md` (572 backend, 7 E2E). Cette intégration ne démontre pas l’exactitude de toutes les tuiles ou une conformité juridique.
+
+Ressources/FAQ JRC relues : https://forobs.jrc.ec.europa.eu/TMF/resources — révisions historiques et incertitudes des trois dernières années explicites ; absence de pourcentage de couvert unique définissant leur forêt ; pas d’équivalence automatique entre TMF non perturbée et forêt primaire. La distribution primaire liée par la page Data utilise `download.py?type=tile&dataset=DeforestationYear&lat=N10&lon=W10`. La sonde conservée dans `../rapports/preuves-chantier-5/jrc-access-probe.json` renvoie 200, non 206, à une demande des seuls octets 0–15, et annonce un fichier complet de 114 721 845 octets sans ETag/Last-Modified dans les en-têtes examinés. Réponse fermée sans consommation du fichier complet. TMF reste inactif ; autre mode d’accès ou miroir à qualifier explicitement.

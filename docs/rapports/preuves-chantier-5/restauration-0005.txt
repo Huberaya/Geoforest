@@ -1,0 +1,5 @@
+geoforest_forest_acceptance: 5 full forest analyses; SHA256=51a1a3c151032fcad60620839b26c74c834e122c12a652ef423f7bd2f6517420
+geoforest_forest_restore_test: 5 full forest analyses; SHA256=51a1a3c151032fcad60620839b26c74c834e122c12a652ef423f7bd2f6517420
+Runtime without tenant context: 0 rows; UPDATE/DELETE rights: (False, False)
+sessions: revoked 7; active remaining 0
+supplier_sessions: revoked 1; active remaining 0
