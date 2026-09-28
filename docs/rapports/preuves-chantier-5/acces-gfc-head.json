@@ -1,0 +1,45 @@
+{
+  "checked_on": "2026-09-28",
+  "method": "HEAD only; public tile, no parcel or credentials transmitted",
+  "results": [
+    {
+      "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_lossyear_10N_010W.tif",
+      "status": 200,
+      "headers": {
+        "content-type": "image/tiff",
+        "last-modified": "Mon, 16 Mar 2026 18:14:30 GMT",
+        "etag": "\"1d4f46b44c2c3362871e9aa4feaff54e\"",
+        "x-goog-generation": "1773684869931215",
+        "x-goog-hash": "crc32c=TmfMaA==, md5=HU9GtEwsM2KHHpqk/q/1Tg==",
+        "accept-ranges": "bytes",
+        "content-length": "127404260"
+      }
+    },
+    {
+      "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_datamask_10N_010W.tif",
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "last-modified": "Thu, 19 Mar 2026 20:08:01 GMT",
+        "etag": "\"a3fda0f6af1ca1e17ed7ef9aa256c1cc\"",
+        "x-goog-generation": "1773950881347702",
+        "x-goog-hash": "crc32c=KapeYA==, md5=o/2g9q8coeF+1++aolbBzA==",
+        "accept-ranges": "bytes",
+        "content-length": "15293782"
+      }
+    },
+    {
+      "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_treecover2000_10N_010W.tif",
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "last-modified": "Thu, 19 Mar 2026 20:07:56 GMT",
+        "etag": "\"4bcbbe31c868416fee195d902347da2f\"",
+        "x-goog-generation": "1773950876290283",
+        "x-goog-hash": "crc32c=eA60tA==, md5=S8u+MchoQW/uGV2QI0faLw==",
+        "accept-ranges": "bytes",
+        "content-length": "390143175"
+      }
+    }
+  ]
+}
