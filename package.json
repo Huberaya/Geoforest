@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "leaflet": "1.9.4",
     "next": "^16.3.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
@@ -18,6 +19,7 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.1.17",
+    "@types/leaflet": "1.9.21",
     "@types/node": "22.19.15",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -28,5 +30,5 @@
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"
   },
-  "version": "0.3.0"
+  "version": "0.4.0"
 }

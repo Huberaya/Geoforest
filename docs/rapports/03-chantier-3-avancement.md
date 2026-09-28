@@ -1,6 +1,8 @@
 # Chantier 3 — point d’avancement, incrément technique 1
 
-28 septembre 2026 · **CHANTIER NON LIVRÉ — implémentation partielle**
+28 septembre 2026 · **ARCHIVE : état du premier incrément, avant finalisation**
+
+> Cet état a été dépassé. Lire le [rapport de livraison du chantier 3](03-chantier-3.md). Les éléments NON FAIT ci-dessous étaient exacts à cet incrément, pas à la livraison finale.
 
 Branche : `chantier-3/parcelles-geolocalisation`, issue de `a924ba8`. Le GO concerne le chantier 3 ; aucun chantier 4 commencé.
 

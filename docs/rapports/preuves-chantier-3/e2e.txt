@@ -1,0 +1,14 @@
+
+> geoforest-trace@0.4.0 test:e2e
+> playwright test
+
+
+Running 5 tests using 1 worker
+
+  ✓  1 tests/e2e/foundation.spec.ts:5:5 › Connexion publique responsive sans indicateurs réglementaires fictifs (1.4s)
+  ✓  2 tests/e2e/foundation.spec.ts:28:5 › OIDC réel : connexion, organisation, paramètres, journal, déconnexion (2.6s)
+  ✓  3 tests/e2e/plots.spec.ts:26:5 › Parcelles : OIDC réel, GPS simulé, dessin, versions de lot, import et revue fournisseur (33.4s)
+  ✓  4 tests/e2e/plots.spec.ts:356:5 › Saisie avancée : brouillon géométrique corrompu, coordonnées négatives et changement de méthode (2.1s)
+  ✓  5 tests/e2e/supply.spec.ts:4:5 › Collecte réelle : CSV, fournisseur, produit, lot, portail mobile et revue humaine (1.3m)
+
+  5 passed (2.0m)

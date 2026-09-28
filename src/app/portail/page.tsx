@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { PortalPlots } from "@/components/plots/PortalPlots";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type Payload,
@@ -627,8 +628,10 @@ export default function Portal() {
                           client.
                         </p>
                         <div className="callout">
-                          Parcelles et documents : non collectés à ce stade.
-                          Leur absence n’est pas une preuve de conformité.
+                          Cette collecte initiale ne contient ni parcelles ni
+                          documents. Les propositions de parcelles se gèrent
+                          séparément ci-dessous. Leur absence n’est pas une
+                          preuve de conformité.
                         </div>
                         {collection.completeness.missing.length > 0 && (
                           <div className="callout warning">
@@ -701,6 +704,13 @@ export default function Portal() {
               </div>
             )}
           </>
+        )}
+        {me && (
+          <PortalPlots
+            key={me.supplier_name + me.csrf_token}
+            csrf={me.csrf_token}
+            catalogue={catalogue}
+          />
         )}
         <footer className="portal-footer">
           GeoForest Trace · Les données saisies sont déclaratives.

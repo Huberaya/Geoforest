@@ -1,0 +1,27 @@
+CREATE EXTENSION
+REVOKE
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ before_upgrade
+----------------
+ 0002
+(1 row)
+
+0002 populated -> 0003 -> repeated upgrade head: OK; existing lot payload unchanged.
+ after_upgrade
+---------------
+ 0003
+(1 row)
+
+        tablename        | rowsecurity
+-------------------------+-------------
+ lot_plots               | t
+ plot_geolocations       | t
+ plot_imports            | t
+ plot_proposal_revisions | t
+ plot_proposals          | t
+ plots                   | t
+(6 rows)

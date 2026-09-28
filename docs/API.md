@@ -64,3 +64,41 @@ Cookie séparé `__Host-gft-supplier` sous HTTPS (`gft-supplier` en local HTTP),
 Complétude : nom/pays/adresse/email/contact de l’organisation et nom/matière/quantité/unité/pays de chaque produit ; au moins un produit. Scope `INITIAL_COLLECTION_ONLY` : **jamais** un taux de conformité EUDR. Une collecte soumise est figée jusqu’à demande de corrections ; une collecte revue demeure figée, une nouvelle invitation ouvre un nouveau brouillon copié. Aucune proposition n’écrase le canonique. Le serveur revalide session, invitation et fournisseur actif à chaque accès ; le contexte SQL est transactionnel LOCAL.
 
 OpenAPI exporté : `docs/openapi.json`. Les champs frontend restent typés manuellement ; contrat testé en intégration et E2E, génération de client à ajouter ultérieurement.
+
+## Parcelles — chantier 3 / API 0.4.0 / migration 0003
+
+`O=/api/v1/organizations/{org}`. Même authentification OIDC, CSRF/Origin et contexte transactionnel que le socle. Le rôle applicatif n’est propriétaire d’aucune table. Lecture limitée au tenant et, pour Supplier, à son fournisseur. Écriture Admin/Compliance Manager/Procurement ; revue Admin/Compliance Manager seulement.
+
+| Méthode | Chemin | Contrat / effet |
+|---|---|---|
+| GET / POST | O/plots | Liste paginée / création avec fournisseur, géométrie et confirmation des avertissements |
+| POST | O/plots/check | Analyse sans écriture, relations dans le périmètre autorisé ; `exclude_plot_id` possible lors d’une modification |
+| POST | O/plots/import-preview | Source texte, format, fournisseur, préfixe/pays/matière ; aperçu, checksum, conflits et replay éventuel |
+| POST | O/plots/import | Même entrée + `confirmed:true` + `preview_checksum` ; transaction atomique et replay sans doublons |
+| GET | O/plot-imports/{id}/source | Texte source brut privé, téléchargement sans interprétation HTML ; rôles writers uniquement |
+| GET / PUT | O/plots/{id} | Détail / nouvelle révision avec version optimiste et confirmation des avertissements |
+| GET | O/plots/{id}/revisions/{revision} | Snapshot immuable : payload, analyse, source, acteur, date |
+| POST | O/plots/{id}/archive | `{version}` ; conserve historique et liens |
+| GET / PUT | O/lots/{lot}/plots | Révisions retenues / remplacement explicite `{version,plots:[{plot_id,revision}]}` ; même fournisseur |
+| GET | O/plot-proposals | Propositions du périmètre, pagination et filtre fournisseur |
+| GET | O/plot-proposals/{id}/revisions | Historique des transmissions fournisseur |
+| POST | O/plot-proposals/{id}/review | `{version,decision,note,adopted_reference?,confirmed?}` ; ACCEPTED exige `confirmed:true`, CHANGES_REQUESTED renvoie au fournisseur |
+
+La liste des parcelles accepte `page` (1..1000), `page_size` (1..50), `q` (200 caractères max). Parcelles : `supplier_id`, `include_archived`, `bbox=west,south,east,north` WGS84 sans traversée de l’antiméridien. La liste des propositions accepte `page` (1..1000) et `supplier_id`, avec 20 éléments par page. La carte UI n’affiche que la page courante ; aucune promesse de chargement de millions de géométries.
+
+Portail, avec cookie et CSRF fournisseur distincts :
+
+| Méthode | Chemin | Contrat |
+|---|---|---|
+| POST | /api/portal/plots/check | Contrôle technique, **sans recherche dans les parcelles canoniques** |
+| GET / POST | /api/portal/plot-proposals | Liste limitée au fournisseur / création `{payload}` |
+| PUT | /api/portal/plot-proposals/{id} | `{version,payload}` ; brouillon ou corrections seulement |
+| POST | /api/portal/plot-proposals/{id}/submit | `{version,confirmed:true}` ; snapshot de soumission append-only |
+
+`PlotData` : référence, nom, pays déclaré ISO, matière facultative, géométrie 2D, surface déclarée facultative, méthode de capture, observations, précision GPS et date facultatives. Une capture GPS exige précision et date avec fuseau, non future au-delà de la tolérance de cinq minutes. Il s’agit d’une provenance déclarée, pas d’une attestation du capteur.
+
+Erreurs : 413 budget HTTP ; 422 validation/confirmation absente ; 409 conflit de version/référence, état métier ou avertissements à confirmer ; 403 permission ; 404 objet hors périmètre/inexistant ; 429 débit. Les erreurs d’analyse ne doivent pas être interprétées comme des décisions réglementaires.
+
+Budgets : routes géographiques ciblées 2 Mio HTTP, source d’import 1 Mio, 100 éléments et 10 000 positions cumulées ; une géométrie isolée 10 000 positions ; surface maximale technique 100 000 ha ; relations spatiales limitées à 50 résultats, avec indication de troncature. SQL géospatial borné par `statement_timeout` de 8 secondes par instruction, **pas** un SLA de durée totale d’import.
+
+La version du validateur est enregistrée dans chaque analyse (`plots-v1-draft` pour cette première règle technique, non homologuée pour un échange officiel). L’API conserve la géométrie source ; la simulation à six décimales n’écrase rien. Les snapshots et imports sont append-only pour le rôle runtime. La provenance d’un lot ne change pas automatiquement après une modification parcellaire.

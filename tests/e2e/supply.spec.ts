@@ -7,6 +7,10 @@ test("Collecte réelle : CSV, fournisseur, produit, lot, portail mobile et revue
 }) => {
   test.setTimeout(120000);
   test.skip(!username || !password, "Compte Keycloak de recette requis");
+  // An explicit quota window between dense browser scenarios, never a UI readiness wait.
+  // Keep the application's real rate limit unchanged; useful behind a shared local proxy.
+  if (process.env.E2E_RATE_PACE === "1")
+    await new Promise((resolve) => setTimeout(resolve, 65000));
   const runtimeErrors: string[] = [];
   page.on("pageerror", (e) => runtimeErrors.push(e.message));
   await page.goto("/");

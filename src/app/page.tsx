@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { PlotsWorkspace } from "@/components/plots/PlotsWorkspace";
 import { SupplyWorkspace } from "@/components/supply/SupplyWorkspace";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -454,6 +455,7 @@ export default function Home() {
             ["users", "Fournisseurs", "suppliers"],
             ["file", "Produits", "products"],
             ["grid", "Lots", "lots"],
+            ["map", "Parcelles", "plots"],
           ].map(([icon, label, id]) => (
             <button
               key={id}
@@ -465,10 +467,7 @@ export default function Home() {
               {label}
             </button>
           ))}
-          {[
-            ["map", "Parcelles"],
-            ["shield", "Diligence raisonnée"],
-          ].map(([icon, label]) => (
+          {[["shield", "Diligence raisonnée"]].map(([icon, label]) => (
             <button
               key={label}
               disabled
@@ -543,7 +542,7 @@ export default function Home() {
           </span>
         </header>
         <main id="main" className="main">
-          {!["suppliers", "products", "lots"].includes(view) && (
+          {!["suppliers", "products", "lots", "plots"].includes(view) && (
             <div className="page-heading">
               <div>
                 <span className="eyebrow">VOTRE ESPACE GEOFOREST</span>
@@ -566,6 +565,18 @@ export default function Home() {
             </div>
           )}
           {feedback}
+          {org && view === "plots" && (
+            <PlotsWorkspace
+              key={org.id}
+              org={org.id}
+              csrf={me.csrf_token}
+              role={org.role}
+              writable={Boolean(
+                admin ||
+                ["Compliance Manager", "Procurement"].includes(org.role),
+              )}
+            />
+          )}
           {org && ["suppliers", "products", "lots"].includes(view) && (
             <SupplyWorkspace
               key={org.id + view}
@@ -927,7 +938,7 @@ export default function Home() {
         </main>
         <footer className="main-footer">
           <span>© GeoForest Trace</span>
-          <span>Chantier 02 · Collecte fournisseurs & approvisionnement</span>
+          <span>Chantier 03 · Parcelles & géolocalisation</span>
         </footer>
       </div>
     </div>

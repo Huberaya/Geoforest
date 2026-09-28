@@ -836,7 +836,7 @@ def test_readiness_refuses_obsolete_schema(client):
         assert client.get("/health/ready").status_code == 503
     finally:
         with owner.begin() as conn:
-            conn.execute(text("UPDATE alembic_version SET version_num='0002'"))
+            conn.execute(text("UPDATE alembic_version SET version_num='0003'"))
 
 
 @pytest.mark.parametrize("role", ["Admin", "Compliance Manager", "Procurement"])

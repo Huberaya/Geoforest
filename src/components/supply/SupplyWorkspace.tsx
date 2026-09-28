@@ -12,6 +12,7 @@ import {
 } from "./types";
 import { RecordForm, type Kind, type SupplyRecord } from "./RecordForm";
 import { SupplierSheet } from "./SupplierSheet";
+import { LotPlotLinks } from "../plots/LotPlotLinks";
 import { CsvImport } from "./CsvImport";
 const labels = {
   suppliers: {
@@ -43,6 +44,7 @@ export function SupplyWorkspace({
   csrf: string;
   writable: boolean;
 }) {
+  const [linkedLot, setLinkedLot] = useState<Lot | null>(null);
   const [items, setItems] = useState<SupplyRecord[]>([]),
     [total, setTotal] = useState(0),
     [page, setPage] = useState(1),
@@ -224,8 +226,8 @@ export function SupplyWorkspace({
         <span className="scope-icon">i</span>
         <p>
           <strong>Collecte initiale, pas certification.</strong> Le risque EUDR
-          n’est pas encore évalué. Parcelles, documents et diligence seront
-          traités dans les chantiers suivants.
+          n’est pas encore évalué. Les parcelles disposent de leur module ;
+          documents et diligence restent à venir.
         </p>
         <span className="status neutral">Manuel / assisté</span>
       </div>
@@ -376,6 +378,15 @@ export function SupplyWorkspace({
                     )}
                     <td>
                       <div className="row-actions">
+                        {kind === "lots" && (
+                          <button
+                            className="text-button"
+                            onClick={() => setLinkedLot(record as Lot)}
+                          >
+                            Parcelles
+                          </button>
+                        )}
+
                         {kind === "suppliers" && (
                           <button
                             className="text-button"
@@ -435,6 +446,19 @@ export function SupplyWorkspace({
           </div>
         </div>
       </section>
+      {linkedLot && (
+        <LotPlotLinks
+          lot={linkedLot}
+          api={api}
+          writable={writable}
+          onClose={() => setLinkedLot(null)}
+          onSaved={() => {
+            setLinkedLot(null);
+            changed();
+            setNotice("Provenance parcellaire du lot enregistrée.");
+          }}
+        />
+      )}
       {form && (
         <RecordForm
           key={form.record?.id || "new"}

@@ -1,6 +1,6 @@
-# GeoForest Trace — chantiers 1 et 2
+# GeoForest Trace — chantiers 1 à 3 · v0.4.0
 
-Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OIDC, organisations, fournisseurs, produits, lots et portail sécurisé.
+Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OIDC, organisations, fournisseurs, produits, lots, parcelles versionnées et portail sécurisé.
 
 **Le produit ne réalise actuellement aucune analyse EUDR ni soumission réglementaire.** L'ancien prototype non qualifié est conservé dans `archive/prototype`, exclu des builds/images/exécutions. Aucune donnée historique n'est requalifiée ou supprimée.
 
@@ -16,7 +16,10 @@ Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OI
 - Import fournisseurs CSV UTF-8 vérifié, transactionnel et idempotent (100 lignes max).
 - Portail mobile sans compte par lien secret à usage unique ; brouillon, transmission, revue humaine ou corrections ; propositions séparées du canonique.
 - Sessions fournisseurs dédiées, expiration/révocation, RLS fournisseur et tenant, révisions soumises non modifiables par le rôle applicatif.
-- Interface desktop/mobile ; parcelles, documents, analyses et déclarations restent explicitement indisponibles.
+- Carte privée Leaflet, points/contours, coordonnées et GPS à la demande, sans fond externe.
+- Import GeoJSON/KML avec aperçu, confirmation, source privée et transaction/replay ; contrôles PostGIS sans verdict réglementaire.
+- Parcelles versionnées, archives, liens de lots vers une révision précise ; propositions fournisseur avec correction et adoption humaine.
+- Interface desktop/mobile ; documents de légalité, analyses de déforestation/risque et déclarations restent indisponibles.
 
 ## Démarrage local avec Docker Compose
 
@@ -83,31 +86,31 @@ E2E, application et fournisseur OIDC démarrés :
 ```sh
 npx playwright install --with-deps chromium
 # PUBLIC_ORIGIN, E2E_USERNAME et E2E_PASSWORD : compte synthétique uniquement.
-npx playwright test
+E2E_RATE_PACE=1 npx playwright test
 ```
 
 Sans identifiants, les tests OIDC/collecte sont explicitement ignorés ; ce n'est pas un succès de recette OIDC. Ne pas enregistrer de traces contenant mots de passe/cookies. `E2E_LOCAL_TLS=1` est une option réservée à la recette sandbox avec passerelle TLS locale : elle n'est ni nécessaire ni recommandée pour une recette réelle de l'infrastructure cible.
 
 Les E2E créent des organisations fictives ; renouveler le compte/la base de recette avant d’atteindre le quota de dix organisations administrées. Ne pas exécuter ces scénarios sur des données réelles. `E2E_PROOF_DIR` permet de changer le dossier des captures du socle pour préserver les preuves historiques.
 
-CI : `.github/workflows/ci.yml` exécute lint/build/typecheck/audit npm, migrations répétables, tests PostGIS et audit Python, builds Docker. Les identifiants CI sont exclusivement éphémères. Le workflow n'a pas encore été exécuté sur GitHub (aucun push).
+CI : `.github/workflows/ci.yml` exécute lint/build/typecheck/audit npm, migrations répétables, tests PostGIS et audit Python, builds Docker. Les identifiants CI sont exclusivement éphémères. L’exécution distante du workflow et les builds Docker ne sont pas qualifiés par la recette locale ; les branches 1/2 ont été poussées, la livraison 3 reste locale.
 
 ## Limites importantes
 
 - MFA : production exige `ADMIN_ACR` et l'API bloque les actions Admin si la session ne porte pas cette valeur. **Le fournisseur doit réellement imposer ce niveau MFA** ; définir une chaîne de caractères ne configure pas la MFA. Recette MFA avec le fournisseur de production encore requise.
 - Déconnexion : révoque la session GeoForest, pas nécessairement la session SSO chez l'IdP. Révocation/backchannel logout IdP non implémenté ; durée maximale de session 8 h par défaut, 24 h maximum.
 - RLS : défense contre les erreurs de requêtes/tenant. Le serveur authentifié fixe le contexte ; elle ne prétend pas résister à une compromission complète du serveur capable d'usurper ce contexte.
-- Supplier : accès OIDC en lecture à une fiche fournisseur active de son organisation. Portail sans compte distinct, limité à sa collecte. Documents et parcelles non livrés. Un lien volé donne accès au périmètre de collecte jusqu’à révocation/expiration : il ne prouve pas l’identité personnelle du porteur.
+- Supplier : accès OIDC en lecture à une fiche fournisseur active de son organisation. Portail sans compte distinct, limité à sa collecte et ses propositions parcellaires. Documents non livrés. Un lien volé donne accès au périmètre de collecte jusqu’à révocation/expiration : il ne prouve pas l’identité personnelle du porteur.
 - Rate limiting : 120 appels API/minute et 10 débuts de login ou échanges de liens fournisseur/minute par adresse du pair réseau, en base. Derrière le proxy, plusieurs clients peuvent partager ce pair ; un limiteur par véritable client au reverse proxy de confiance reste indispensable en production.
 - CSP : restrictions de sources et protections de base ; `unsafe-inline` reste nécessaire à cette version Next.js. CSP avec nonce strict à qualifier avant production.
 - Sessions en base stockent uniquement le hachage du jeton navigateur ; les tables d'identité sont globales au système, les appartenances et événements sont tenantés.
-- Aucun stockage de preuves, source satellite, export officiel, facturation ou assistant IA activé.
+- Aucun coffre de preuves documentaires, source satellite, export officiel, facturation ou assistant IA activé ; les sources d’import parcellaire sont conservées en base.
 
 ## Documentation
 
 - `docs/adr/001-socle.md` — architecture et critères de sortie.
 - `docs/SECURITE_ET_EXPLOITATION.md` — permissions, secrets, sauvegardes et recette production.
-- `docs/API.md` et `docs/openapi.json` — contrats des chantiers 1 et 2.
+- `docs/API.md` et `docs/openapi.json` — contrats des chantiers 1 à 3.
 - `docs/rapports/01-chantier-1.md` — bilan réel, preuves et réserves.
 - `docs/rapports/00-audit.md` — audit initial.
 
@@ -115,4 +118,9 @@ CI : `.github/workflows/ci.yml` exécute lint/build/typecheck/audit npm, migrati
 - `docs/GUIDE_COLLECTE.md` — guide entreprise et fournisseur.
 - `docs/rapports/02-chantier-2.md` — recette, limites et bilan de livraison.
 
-**Le chantier 3 ne commence qu'après GO explicite du propriétaire.** Aucun PAT GitHub n'est nécessaire pour travailler et tester localement.
+- `docs/adr/003-parcelles.md` — architecture du module parcellaire.
+- `docs/GUIDE_PARCELLES.md` — guide entreprise et fournisseur.
+- `docs/reglementation/03-geolocalisation-verification.md` — références et limites.
+- `docs/rapports/03-chantier-3.md` — livraison, preuves et réserves.
+
+**Le chantier 4 ne commence qu’après un nouveau GO explicite du propriétaire.** Aucun PAT GitHub n'est nécessaire pour travailler et tester localement.

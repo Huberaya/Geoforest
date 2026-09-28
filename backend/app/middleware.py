@@ -1,4 +1,5 @@
 import hashlib
+import re
 from datetime import datetime, timezone
 
 from app.config import settings
@@ -23,14 +24,20 @@ class RequestBoundary:
                 scope, receive, send
             )
 
+        # Larger bodies only on bounded geo routes; old API limits remain unchanged.
+        geo_route = re.fullmatch(
+            r"/api/v1/organizations/[0-9a-fA-F-]{36}/plots(?:/(?:check|import|import-preview|[0-9a-fA-F-]{36}))?",
+            scope["path"],
+        ) or re.fullmatch(
+            r"/api/portal/(?:plots/check|plot-proposals(?:/[0-9a-fA-F-]{36})?)",
+            scope["path"],
+        )
+        max_body = 2 * 1024 * 1024 if geo_route else settings().max_body_bytes
         chunks = []
         total = 0
         if scope["path"].startswith("/api/"):
             try:
-                if (
-                    int(headers.get(b"content-length", b"0"))
-                    > settings().max_body_bytes
-                ):
+                if int(headers.get(b"content-length", b"0")) > max_body:
                     return await reject(413, "Requête trop volumineuse")
             except ValueError:
                 return await reject(400, "Content-Length invalide")
@@ -39,7 +46,7 @@ class RequestBoundary:
                 if event["type"] == "http.disconnect":
                     return
                 total += len(event.get("body", b""))
-                if total > settings().max_body_bytes:
+                if total > max_body:
                     return await reject(413, "Requête trop volumineuse")
                 chunks.append(event.get("body", b""))
                 if not event.get("more_body", False):

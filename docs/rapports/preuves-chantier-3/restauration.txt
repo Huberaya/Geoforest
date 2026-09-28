@@ -1,0 +1,77 @@
+CREATE EXTENSION
+REVOKE
+GRANT
+REVOKE
+Counts and fingerprints identical: geolocation EWKB/payload/analysis, imports source text/SHA256/IDs, immutable proposal snapshots.
+ version_num
+-------------
+ 0003
+(1 row)
+
+ plots
+-------
+    12
+(1 row)
+
+ geolocation_revisions
+-----------------------
+                    17
+(1 row)
+
+ lot_links
+-----------
+         5
+(1 row)
+
+ import_batches
+----------------
+              5
+(1 row)
+
+ proposals
+-----------
+         2
+(1 row)
+
+ submitted_revisions
+---------------------
+                   4
+(1 row)
+
+ invalid_geometries
+--------------------
+                  0
+(1 row)
+
+BEGIN
+SET
+ plots_visible_without_context
+-------------------------------
+                             0
+(1 row)
+
+ revisions_visible_without_context
+-----------------------------------
+                                 0
+(1 row)
+
+COMMIT
+ app_can_update_revision | app_can_delete_source
+-------------------------+-----------------------
+ f                       | f
+(1 row)
+
+UPDATE 12
+UPDATE 5
+ active_restored_staff_sessions
+--------------------------------
+                              0
+(1 row)
+
+ active_restored_portal_sessions
+---------------------------------
+                               0
+(1 row)
+
+
+Fingerprint SQL rerun with ON_ERROR_STOP=1 and correct proposal version column: all four output rows identical.
