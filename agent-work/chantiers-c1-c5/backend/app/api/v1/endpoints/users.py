@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.security import ensure_operator_user, get_current_active_user, hash_password, require_roles, verify_password
 from app.models import User, UserRole
 from app.schemas.auth import UserOut
-from app.schemas.user import PasswordChangeRequest, UserProfileUpdate
+from app.schemas.user import PasswordChangeRequest, UserProfileOut, UserProfileUpdate
 from app.services.audit.service import model_snapshot, record_audit_event
 
 router = APIRouter()
@@ -65,16 +65,16 @@ class UserInviteRequest(BaseModel):
 
 @router.get(
     "/me",
-    response_model=UserOut,
+    response_model=UserProfileOut,
     summary="Profil de l'utilisateur connecté",
 )
-async def my_profile(current_user: User = Depends(get_current_active_user)) -> UserOut:
-    return UserOut.model_validate(current_user)
+async def my_profile(current_user: User = Depends(get_current_active_user)) -> UserProfileOut:
+    return UserProfileOut.model_validate(current_user)
 
 
 @router.patch(
     "/me",
-    response_model=UserOut,
+    response_model=UserProfileOut,
     summary="Mettre à jour mon profil",
 )
 async def update_my_profile(
@@ -82,7 +82,7 @@ async def update_my_profile(
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-) -> UserOut:
+) -> UserProfileOut:
     before = _user_snapshot(current_user)
     # `exclude_unset` évite de remettre à la valeur par défaut un champ non envoyé.
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -99,7 +99,7 @@ async def update_my_profile(
             new_data=after,
         )
     db.add(current_user)
-    return UserOut.model_validate(current_user)
+    return UserProfileOut.model_validate(current_user)
 
 
 @router.post(

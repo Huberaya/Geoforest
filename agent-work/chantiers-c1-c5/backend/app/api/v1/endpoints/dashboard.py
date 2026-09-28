@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import get_current_active_user, get_tenant_org_id
 from app.models import User
-from app.services.dashboard.overview import build_overview, mark_alert_read, seed_onboarding_alerts
+from app.services.dashboard.overview import build_overview
+from app.services.notifications import set_user_alert_read
 
 router = APIRouter()
 
@@ -20,10 +21,8 @@ async def dashboard_overview(
     user: User = Depends(get_current_active_user),
     org_id: uuid.UUID = Depends(get_tenant_org_id),
 ) -> dict:
-    # Crée paresseusement les alertes d'onboarding si c'est la 1re visite
-    await seed_onboarding_alerts(db, org_id)
-    await db.commit()
-    return await build_overview(db, org_id)
+    # Le GET reste sans effet de bord; les alertes sont créées avec l'événement métier.
+    return await build_overview(db, org_id, user.id)
 
 
 @router.post("/alerts/{alert_id}/read", summary="Marquer une alerte comme lue")
@@ -33,7 +32,13 @@ async def read_alert(
     user: User = Depends(get_current_active_user),
     org_id: uuid.UUID = Depends(get_tenant_org_id),
 ) -> dict:
-    a = await mark_alert_read(db, org_id, alert_id)
+    a = await set_user_alert_read(
+        db,
+        organization_id=org_id,
+        user_id=user.id,
+        alert_id=alert_id,
+        is_read=True,
+    )
     if a is None:
         raise HTTPException(status_code=404, detail="Alerte introuvable")
     await db.commit()

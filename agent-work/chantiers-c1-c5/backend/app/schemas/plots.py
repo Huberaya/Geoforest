@@ -102,7 +102,7 @@ class PlotOut(BaseModel):
     centroid: Optional[list[float]] = None  # [lon, lat]
     bbox: Optional[list[float]] = None
     min_decimals_found: Optional[int]
-    precision_ok: bool
+    precision_ok: Optional[bool] = None
     eudr_geometry_rule: Optional[str]
     harvest_year: Optional[int]
     acquired_at: Optional[datetime]
@@ -116,6 +116,7 @@ class PlotOut(BaseModel):
     shipment_reference: Optional[str] = None
     supplier_name: Optional[str] = None
     product_name: Optional[str] = None
+    geo_data_redacted: bool = False
 
 
 class PlotList(BaseModel):

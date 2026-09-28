@@ -15,7 +15,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.alerts import Alert, AlertCategory, AlertLevel
+from app.models.alerts import AlertCategory, AlertLevel
+from app.services.notifications import create_alert
 from app.models.plots import Plot, PlotStatus
 from app.models.products import Shipment, ShipmentStatus
 from app.services.gis.gis_validator import GeometryExtractionError, validate_geometry
@@ -267,7 +268,8 @@ async def create_plot_from_payload(
         select(func.count()).select_from(Plot).where(Plot.organization_id == organization_id)
     )).scalar_one() or 0
     if plot_count == 1:
-        db.add(Alert(
+        await create_alert(
+            db,
             organization_id=organization_id,
             user_id=user_id,
             level=AlertLevel.success if result.valid else AlertLevel.warning,
@@ -281,10 +283,12 @@ async def create_plot_from_payload(
             ),
             link="/plots",
             context={"plot_id": str(plot.id), "geometry_valid": result.valid, "area_ha": plot.area_ha},
-        ))
+            dedupe_key="onboarding:first_plot",
+        )
 
     if not result.valid:
-        db.add(Alert(
+        await create_alert(
+            db,
             organization_id=organization_id,
             user_id=user_id,
             level=AlertLevel.warning,
@@ -293,6 +297,7 @@ async def create_plot_from_payload(
             message=result.errors[0]["message"] if result.errors else "Erreur de géométrie.",
             link="/plots",
             context={"plot_id": str(plot.id), "errors": result.errors},
-        ))
+            dedupe_key=f"plot:{plot.id}:geometry-invalid",
+        )
 
     return plot

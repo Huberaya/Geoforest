@@ -12,10 +12,10 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.alerts import Alert, AlertCategory, AlertLevel
+from app.services.notifications import recent_user_alerts, unread_alert_counts_by_level
 
 
-async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, Any]:
+async def build_overview(db: AsyncSession, organization_id: UUID, user_id: UUID) -> dict[str, Any]:
     """Construit l'ensemble des KPIs et alertes pour le dashboard."""
     from app.models import User
     from app.models.plots import Plot, PlotStatus
@@ -64,29 +64,14 @@ async def build_overview(db: AsyncSession, organization_id: UUID) -> dict[str, A
         if current_state["state"] in {"missing", "expired"}:
             documents_missing += 1
 
-    # --- Alertes par niveau
-    levels = ["critical", "warning", "info", "success"]
-    alert_counts: dict[str, int] = {lvl: 0 for lvl in levels}
-    for lvl in levels:
-        r = await db.execute(
-            select(func.count())
-            .select_from(Alert)
-            .where(
-                Alert.organization_id == organization_id,
-                Alert.level == AlertLevel(lvl),
-                Alert.is_read.is_(False),
-            )
-        )
-        alert_counts[lvl] = r.scalar_one() or 0
-    total_unread_alerts = sum(alert_counts.values())
-
-    res_alerts = await db.execute(
-        select(Alert)
-        .where(Alert.organization_id == organization_id)
-        .order_by(Alert.is_read.asc(), Alert.created_at.desc())
-        .limit(8)
+    # Les compteurs et l'aperçu respectent le destinataire et l'état de lecture individuel.
+    alert_counts = await unread_alert_counts_by_level(
+        db, organization_id=organization_id, user_id=user_id
     )
-    recent_alerts = [_serialize_alert(a) for a in res_alerts.scalars().all()]
+    total_unread_alerts = sum(alert_counts.values())
+    recent_alerts = await recent_user_alerts(
+        db, organization_id=organization_id, user_id=user_id, limit=8
+    )
 
     onboarding_steps = _build_onboarding_steps(
         users_count, suppliers_count, products_count, shipments_count, plots_total, documents_count
@@ -197,50 +182,3 @@ def _build_onboarding_steps(
     ]
     completed = sum(1 for s in steps if s["done"])
     return {"steps": steps, "total": len(steps), "completed": completed}
-
-
-def _serialize_alert(a: Alert) -> dict[str, Any]:
-    return {
-        "id": str(a.id),
-        "level": a.level.value,
-        "category": a.category.value,
-        "title": a.title,
-        "message": a.message,
-        "link": a.link,
-        "context": a.context or {},
-        "is_read": a.is_read,
-        "created_at": a.created_at.isoformat() if a.created_at else None,
-    }
-
-
-async def mark_alert_read(db: AsyncSession, organization_id: UUID, alert_id: UUID) -> Alert | None:
-    """Marque une alerte comme lue si elle appartient à l'organisation."""
-    res = await db.execute(select(Alert).where(Alert.id == alert_id))
-    a = res.scalar_one_or_none()
-    if a is None or a.organization_id != organization_id:
-        return None
-    a.is_read = True
-    a.read_at = datetime.now(timezone.utc)
-    db.add(a)
-    return a
-
-
-async def seed_onboarding_alerts(db: AsyncSession, organization_id: UUID) -> None:
-    """Crée l'alerte de bienvenue si l'organisation n'a encore aucune alerte (idempotent)."""
-    existing = await db.execute(
-        select(func.count()).select_from(Alert).where(Alert.organization_id == organization_id)
-    )
-    if (existing.scalar_one() or 0) > 0:
-        return
-    welcome = Alert(
-        organization_id=organization_id,
-        level=AlertLevel.info,
-        category=AlertCategory.onboarding,
-        title="Bienvenue sur GeoForest Trace 🌲",
-        message=(
-            "Votre espace de conformité EUDR est prêt. "
-            "Commencez par inviter les membres de votre équipe, puis créez vos premiers fournisseurs."
-        ),
-        link="/settings",
-    )
-    db.add(welcome)

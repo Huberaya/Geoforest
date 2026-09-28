@@ -1,17 +1,22 @@
-"""Modèles du Chantier 2 : Alertes.
-
-Les alertes sont générées par le système (ex: "parcelle non géolocalisée",
-"document expirant dans 30 jours") ou par des actions utilisateur.
-Elles sont filtrées par organisation et (optionnellement) assignées à un utilisateur.
-"""
+"""Notifications in-app persistantes et état de lecture par destinataire."""
 from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Any, Optional
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String, Text, Boolean, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum as SAEnum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, UUIDType, JSONType
@@ -36,8 +41,14 @@ class AlertCategory(str, enum.Enum):
 
 
 class Alert(Base):
-    """Une alerte affichée dans le centre d'alertes et sur le dashboard."""
+    """Un événement de notification, propre à un tenant ou adressé à un membre."""
+
     __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "dedupe_key", name="uq_alerts_org_dedupe_key"),
+        Index("ix_alerts_org_created_at", "organization_id", "created_at"),
+        Index("ix_alerts_org_user_created_at", "organization_id", "user_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUIDType, primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(
@@ -46,7 +57,7 @@ class Alert(Base):
         nullable=False,
         index=True,
     )
-    # Si assignée à un utilisateur spécifique ; sinon visible par toute l'organisation
+    # Si renseigné, l'alerte est réservée à ce membre; sinon elle est visible par l'organisation.
     user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUIDType,
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -58,16 +69,50 @@ class Alert(Base):
     category: Mapped[AlertCategory] = mapped_column(SAEnum(AlertCategory, name="alertcategory"), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     message: Mapped[Optional[str]] = mapped_column(Text)
-    # Lien relatif dans l'application (ex: '/plots/xxx')
+    # Les liens créés par les services doivent rester relatifs à l'application.
     link: Mapped[Optional[str]] = mapped_column(String(300))
-    # Métadonnées (ids d'entités liées, etc.)
-    context: Mapped[dict] = mapped_column(JSONType, default=dict)
+    context: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    # Clé d'idempotence de l'événement dans le tenant; NULL reste permis pour les lignes historiques.
+    dedupe_key: Mapped[Optional[str]] = mapped_column(String(180), nullable=True)
 
+    # Conservés pour compatibilité des lignes historiques. Le nouvel état de lecture est par membre.
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(), server_default=func.now()
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+        nullable=False,
     )
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Alert {self.level.value}/{self.category.value}: {self.title[:40]}>"
+
+
+class AlertRecipientState(Base):
+    """État lu/non lu individuel; une alerte partagée garde un état par destinataire."""
+
+    __tablename__ = "alert_recipient_states"
+    __table_args__ = (
+        Index("ix_alert_recipient_states_user_read", "user_id", "is_read"),
+    )
+
+    alert_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType,
+        ForeignKey("alerts.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

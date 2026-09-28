@@ -13,6 +13,7 @@ EXPECTED_TABLES = (
     "organizations",
     "users",
     "alerts",
+    "alert_recipient_states",
     "suppliers",
     "supplier_invitations",
     "products",
@@ -23,6 +24,14 @@ EXPECTED_TABLES = (
     "document_versions",
     "document_links",
     "document_checklist_items",
+    "risk_cases",
+    "risk_case_origins",
+    "risk_case_evidence",
+    "risk_findings",
+    "risk_finding_evidence",
+    "risk_mitigation_actions",
+    "risk_decisions",
+    "declaration_preparations",
 )
 
 
@@ -47,10 +56,15 @@ def test_full_upgrade_compiles_complete_postgresql_schema_offline() -> None:
     for table in EXPECTED_TABLES:
         assert f"CREATE TABLE {table} (" in sql
     assert sql.count("CREATE TYPE ") == 10
-    assert sql.count("CREATE INDEX ") + sql.count("CREATE UNIQUE INDEX ") == 46
+    assert sql.count("CREATE INDEX ") + sql.count("CREATE UNIQUE INDEX ") == 86
     assert "CREATE TABLE document_versions (" in sql
     assert "CREATE TABLE document_links (" in sql
     assert "CREATE TABLE document_checklist_items (" in sql
+    assert "CREATE TABLE risk_cases (" in sql
+    assert "CREATE TABLE risk_decisions (" in sql
+    assert "CREATE TABLE alert_recipient_states (" in sql
+    assert "uq_alerts_org_dedupe_key" in sql
+    assert "CREATE TABLE declaration_preparations (" in sql
     assert "uq_document_version_storage_key" in sql
     assert "ck_document_checklist_scope_id" in sql
     assert "CREATE TABLE alembic_version (" in sql
@@ -58,7 +72,7 @@ def test_full_upgrade_compiles_complete_postgresql_schema_offline() -> None:
 
 
 def test_full_downgrade_compiles_enum_cleanup_offline() -> None:
-    sql = _run_alembic_offline("downgrade", "20260926_0002:base")
+    sql = _run_alembic_offline("downgrade", "20260927_0004:base")
 
     assert sql.count("DROP TYPE ") == 10
     for table in EXPECTED_TABLES:

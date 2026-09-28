@@ -17,7 +17,9 @@ from app.core.security import (
     verify_password,
 )
 from app.models import Organization, User, UserRole
+from app.models.alerts import AlertCategory, AlertLevel
 from app.schemas.auth import TokenPair, UserLogin, UserOut, UserRegister
+from app.services.notifications import create_alert
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,21 @@ async def register_organization_owner(db: AsyncSession, payload: UserRegister) -
     db.add(user)
     await db.flush()
     await db.refresh(user)
+
+    await create_alert(
+        db,
+        organization_id=org.id,
+        user_id=None,
+        level=AlertLevel.info,
+        category=AlertCategory.onboarding,
+        title="Bienvenue sur GeoForest Trace 🌲",
+        message=(
+            "Votre espace de conformité EUDR est prêt. "
+            "Commencez par inviter les membres de votre équipe, puis créez vos premiers fournisseurs."
+        ),
+        link="/settings",
+        dedupe_key="onboarding:welcome",
+    )
 
     return _build_token_pair(user)
 

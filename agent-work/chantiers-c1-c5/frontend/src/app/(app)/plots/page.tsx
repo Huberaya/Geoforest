@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   type Plot,
   type PlotCreate,
@@ -95,6 +96,8 @@ function shipmentLabel(shipment: Shipment): string {
 }
 
 export default function PlotsPage() {
+  const { user } = useAuth();
+  const canWrite = ["admin", "compliance", "procurement", "analyst"].includes(user?.role || "");
   const [data, setData] = useState<PlotList | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -421,9 +424,10 @@ export default function PlotsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => void load()} className="btn-secondary" disabled={loading}>↻ Actualiser</button>
-          <button onClick={startCreate} className="btn-primary" disabled={!hasShipments} title={!hasShipments ? "Créez d'abord un lot" : undefined}>+ Ajouter une parcelle</button>
+          {canWrite && <button onClick={startCreate} className="btn-primary" disabled={!hasShipments} title={!hasShipments ? "Créez d'abord un lot" : undefined}>+ Ajouter une parcelle</button>}
         </div>
       </div>
+      {!canWrite && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Consultation limitée : les données de localisation des producteurs sont masquées pour votre rôle.</div>}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <PlotStat label="Parcelles / dossiers géométriques" value={data?.total ?? "—"} />
@@ -443,7 +447,7 @@ export default function PlotsPage() {
       {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
       {notice && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{notice}</div>}
 
-      {showForm && (
+      {showForm && canWrite && (
         <form onSubmit={handleSubmit} className="card space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -600,7 +604,7 @@ export default function PlotsPage() {
             <div className="text-3xl">🌱</div>
             <h3 className="mt-2 font-semibold text-slate-800">Aucune parcelle dans cette vue</h3>
             <p className="mt-1 text-sm text-slate-500">Importez un GeoJSON/KML, collez des coordonnées, ou dessinez un polygone pour commencer.</p>
-            {hasShipments && <button className="btn-primary mt-4" onClick={startCreate}>+ Ajouter une parcelle</button>}
+            {hasShipments && canWrite && <button className="btn-primary mt-4" onClick={startCreate}>+ Ajouter une parcelle</button>}
           </div>
         )}
 
@@ -613,7 +617,7 @@ export default function PlotsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <button className="min-w-0 flex-1 text-left" onClick={() => setSelectedPlotId(isSelected ? null : plot.id)}>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate font-semibold text-slate-900">{plot.name || plot.internal_ref || "Parcelle sans nom"}</span>
+                      <span className="truncate font-semibold text-slate-900">{plot.geo_data_redacted ? "Donnée de parcelle restreinte" : plot.name || plot.internal_ref || "Parcelle sans nom"}</span>
                       {plot.internal_ref && plot.name && <span className="text-xs text-slate-400">{plot.internal_ref}</span>}
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}>{status.label}</span>
                     </div>
@@ -621,27 +625,29 @@ export default function PlotsPage() {
                       {plot.shipment_reference || "Lot"} · {plot.supplier_name || "Fournisseur"} · {plot.product_name || "Produit"}
                     </div>
                   </button>
-                  <div className="flex shrink-0 gap-1.5">
+                  {canWrite && <div className="flex shrink-0 gap-1.5">
                     <button className="btn-secondary px-2.5 py-1.5 text-xs" onClick={() => startEdit(plot)}>Modifier</button>
                     <button className="btn-secondary px-2.5 py-1.5 text-xs" disabled={busyPlotId === plot.id} onClick={() => void handleValidate(plot)}>{busyPlotId === plot.id ? "…" : "Revalider"}</button>
                     <button className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={busyPlotId === plot.id} onClick={() => void handleDelete(plot)}>Supprimer</button>
+                  </div>}
+                </div>
+                {plot.geo_data_redacted ? <div className="mt-3 text-xs text-slate-500">Type, surface, précision et références géographiques masqués.</div> : <>
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-5">
+                    <div><span className="text-slate-400">Type</span><div className="font-medium text-slate-700">{plot.geometry_type || "—"}</div></div>
+                    <div><span className="text-slate-400">Surface géométrique</span><div className="font-medium text-slate-700">{formatHa(plot.area_ha)}</div></div>
+                    <div><span className="text-slate-400">Surface déclarée</span><div className="font-medium text-slate-700">{formatHa(plot.declared_area_ha)}</div></div>
+                    <div><span className="text-slate-400">Précision observée</span><div className={`font-medium ${plot.precision_ok ? "text-emerald-700" : "text-red-700"}`}>{plot.min_decimals_found ?? "—"} décimales {plot.precision_ok ? "✓" : "—"}</div></div>
+                    <div><span className="text-slate-400">Source / sommets</span><div className="font-medium text-slate-700">{plot.source} · {plot.vertex_count ?? "—"}</div></div>
                   </div>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-5">
-                  <div><span className="text-slate-400">Type</span><div className="font-medium text-slate-700">{plot.geometry_type || "—"}</div></div>
-                  <div><span className="text-slate-400">Surface géométrique</span><div className="font-medium text-slate-700">{formatHa(plot.area_ha)}</div></div>
-                  <div><span className="text-slate-400">Surface déclarée</span><div className="font-medium text-slate-700">{formatHa(plot.declared_area_ha)}</div></div>
-                  <div><span className="text-slate-400">Précision observée</span><div className={`font-medium ${plot.precision_ok ? "text-emerald-700" : "text-red-700"}`}>{plot.min_decimals_found ?? "—"} décimales {plot.precision_ok ? "✓" : "—"}</div></div>
-                  <div><span className="text-slate-400">Source / sommets</span><div className="font-medium text-slate-700">{plot.source} · {plot.vertex_count ?? "—"}</div></div>
-                </div>
-                {plot.gps_accuracy_m != null && <div className="mt-2 text-[11px] text-slate-500">Précision GPS rapportée au moment de la capture : {plot.gps_accuracy_m} m{plot.acquired_at ? ` · ${new Date(plot.acquired_at).toLocaleString("fr-FR")}` : ""} (non assimilable à la précision topographique certifiée).</div>}
-                {plot.validation_errors.length > 0 && (
+                  {plot.gps_accuracy_m != null && <div className="mt-2 text-[11px] text-slate-500">Précision GPS rapportée au moment de la capture : {plot.gps_accuracy_m} m{plot.acquired_at ? ` · ${new Date(plot.acquired_at).toLocaleString("fr-FR")}` : ""} (non assimilable à la précision topographique certifiée).</div>}
+                </>}
+                {!plot.geo_data_redacted && plot.validation_errors.length > 0 && (
                   <div className="mt-3 rounded-lg border border-red-100 bg-red-50 p-2.5 text-xs text-red-800">
                     <div className="font-semibold">Erreurs à corriger</div>
                     <ul className="mt-1 list-disc space-y-1 pl-5">{plot.validation_errors.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}</ul>
                   </div>
                 )}
-                {plot.validation_warnings.length > 0 && (
+                {!plot.geo_data_redacted && plot.validation_warnings.length > 0 && (
                   <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50 p-2.5 text-xs text-amber-900">
                     <div className="font-semibold">Avertissements</div>
                     <ul className="mt-1 list-disc space-y-1 pl-5">{plot.validation_warnings.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}</ul>
@@ -656,7 +662,10 @@ export default function PlotsPage() {
         </div>
       </section>
 
-      {selectedPlot && !selectedPlot.geometry && (
+      {selectedPlot?.geo_data_redacted && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">La géométrie et les références précises sont masquées pour votre rôle; aucune conclusion géospatiale ne peut être tirée de cet affichage.</div>
+      )}
+      {selectedPlot && !selectedPlot.geo_data_redacted && !selectedPlot.geometry && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">La géométrie invalide a été conservée sans normalisation. Utilisez « Modifier » pour la remplacer par un fichier ou un tracé corrigé.</div>
       )}
     </div>

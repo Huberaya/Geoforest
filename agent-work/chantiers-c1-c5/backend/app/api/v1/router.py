@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.alerts import router as alerts_router
 from app.api.v1.endpoints.audit import router as audit_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.dashboard import router as dashboard_router
@@ -15,6 +16,8 @@ from app.api.v1.endpoints.shipments import router as shipments_router
 from app.api.v1.endpoints.supplier_portal import router as supplier_portal_router
 from app.api.v1.endpoints.supplier_documents import router as supplier_documents_router
 from app.api.v1.endpoints.documents import router as documents_router
+from app.api.v1.endpoints.risk_ddr import router as risk_ddr_router
+from app.api.v1.endpoints.reports import router as reports_router
 from app.api.v1.endpoints.suppliers import router as suppliers_router
 from app.api.v1.endpoints.users import router as users_router
 
@@ -22,6 +25,7 @@ api_router = APIRouter()
 api_router.include_router(health_router, prefix="/health", tags=["system"])
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(alerts_router, prefix="/alerts", tags=["alerts"])
 api_router.include_router(orgs_router, prefix="/organizations", tags=["organizations"])
 api_router.include_router(users_router, prefix="/users", tags=["users"])
 api_router.include_router(supplier_portal_router, prefix="/supplier-portal", tags=["supplier-portal"])
@@ -32,4 +36,6 @@ api_router.include_router(products_router, prefix="", tags=["products"])
 api_router.include_router(shipments_router, prefix="", tags=["shipments"])
 api_router.include_router(plots_router, prefix="", tags=["plots"])
 api_router.include_router(deforestation_screenings_router, prefix="", tags=["deforestation-screenings"])
+api_router.include_router(risk_ddr_router, prefix="", tags=["risk-ddr"])
 api_router.include_router(audit_router, prefix="", tags=["audit"])
+api_router.include_router(reports_router, prefix="", tags=["reports"])

@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import ensure_operator_user, get_current_active_user, require_roles
 from app.models import User, UserRole
-from app.models.alerts import Alert, AlertCategory, AlertLevel
+from app.models.alerts import AlertCategory, AlertLevel
+from app.services.notifications import create_alert
 from app.models.products import Product, Shipment, ShipmentStatus
 from app.models.suppliers import Supplier
 from app.schemas.suppliers import (
@@ -21,6 +22,7 @@ from app.schemas.suppliers import (
     ShipmentUpdate,
 )
 from app.services.audit.service import model_snapshot, record_audit_event
+from app.services.risk_ddr_invalidation import invalidate_cases_for_shipment
 
 router = APIRouter()
 
@@ -171,7 +173,8 @@ async def create_shipment(
         select(func.count()).select_from(Shipment).where(Shipment.organization_id == current_user.organization_id)
     )).scalar_one()
     if sc == 1:
-        db.add(Alert(
+        await create_alert(
+            db,
             organization_id=current_user.organization_id,
             user_id=current_user.id,
             level=AlertLevel.success,
@@ -180,7 +183,8 @@ async def create_shipment(
             message="Il reste à y rattacher les parcelles géolocalisées (chantier 5) et les documents (chantier 7).",
             link="/shipments",
             context={"shipment_id": str(shipment.id)},
-        ))
+            dedupe_key="onboarding:first_shipment",
+        )
 
     record_audit_event(
         db, request,
@@ -249,6 +253,11 @@ async def update_shipment(
         data["country_of_production"] = data["country_of_production"].upper()
     for k, v in data.items():
         setattr(sh, k, v)
+    if data and current_user.organization_id is not None:
+        await invalidate_cases_for_shipment(
+            db, request, current_user, current_user.organization_id, sh.id,
+            "Le lot (produit, fournisseur, pays, quantité ou période) a changé; revoir les origines, l'évaluation et le préremplissage.",
+        )
     record_audit_event(
         db, request,
         organization_id=current_user.organization_id,
@@ -283,6 +292,12 @@ async def delete_shipment(
             status_code=409,
             detail="Seuls les lots au statut 'brouillon' peuvent être supprimés.",
         )
+    from app.models.risk_ddr import RiskCase
+    linked_case = (await db.execute(select(RiskCase.id).where(
+        RiskCase.organization_id == current_user.organization_id, RiskCase.shipment_id == sh.id
+    ))).scalar_one_or_none()
+    if linked_case is not None:
+        raise HTTPException(status_code=409, detail="Ce lot est référencé par un dossier Risques/DDR; archivez ou conservez le dossier avant toute suppression.")
     record_audit_event(
         db, request,
         organization_id=current_user.organization_id,

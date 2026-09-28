@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import ensure_operator_user, get_current_active_user, require_roles
 from app.models import User, UserRole
-from app.models.alerts import Alert, AlertCategory, AlertLevel
+from app.models.alerts import AlertCategory, AlertLevel
+from app.services.notifications import create_alert
 from app.models.products import EUDR_COMMODITIES, Product, ProductStatus
 from app.schemas.suppliers import (
     CommoditiesList,
@@ -22,6 +23,7 @@ from app.schemas.suppliers import (
     ProductUpdate,
 )
 from app.services.audit.service import model_snapshot, record_audit_event
+from app.services.risk_ddr_invalidation import invalidate_cases_for_product
 
 router = APIRouter()
 
@@ -167,7 +169,8 @@ async def create_product(
         select(func.count()).select_from(Product).where(Product.organization_id == current_user.organization_id)
     )).scalar_one()
     if pcount == 1:
-        db.add(Alert(
+        await create_alert(
+            db,
             organization_id=current_user.organization_id,
             user_id=current_user.id,
             level=AlertLevel.success,
@@ -176,7 +179,8 @@ async def create_product(
             message="Créez maintenant votre premier lot liant un fournisseur à ce produit.",
             link="/shipments",
             context={"product_id": str(product.id), "commodity": product.commodity},
-        ))
+            dedupe_key="onboarding:first_product",
+        )
 
     record_audit_event(
         db, request,
@@ -223,6 +227,11 @@ async def update_product(
         raise HTTPException(status_code=422, detail="Commodité EUDR inconnue.")
     for k, v in data.items():
         setattr(p, k, v)
+    if data:
+        await invalidate_cases_for_product(
+            db, request, current_user, current_user.organization_id, p.id,
+            "Le produit ou sa classification a changé; revoir le périmètre Annexe I et toute décision/préparation liée.",
+        )
     record_audit_event(
         db, request,
         organization_id=current_user.organization_id,
@@ -258,6 +267,11 @@ async def archive_product(
     if (active or 0) > 0:
         raise HTTPException(status_code=409, detail="Des lots actifs référencent ce produit.")
     p.status = ProductStatus.archived
+    if current_user.organization_id is not None:
+        await invalidate_cases_for_product(
+            db, request, current_user, current_user.organization_id, p.id,
+            "Le produit lié a été archivé; revoir le périmètre et les décisions/préparations.",
+        )
     record_audit_event(
         db, request,
         organization_id=current_user.organization_id,

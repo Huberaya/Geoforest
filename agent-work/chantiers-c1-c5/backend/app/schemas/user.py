@@ -3,7 +3,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.auth import UserOut
+
+
+class UserProfileOut(UserOut):
+    """Projection du profil propre à l'utilisateur connecté; le téléphone n'est pas exposé dans les listes."""
+
+    phone: Optional[str] = None
 
 
 class UserProfileUpdate(BaseModel):

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchUnreadAlertCount } from "@/lib/api";
 
 const NAV = [
   { href: "/dashboard", label: "Tableau de bord", icon: "📊" },
@@ -17,7 +18,7 @@ const NAV = [
   { href: "/risks", label: "Risques", icon: "⚠️", badge: "Chantier 8" },
   { href: "/dds", label: "Diligence raisonnée", icon: "📋", badge: "Chantier 8-9" },
   { href: "/declarations", label: "Déclarations", icon: "🇪🇺", badge: "Chantier 9" },
-  { href: "/alerts", label: "Alertes", icon: "🔔", badge: "Chantier 10" },
+  { href: "/alerts", label: "Alertes", icon: "🔔" },
   { href: "/reports", label: "Rapports", icon: "📈", badge: "Chantier 12" },
   { href: "/settings", label: "Paramètres", icon: "⚙️", badge: "Chantier 12" },
   { href: "/audit-log", label: "Journal d'audit", icon: "📜", badge: "Chantier 12" },
@@ -28,11 +29,34 @@ function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [unreadAlertCount, setUnreadAlertCount] = useState(0);
 
   useEffect(() => {
     if (!loading && !isAuthed) router.replace("/auth/login");
     if (!loading && isAuthed && user?.role === "supplier") router.replace("/supplier-portal");
   }, [loading, isAuthed, user?.role, router]);
+
+  useEffect(() => {
+    if (loading || !isAuthed || user?.role === "supplier") return;
+    let cancelled = false;
+    const refreshCount = async () => {
+      try {
+        const result = await fetchUnreadAlertCount();
+        if (!cancelled) setUnreadAlertCount(result.count);
+      } catch {
+        // Le centre reste accessible même si le badge ne peut pas être actualisé.
+      }
+    };
+    const handleAlertChange = () => { void refreshCount(); };
+    void refreshCount();
+    window.addEventListener("gft:alerts-updated", handleAlertChange);
+    window.addEventListener("focus", handleAlertChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("gft:alerts-updated", handleAlertChange);
+      window.removeEventListener("focus", handleAlertChange);
+    };
+  }, [loading, isAuthed, user?.role, pathname]);
 
   if (loading) {
     return (
@@ -82,11 +106,17 @@ function AppShell({ children }: { children: ReactNode }) {
                 {sidebarOpen && (
                   <>
                     <span className="flex-1 truncate">{item.label}</span>
-                    {item.badge && (
+                    {item.href === "/alerts" ? (
+                      unreadAlertCount > 0 && (
+                        <span className="min-w-5 rounded-full bg-rose-100 px-1.5 py-0.5 text-center text-[10px] font-bold text-rose-700" aria-label={`${unreadAlertCount} notifications non lues`}>
+                          {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+                        </span>
+                      )
+                    ) : item.badge ? (
                       <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-500 group-hover:bg-white">
                         {item.badge}
                       </span>
-                    )}
+                    ) : null}
                   </>
                 )}
               </Link>

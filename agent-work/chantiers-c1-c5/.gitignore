@@ -44,3 +44,7 @@ backend/data/
 backend/geoforest.db
 /tmp/
 *.pid
+
+# Keep frontend source code under src/lib despite the repository root's generic Python build/lib ignore.
+!frontend/src/lib/
+!frontend/src/lib/**

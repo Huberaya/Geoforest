@@ -128,17 +128,28 @@ class User(Base):
 
 
 # Import des sous-modules pour qu'ils soient enregistrés auprès de Base.metadata
-from app.models.alerts import Alert  # noqa: E402,F401
+from app.models.alerts import Alert, AlertRecipientState  # noqa: E402,F401
 from app.models.suppliers import Supplier, SupplierInvitation  # noqa: E402,F401
 from app.models.products import Product, Shipment  # noqa: E402,F401
 from app.models.plots import Plot  # noqa: E402,F401
 from app.models.audit import AuditEvent  # noqa: E402,F401
 from app.models.documents import Document, DocumentChecklistItem, DocumentLink, DocumentVersion  # noqa: E402,F401
+from app.models.risk_ddr import (  # noqa: E402,F401
+    DeclarationPreparation,
+    RiskCase,
+    RiskCaseOrigin,
+    RiskDecision,
+    RiskEvidence,
+    RiskFinding,
+    RiskFindingEvidence,
+    RiskMitigationAction,
+)
 
 all_models = (
     Organization,
     User,
     Alert,
+    AlertRecipientState,
     Supplier,
     SupplierInvitation,
     Product,
@@ -149,4 +160,12 @@ all_models = (
     DocumentVersion,
     DocumentLink,
     DocumentChecklistItem,
+    RiskCase,
+    RiskCaseOrigin,
+    RiskEvidence,
+    RiskFinding,
+    RiskFindingEvidence,
+    RiskMitigationAction,
+    RiskDecision,
+    DeclarationPreparation,
 )

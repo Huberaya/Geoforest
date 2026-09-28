@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import ensure_operator_user, get_current_active_user, require_roles
 from app.models import User, UserRole
-from app.models.alerts import Alert, AlertCategory, AlertLevel
+from app.models.alerts import AlertCategory, AlertLevel
+from app.services.notifications import create_alert
 from app.models.suppliers import Supplier, SupplierInvitation, SupplierRiskRating, SupplierStatus, SupplierType
 from app.schemas.suppliers import (
     SupplierCreate,
@@ -21,6 +22,7 @@ from app.schemas.suppliers import (
     SupplierUpdate,
 )
 from app.services.audit.service import model_snapshot, record_audit_event
+from app.services.risk_ddr_invalidation import invalidate_cases_for_supplier
 from app.services.supplier_portal import (
     PURPOSE_INVITATION,
     PURPOSE_LOGIN,
@@ -200,7 +202,8 @@ async def create_supplier(
         select(func.count()).select_from(Supplier).where(Supplier.organization_id == current_user.organization_id)
     )).scalar_one()
     if sup_count == 1:
-        db.add(Alert(
+        await create_alert(
+            db,
             organization_id=current_user.organization_id,
             user_id=current_user.id,
             level=AlertLevel.success,
@@ -209,7 +212,8 @@ async def create_supplier(
             message="Ajoutez maintenant un produit EUDR associé, puis vos premiers lots.",
             link="/products",
             context={"supplier_id": str(supplier.id)},
-        ))
+            dedupe_key="onboarding:first_supplier",
+        )
 
     record_audit_event(
         db, request,
@@ -273,6 +277,11 @@ async def update_supplier(
         if k in ("email", "contact_email") and isinstance(v, str):
             v = v.lower()
         setattr(supplier, k, v)
+    if data and current_user.organization_id is not None:
+        await invalidate_cases_for_supplier(
+            db, request, current_user, current_user.organization_id, supplier.id,
+            "Les informations du fournisseur source ont changé; revoir les informations Article 9 et le préremplissage.",
+        )
     record_audit_event(
         db, request,
         organization_id=current_user.organization_id,
@@ -318,6 +327,11 @@ async def archive_supplier(
             detail="Impossible d'archiver : des lots actifs référencent ce fournisseur.",
         )
     supplier.status = SupplierStatus.archived
+    if current_user.organization_id is not None:
+        await invalidate_cases_for_supplier(
+            db, request, current_user, current_user.organization_id, supplier.id,
+            "Le fournisseur lié a été archivé; revoir l'approvisionnement, la décision et le préremplissage.",
+        )
     record_audit_event(
         db, request,
         organization_id=current_user.organization_id,
@@ -475,7 +489,8 @@ async def invite_supplier(
         "failed": "email_failed",
     }[delivery]
 
-    db.add(Alert(
+    await create_alert(
+        db,
         organization_id=supplier.organization_id,
         user_id=current_user.id,
         level=AlertLevel.info if delivery == "sent" else AlertLevel.warning,
@@ -492,7 +507,8 @@ async def invite_supplier(
             "invitation_id": str(invitation.id),
             "delivery_status": delivery_status,
         },
-    ))
+        dedupe_key=f"supplier-invitation:{invitation.id}:delivery",
+    )
     await db.commit()
     await db.refresh(supplier)
 

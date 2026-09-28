@@ -14,8 +14,10 @@ from app.core.security import ensure_operator_user, get_current_active_user
 from app.models import User, UserRole
 from app.models.plots import Plot, PlotStatus
 from app.models.products import Shipment, ShipmentStatus
+from app.models.risk_ddr import RiskCaseOrigin
 from app.schemas.plots import PlotCreate, PlotList, PlotOut, PlotUpdate, PlotValidateResult
 from app.services.audit.service import record_audit_event
+from app.services.risk_ddr_invalidation import attach_new_plot_to_case_if_present, invalidate_cases_for_plot
 from app.services.plots.service import (
     apply_validation,
     create_plot_from_payload,
@@ -27,16 +29,27 @@ from app.services.plots.service import (
 
 router = APIRouter()
 _WRITE_ROLES = (UserRole.admin, UserRole.compliance, UserRole.procurement, UserRole.analyst)
+_GEO_READ_ROLES = {UserRole.admin, UserRole.compliance, UserRole.procurement, UserRole.analyst}
 
 
 def _can_write(user: User) -> bool:
     return user.role in _WRITE_ROLES
 
 
-def _serialize(plot: Plot) -> PlotOut:
+def _serialize(plot: Plot, user: User) -> PlotOut:
     data = {column.name: getattr(plot, column.name) for column in plot.__table__.columns}
-    data["validation_errors"] = plot.validation_errors or []
-    data["validation_warnings"] = plot.validation_warnings or []
+    redacted = user.role not in _GEO_READ_ROLES
+    if redacted:
+        for field in (
+            "name", "internal_ref", "notes", "geometry", "geometry_type", "area_ha",
+            "declared_area_ha", "vertex_count", "centroid", "bbox", "min_decimals_found",
+            "precision_ok", "eudr_geometry_rule", "gps_accuracy_m", "harvest_year", "acquired_at",
+            "validation_errors", "validation_warnings",
+        ):
+            data[field] = None if field not in {"validation_errors", "validation_warnings"} else []
+    data["geo_data_redacted"] = redacted
+    data["validation_errors"] = (plot.validation_errors or []) if not redacted else []
+    data["validation_warnings"] = (plot.validation_warnings or []) if not redacted else []
     shipment = plot.shipment
     data["shipment_reference"] = shipment.reference if shipment else None
     data["supplier_name"] = shipment.supplier.name if shipment and shipment.supplier else None
@@ -117,7 +130,7 @@ async def list_plots(
     rows = await db.execute(base.order_by(Plot.created_at.desc()).limit(limit).offset(offset))
     plots = rows.scalars().all()
     return PlotList(
-        items=[_serialize(plot) for plot in plots],
+        items=[_serialize(plot, current_user) for plot in plots],
         total=total,
         total_area_ha=float(total_area or 0.0),
         by_status=by_status,
@@ -139,6 +152,7 @@ async def create_plot(
         raise HTTPException(status_code=403, detail="Accès refusé.")
 
     plot = await create_plot_from_payload(db, current_user.organization_id, current_user.id, payload)
+    await attach_new_plot_to_case_if_present(db, request, current_user, current_user.organization_id, plot)
     record_audit_event(
         db,
         request,
@@ -151,7 +165,7 @@ async def create_plot(
     )
     await db.commit()
     plot = await _get_plot_for_user(plot.id, current_user, db, with_relations=True)
-    return _serialize(plot)
+    return _serialize(plot, current_user)
 
 
 @router.get("/plots/{plot_id}", response_model=PlotOut, summary="Détail d'une parcelle")
@@ -161,7 +175,7 @@ async def get_plot(
     current_user: User = Depends(get_current_active_user),
 ) -> PlotOut:
     plot = await _get_plot_for_user(plot_id, current_user, db, with_relations=True)
-    return _serialize(plot)
+    return _serialize(plot, current_user)
 
 
 @router.patch("/plots/{plot_id}", response_model=PlotOut, summary="Modifier une parcelle")
@@ -205,6 +219,11 @@ async def update_plot(
         await revalidate_plot(plot, commodity_code)
         # La géométrie a éventuellement modifiée le workflow; elle reste en validation,
         # sans prétendre que le lot est analysé contre la déforestation.
+    if changes or new_geometry is not None:
+        await invalidate_cases_for_plot(
+            db, request, current_user, current_user.organization_id, plot.id,
+            "Les données ou la validation d'une parcelle liée ont changé; décision et préremplissage à revoir.",
+        )
     record_audit_event(
         db,
         request,
@@ -218,7 +237,7 @@ async def update_plot(
     )
     await db.commit()
     plot = await _get_plot_for_user(plot_id, current_user, db, with_relations=True)
-    return _serialize(plot)
+    return _serialize(plot, current_user)
 
 
 @router.post("/plots/{plot_id}/validate", response_model=PlotValidateResult, summary="Relancer la validation technique")
@@ -253,6 +272,10 @@ async def validate_plot(
         previous_data=before,
         new_data=plot_snapshot(plot),
     )
+    await invalidate_cases_for_plot(
+        db, request, current_user, current_user.organization_id, plot.id,
+        "Le résultat de validation géospatiale d'une parcelle liée a changé; décision et préremplissage à revoir.",
+    )
     await db.commit()
     return PlotValidateResult(
         plot_id=plot.id,
@@ -281,6 +304,12 @@ async def delete_plot(
         raise HTTPException(status_code=403, detail="Accès refusé.")
 
     plot = await _get_plot_for_user(plot_id, current_user, db)
+    linked_case = (await db.execute(select(RiskCaseOrigin.case_id).where(
+        RiskCaseOrigin.organization_id == current_user.organization_id,
+        RiskCaseOrigin.plot_id == plot.id,
+    ).limit(1))).scalar_one_or_none()
+    if linked_case is not None:
+        raise HTTPException(status_code=409, detail="Cette parcelle est référencée dans un dossier DDR; détachez-la de l'origine avant de la supprimer.")
     previous = plot_snapshot(plot)
     shipment_id = plot.shipment_id
     record_audit_event(
