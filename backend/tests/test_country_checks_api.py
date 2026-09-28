@@ -32,7 +32,7 @@ def test_country_check_immutable_revision_audit_replay(client, workspace, monkey
     assert first.status_code == 200, first.text
     item = first.json()
     assert item["result"]["status"] == "OUTSIDE_REFERENCE_INDICATIVE"
-    assert item["result"]["source"]["represented_year"] == "2018"
+    assert item["result"]["source"]["boundary_id"] == "NE-10M-MAPUNITS-CI"
     assert item["result"]["country_verified"] is False
     monkeypatch.setattr(screening, "CATALOGUE", {})
     replay = client.post(url, json=args).json()
@@ -57,7 +57,7 @@ def test_country_check_immutable_revision_audit_replay(client, workspace, monkey
     update = {k: v for k, v in body(s["id"]).items() if k != "supplier_id"}
     assert (
         client.put(
-            path + "/plots/" + p["id"], json={**update, "version": 1, "country": "FR"}
+            path + "/plots/" + p["id"], json={**update, "version": 1, "country": "AQ"}
         ).status_code
         == 200
     )
@@ -168,9 +168,8 @@ def test_catalogue_and_csrf(client, workspace):
     _, _, path = workspace
     _, _, url = setup(client, path)
     r = client.get(path + "/geospatial/sources").json()
-    assert r["coverage"] == "LIMITED_PILOT" and [
-        s["country"] for s in r["sources"]
-    ] == ["CI"]
-    assert r["excluded"][0]["country"] == "FR"
+    assert r["coverage"] == "GLOBAL_INDICATIVE_WITH_EXCEPTIONS"
+    assert r["covered_count"] == 246
+    assert {e["country"] for e in r["excluded"]} == {"AQ", "EG", "UM"}
     client.headers.pop("X-CSRF-Token", None)
     assert client.post(url, json=payload()).status_code == 403

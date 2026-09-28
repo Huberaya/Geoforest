@@ -1,4 +1,4 @@
-# GeoForest Trace — chantiers 1 à 3 et pilote géospatial · v0.5.0
+# GeoForest Trace — chantiers 1 à 4 · v0.5.0
 
 Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OIDC, organisations, fournisseurs, produits, lots, parcelles versionnées et portail sécurisé.
 
@@ -123,10 +123,12 @@ CI : `.github/workflows/ci.yml` exécute lint/build/typecheck/audit npm, migrati
 - `docs/reglementation/03-geolocalisation-verification.md` — références et limites.
 - `docs/rapports/03-chantier-3.md` — livraison, preuves et réserves.
 
-**Le chantier 4 est en cours : pilote de cohérence pays intégré, couverture limitée à CI. Aucun chantier 5 sans nouveau GO.** Aucun PAT GitHub n'est nécessaire pour travailler et tester localement.
+**Chantier 4 livré localement dans le périmètre mondial indicatif, avec exceptions documentées. Aucun chantier 5 sans nouveau GO.** Aucun PAT GitHub n'est nécessaire pour travailler et tester localement.
 
-## Pilote de cohérence pays — chantier 4
+## Cohérence pays mondiale indicative — chantier 4
 
-Migration **0004** requise pour l’application 0.5.0. Dans le détail d’une parcelle, comparaison indicative et historique immuable par révision, avec marge de revue explicite et source/version/année visibles. Aucun pays n’est déclaré vérifié. Couverture : Côte d’Ivoire seulement, source historique 2018 ; tous les autres pays restent non couverts. Aucun calcul satellite ni source distante appelée pendant l’analyse.
+Migration **0004** requise pour l’application 0.5.0. Dans le détail d’une parcelle : comparaison et historique immuable par révision, marge de revue explicite, source/version/année/limites visibles. Aucun pays n’est déclaré vérifié.
 
-Voir `docs/rapports/04-chantier-4-integration.md`, `docs/reglementation/04-sources-geographiques.md` et la section 8 de `docs/GUIDE_PARCELLES.md`. Les E2E créent quatre organisations par suite complète : utiliser une base synthétique dédiée et surveiller le quota, sans modifier les limites de l’application.
+Natural Earth 1:10 millions, snapshot épinglé, **246 codes ISO de pays et territoires**, exceptions AQ/EG/UM explicites. Donnée cartographique indicative, pas précision parcellaire ou frontière juridiquement actuelle. Pas de réparation silencieuse des données invalides ni de déduction de souveraineté. Aucune source distante appelée pendant l’analyse.
+
+Voir `docs/rapports/04-chantier-4.md`, `docs/reglementation/04-sources-geographiques.md`, `backend/reference/naturalearth/NOTICE.md` et le guide utilisateur. Les six E2E créent quatre organisations par suite : base synthétique dédiée et quota à surveiller, sans modifier les limites de l’application.

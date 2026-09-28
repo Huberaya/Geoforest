@@ -41,3 +41,22 @@ Les données sont anciennes même si leur téléchargement est récent. `retriev
 Ce téléchargement ne livre ni une couverture mondiale, ni une vérification administrative officielle. La Côte d’Ivoire est un **échantillon pilote**, pas un pays prioritaire supposé du client. France et tous les autres pays restent non couverts par ce premier incrément.
 
 Avant livraison du chantier 4 : étendre/qualifier le catalogue selon les sources admissibles, intégrer le stockage des analyses et les permissions/API/UI, afficher l’absence de couverture sans ambiguïté, tester les frontières et indisponibilités, puis effectuer la recette complète. Aucun fond cartographique externe ou connecteur satellite activé.
+
+## Extension mondiale décidée et qualifiée après le pilote
+
+Le propriétaire a choisi **couverture mondiale indicative**. Le pilote CI est remplacé dans le catalogue actif par **Natural Earth 1:10 millions Admin 0 Map Units**, domaine public ; les anciens résultats geoBoundaries restent inchangés.
+
+Sources effectivement consultées :
+- https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/ : le fournisseur distingue countries et map units et recommande ces dernières pour distinguer les outre-mer français. Le fichier countries initialement examiné n’est donc pas retenu comme artefact de calcul.
+- https://www.naturalearthdata.com/about/disputed-boundaries-policy/ : représentation par défaut de facto, variantes de points de vue possibles ; ce n’est pas un arbitre juridique de souveraineté.
+- Conditions d’usage Natural Earth déjà relues ci-dessus : domaine public, usage commercial permis, sans garantie d’exactitude/adéquation.
+
+Téléchargement réel de `ne_10m_admin_0_map_units.geojson`, épinglé au commit **f1890d9f152c896d250a77557a5751a93d494776** du dépôt natural-earth-vector, tag du dépôt v5.1.2, date de commit 13/05/2022. **Ce n’est ni une date de validité juridique des frontières ni une année représentée universelle.** Le terme 10m signifie échelle 1:10 millions, pas résolution métrique de dix mètres. Aucune dernière version ou exactitude en 2026 n’est proclamée.
+
+Qualification et dérivation documentée : source brute inchangée conservée, empreinte `57da82be755f4afccd8f3b14251bb2752f5df1395f47d2d86f817470c4a48862`. Groupement selon ISO_A2_EH du fournisseur ; composantes valides dissoutes explicitement par PostGIS pour supprimer leurs frontières internes. Pas de réparation de contour invalide, simplification ou reprojection. Les noms d’unités/identifiants NE et empreintes des fichiers dérivés sont conservés dans le manifeste ; la version du préparateur PostGIS y figure.
+
+**246 codes ISO de pays et territoires admis**, chacun testé en structure, empreinte et topologie. **Exceptions explicites :** AQ (étendue polaire non prise en charge), EG (géométrie amont invalide), UM (aucune unité ISO non ambiguë). **18 unités non ISO/non rattachées sont listées et non réaffectées par supposition.** La liste figure dans `backend/reference/naturalearth/manifest.json`.
+
+France (FR) et Guyane (GF) sont distinctes dans cette source. L’admission de la nouvelle source FR ne réhabilite pas le snapshot geoBoundaries FRA précédemment rejeté. Les conventions ISO de cette source ne résolvent pas à elles seules la bonne déclaration juridique d’un produit ou une revendication territoriale.
+
+Tous les résultats restent **indicatifs**, sans pays vérifié ni score réglementaire. Les frontières/côtes/îles, unités disputées ou exclues, ancienneté et limites cartographiques nécessitent une revue humaine. Une zone située hors d’un contour n’est pas une fraude démontrée. Le calcul ne fait aucun appel externe et aucune réanalyse historique automatique.

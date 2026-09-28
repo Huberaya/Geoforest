@@ -103,15 +103,15 @@ Budgets : routes géographiques ciblées 2 Mio HTTP, source d’import 1 Mio, 10
 
 La version du validateur est enregistrée dans chaque analyse (`plots-v1-draft` pour cette première règle technique, non homologuée pour un échange officiel). L’API conserve la géométrie source ; la simulation à six décimales n’écrase rien. Les snapshots et imports sont append-only pour le rôle runtime. La provenance d’un lot ne change pas automatiquement après une modification parcellaire.
 
-## Cohérence pays — intégration pilote chantier 4 / API 0.5.0
+## Cohérence pays — référence mondiale indicative chantier 4 / API 0.5.0
 
-Schéma requis : **0004**. Contrôles séparés des géolocalisations immuables existantes, sans remplacement des résultats géométriques ni du pays déclaré.
+Schéma requis : **0004**. Méthode actuelle `country-screening-v2-global-indicative` ; anciens résultats v1 conservés. Le catalogue retourne `GLOBAL_INDICATIVE_WITH_EXCEPTIONS`, `covered_count`, les sources et exclusions, ou `UNAVAILABLE` si le manifeste est indisponible/invalide. Contrôles séparés des géolocalisations immuables existantes, sans remplacement des résultats géométriques ni du pays déclaré.
 
 `O=/api/v1/organizations/{org}` :
 
 | Méthode | Chemin | Contrat |
 |---|---|---|
-| GET | O/geospatial/sources | Catalogue du pilote et limites, session OIDC et appartenance ; seule CI admise à ce stade, FR explicitement exclue |
+| GET | O/geospatial/sources | Catalogue et limites, session OIDC et appartenance ; 246 codes admis, exceptions AQ/EG/UM, versions/empreintes/attributions |
 | GET | O/plots/{plot}/country-checks?revision=N&page=1 | Historique de la révision demandée, 20 résultats/page, page 1..1000 ; permissions de lecture et périmètre fournisseur identiques à la parcelle |
 | POST | O/plots/{plot}/country-checks | `{revision,review_distance_m,request_id}` ; Admin/Compliance Manager/Procurement ; source et géométrie déterminées exclusivement par le serveur |
 

@@ -1,0 +1,16 @@
+{
+  "covered_iso_codes": 246,
+  "excluded": {
+    "AQ": "REFERENCE_COORDINATE_UNSUPPORTED",
+    "EG": "UPSTREAM_TOPOLOGY_INVALID",
+    "UM": "NO_UNAMBIGUOUS_ISO_MAP_UNIT"
+  },
+  "unmapped_map_units": 18,
+  "upstream_commit": "f1890d9f152c896d250a77557a5751a93d494776",
+  "upstream_sha256": "57da82be755f4afccd8f3b14251bb2752f5df1395f47d2d86f817470c4a48862",
+  "worldview": "de facto, snapshot only; no legal sovereignty conclusion",
+  "transformation": "Group map units by ISO_A2_EH; PostGIS ST_UnaryUnion of valid components; no repair, reprojection or simplification",
+  "preparation_postgis": "POSTGIS=\"3.5.2 dea6d0a\" [EXTENSION] PGSQL=\"170\" GEOS=\"3.13.1-CAPI-1.19.2\" PROJ=\"9.6.0 NETWORK_ENABLED=OFF URL_ENDPOINT=https://cdn.proj.org USER_WRITABLE_DIRECTORY=/var/lib/postgresql/.local/share/proj DATABASE_PATH=/usr/share/proj/proj.db\" (compiled against PROJ 9.5.1) LIBXML=\"2.9.14\" LIBJSON=\"0.18\" LIBPROTOBUF=\"1.5.1\" WAGYU=\"0.5.0 (Internal)\"",
+  "accuracy_m": null,
+  "regulatory_verdict": false
+}

@@ -1,0 +1,2879 @@
+{
+  "dataset": "Natural Earth 1:10m Admin 0 Map Units",
+  "repository_tag": "v5.1.2",
+  "upstream_commit": "f1890d9f152c896d250a77557a5751a93d494776",
+  "upstream_sha256": "57da82be755f4afccd8f3b14251bb2752f5df1395f47d2d86f817470c4a48862",
+  "retrieved_on": "2026-09-28",
+  "worldview": "de facto, snapshot only; no legal sovereignty conclusion",
+  "transformation": "Group map units by ISO_A2_EH; PostGIS ST_UnaryUnion of valid components; no repair, reprojection or simplification",
+  "countries": {
+    "AD": {
+      "iso3": "AND",
+      "sha256": "5e505e64592701840b7148727647df96be7fd7a8b92e4fd7ad70447908d8b09a",
+      "positions": 51,
+      "map_units": [
+        "Andorra"
+      ],
+      "ne_ids": [
+        "1159320327"
+      ]
+    },
+    "AE": {
+      "iso3": "ARE",
+      "sha256": "5dd87b2773e37973c25af7636b7f9e19d48df6767f3db83440b4c40134e49b1a",
+      "positions": 798,
+      "map_units": [
+        "United Arab Emirates"
+      ],
+      "ne_ids": [
+        "1159320329"
+      ]
+    },
+    "AF": {
+      "iso3": "AFG",
+      "sha256": "0a0dd95e41ce43b6bde68aae33ffed8cfc9f310645556789b6d360539c68ed9b",
+      "positions": 1530,
+      "map_units": [
+        "Afghanistan"
+      ],
+      "ne_ids": [
+        "1159320319"
+      ]
+    },
+    "AG": {
+      "iso3": "ATG",
+      "sha256": "4e7b461d5b1a76dba725c2e70c385c2d613096978c148addb1211281ffc63f9d",
+      "positions": 118,
+      "map_units": [
+        "Antigua",
+        "Barbuda"
+      ],
+      "ne_ids": [
+        "1159320347",
+        "1159320349"
+      ]
+    },
+    "AI": {
+      "iso3": "AIA",
+      "sha256": "0ca8fccef4639049b15af4f7655e93881a6b94716c008f218f233768c7a85aa3",
+      "positions": 64,
+      "map_units": [
+        "Anguilla"
+      ],
+      "ne_ids": [
+        "1159320703"
+      ]
+    },
+    "AL": {
+      "iso3": "ALB",
+      "sha256": "c62695672eeb33ee02aededf84ba18b3f748f18c744148cb6752432da5e6002d",
+      "positions": 554,
+      "map_units": [
+        "Albania"
+      ],
+      "ne_ids": [
+        "1159320325"
+      ]
+    },
+    "AM": {
+      "iso3": "ARM",
+      "sha256": "e2ec50a2665c94a418ed083713bfb7fb795e94577296e70d699ebd324ee66351",
+      "positions": 434,
+      "map_units": [
+        "Armenia"
+      ],
+      "ne_ids": [
+        "1159320333"
+      ]
+    },
+    "AO": {
+      "iso3": "AGO",
+      "sha256": "f30c9c6f03e665064567532258b9d53c7f7d7e1b811ac501e3e00c45eb792f3e",
+      "positions": 1643,
+      "map_units": [
+        "Angola"
+      ],
+      "ne_ids": [
+        "1159320323"
+      ]
+    },
+    "AR": {
+      "iso3": "ARG",
+      "sha256": "d9fe6fe734001c0705327ab4877cdbf3e5629ef18053a01e4762b890d3872ef1",
+      "positions": 4674,
+      "map_units": [
+        "Argentina"
+      ],
+      "ne_ids": [
+        "1159320331"
+      ]
+    },
+    "AS": {
+      "iso3": "ASM",
+      "sha256": "bdf53ea9c586fd9c0e6d7abf44c677659ab21cbd543fc00297c690ba2e077954",
+      "positions": 61,
+      "map_units": [
+        "American Samoa"
+      ],
+      "ne_ids": [
+        "1159321357"
+      ]
+    },
+    "AT": {
+      "iso3": "AUT",
+      "sha256": "a7dfec8c24c6df5132766f429c0302abcbd015db10794a39d3f4a66039c31cb7",
+      "positions": 1094,
+      "map_units": [
+        "Austria"
+      ],
+      "ne_ids": [
+        "1159320379"
+      ]
+    },
+    "AU": {
+      "iso3": "AUS",
+      "sha256": "e4dee7b9935c565e6cad68c90607c1f55b3e5b933864911cc34ed19ec7c6cd7b",
+      "positions": 13659,
+      "map_units": [
+        "Australia",
+        "Coral Sea Islands",
+        "Ashmore and Cartier Islands"
+      ],
+      "ne_ids": [
+        "1159320355",
+        "1159320359",
+        "1159320353"
+      ]
+    },
+    "AW": {
+      "iso3": "ABW",
+      "sha256": "fb6018eaf8c03defde71eb694459db85c10d1b9e4275c61dae12425236955998",
+      "positions": 26,
+      "map_units": [
+        "Aruba"
+      ],
+      "ne_ids": [
+        "1159321097"
+      ]
+    },
+    "AX": {
+      "iso3": "ALA",
+      "sha256": "a311a99a9a4bbc9ee59833c485fe335aaa104fcf2387df0537072a33e4767835",
+      "positions": 472,
+      "map_units": [
+        "Aland"
+      ],
+      "ne_ids": [
+        "1159320621"
+      ]
+    },
+    "AZ": {
+      "iso3": "AZE",
+      "sha256": "404551f4288158afee02a484049bae5e8f2a961e6d510dd3c8dfaedd6b5e0db7",
+      "positions": 957,
+      "map_units": [
+        "Azerbaijan"
+      ],
+      "ne_ids": [
+        "1159320381"
+      ]
+    },
+    "BA": {
+      "iso3": "BIH",
+      "sha256": "091ae914aefe3f0d351484f05622b303836d440cc19c2671583ab416bc1f2d57",
+      "positions": 616,
+      "map_units": [
+        "Bosnia and Herzegovina",
+        "Republic Srpska",
+        "Brcko District"
+      ],
+      "ne_ids": [
+        "1159320421",
+        "1159320423",
+        "1159320419"
+      ]
+    },
+    "BB": {
+      "iso3": "BRB",
+      "sha256": "dfe931b6b2076a42de53d9d8afa9f61fd25cbf544ec00caa0b8bb7afc54e18bb",
+      "positions": 35,
+      "map_units": [
+        "Barbados"
+      ],
+      "ne_ids": [
+        "1159320449"
+      ]
+    },
+    "BD": {
+      "iso3": "BGD",
+      "sha256": "c279e33070c4ce203a8ef8a33f11ad5927ce976a8a9109cb099cc099ccb42d09",
+      "positions": 2280,
+      "map_units": [
+        "Bangladesh"
+      ],
+      "ne_ids": [
+        "1159320407"
+      ]
+    },
+    "BE": {
+      "iso3": "BEL",
+      "sha256": "245886435bb73766c7af91990657949cc9819237194d5f6828ce01319de4e2ef",
+      "positions": 648,
+      "map_units": [
+        "Flemish Region",
+        "Walloon Region",
+        "Brussels Capital Region"
+      ],
+      "ne_ids": [
+        "1159320395",
+        "1159320397",
+        "1159320391"
+      ]
+    },
+    "BF": {
+      "iso3": "BFA",
+      "sha256": "d58fc15882cf7b05497f2f956a88d4444e057f446d7a3696282d049ba920c5a3",
+      "positions": 1110,
+      "map_units": [
+        "Burkina Faso"
+      ],
+      "ne_ids": [
+        "1159320405"
+      ]
+    },
+    "BG": {
+      "iso3": "BGR",
+      "sha256": "da974a3a1bb8820bc55d6fe7c3f332b5e6d02a753ca94c90ea6344a6a55e823b",
+      "positions": 879,
+      "map_units": [
+        "Bulgaria"
+      ],
+      "ne_ids": [
+        "1159320409"
+      ]
+    },
+    "BH": {
+      "iso3": "BHR",
+      "sha256": "80e5e71d39885c3b1718a4ab8ced6582d36352a4629d1ba322b22a6bfc8c6e1d",
+      "positions": 147,
+      "map_units": [
+        "Bahrain"
+      ],
+      "ne_ids": [
+        "1159320413"
+      ]
+    },
+    "BI": {
+      "iso3": "BDI",
+      "sha256": "54e9754283dcbd94292c5c63b6e9322d116e50a7735848180fdf04e033c069af",
+      "positions": 307,
+      "map_units": [
+        "Burundi"
+      ],
+      "ne_ids": [
+        "1159320387"
+      ]
+    },
+    "BJ": {
+      "iso3": "BEN",
+      "sha256": "c940351790575261078fa86a30c0bc444e06711734bac4c79f9d498281b0ad37",
+      "positions": 616,
+      "map_units": [
+        "Benin"
+      ],
+      "ne_ids": [
+        "1159320399"
+      ]
+    },
+    "BL": {
+      "iso3": "BLM",
+      "sha256": "13f08aacaba4b0042f2be7164636228762092c19f8bbccf8ae13deb8fe63da45",
+      "positions": 11,
+      "map_units": [
+        "Saint Barthelemy"
+      ],
+      "ne_ids": [
+        "1159320633"
+      ]
+    },
+    "BM": {
+      "iso3": "BMU",
+      "sha256": "0cebfe5bb1497ec399f6139206cd01f7a29f80fc1e9e154598d9a4ab537fec58",
+      "positions": 85,
+      "map_units": [
+        "Bermuda"
+      ],
+      "ne_ids": [
+        "1159320705"
+      ]
+    },
+    "BN": {
+      "iso3": "BRN",
+      "sha256": "f64dcb6a98c1669d881516f17bea3a431eb251301e76143cdcdd75a300a83e09",
+      "positions": 156,
+      "map_units": [
+        "Brunei"
+      ],
+      "ne_ids": [
+        "1159320451"
+      ]
+    },
+    "BO": {
+      "iso3": "BOL",
+      "sha256": "8d36bf3d09a9c2d970f85010a3199cc41f6155eabb9727fa5150ff945b1ae09c",
+      "positions": 1491,
+      "map_units": [
+        "Bolivia"
+      ],
+      "ne_ids": [
+        "1159320439"
+      ]
+    },
+    "BQ": {
+      "iso3": "BES",
+      "sha256": "ce3ba519bfa6e6442b3b997b49496a30cc31b3fee1c033e0f8f830c9941823f2",
+      "positions": 63,
+      "map_units": [
+        "Caribbean Netherlands"
+      ],
+      "ne_ids": [
+        "1159321107"
+      ]
+    },
+    "BR": {
+      "iso3": "BRA",
+      "sha256": "2302f12bc5ef79638c491591652a0d4c2ce9167729996389b30976f68ca665ed",
+      "positions": 11123,
+      "map_units": [
+        "Brazil",
+        "Brazilian Island"
+      ],
+      "ne_ids": [
+        "1159320441",
+        "1729632181"
+      ]
+    },
+    "BS": {
+      "iso3": "BHS",
+      "sha256": "f247feb6fbde1d7838ee9b2126d8405492d1565adfb48a3f49b4c1a790eb78ac",
+      "positions": 1629,
+      "map_units": [
+        "The Bahamas"
+      ],
+      "ne_ids": [
+        "1159320415"
+      ]
+    },
+    "BT": {
+      "iso3": "BTN",
+      "sha256": "9f5f1a05f4d35b80c91f1a65ddf096bc138d232a5207a8a49d7c7a12718acd9b",
+      "positions": 327,
+      "map_units": [
+        "Bhutan"
+      ],
+      "ne_ids": [
+        "1159320453"
+      ]
+    },
+    "BV": {
+      "iso3": "BVT",
+      "sha256": "d5206a47596ace06f9bff2589567afb3386ef887255b1c3e48e85df63d26b57e",
+      "positions": 18,
+      "map_units": [
+        "Bouvet Island"
+      ],
+      "ne_ids": [
+        "1159321111"
+      ]
+    },
+    "BW": {
+      "iso3": "BWA",
+      "sha256": "8b8c1ef72bd0066062fa0948b6ff7ddf8a5011fa63ebdad23162a21b588e890b",
+      "positions": 956,
+      "map_units": [
+        "Botswana"
+      ],
+      "ne_ids": [
+        "1159320461"
+      ]
+    },
+    "BY": {
+      "iso3": "BLR",
+      "sha256": "30b58d3349b7a22a57a85c1f467ae85a6f07e631a79f32d8a35c55a705dbb232",
+      "positions": 1173,
+      "map_units": [
+        "Belarus"
+      ],
+      "ne_ids": [
+        "1159320427"
+      ]
+    },
+    "BZ": {
+      "iso3": "BLZ",
+      "sha256": "846a747f7937676f306f4a23b627b676cc62e23734d602d91517e339454b75f0",
+      "positions": 493,
+      "map_units": [
+        "Belize"
+      ],
+      "ne_ids": [
+        "1159320431"
+      ]
+    },
+    "CA": {
+      "iso3": "CAN",
+      "sha256": "ef4eec6e83f0b26c765aa3b91c616e6916b06937acbb4f022ad5a8bcb2ec7d8e",
+      "positions": 68193,
+      "map_units": [
+        "Canada"
+      ],
+      "ne_ids": [
+        "1159320467"
+      ]
+    },
+    "CC": {
+      "iso3": "CCK",
+      "sha256": "0a32ea9c3f17b718e740d97e9e8611e6ff9348c71426aa9cc62b6810165c5d2d",
+      "positions": 26,
+      "map_units": [
+        "Cocos (Keeling) Islands"
+      ],
+      "ne_ids": [
+        "1159320367"
+      ]
+    },
+    "CD": {
+      "iso3": "COD",
+      "sha256": "9061c0fe5248e32e701ad1d650a7989839432f348a33a1207173e96b09fdb4ce",
+      "positions": 2868,
+      "map_units": [
+        "Democratic Republic of the Congo"
+      ],
+      "ne_ids": [
+        "1159320513"
+      ]
+    },
+    "CF": {
+      "iso3": "CAF",
+      "sha256": "1571cd82127700d6e273c775a3f879644ef83aadfef083e1f3a65b28890988c2",
+      "positions": 1792,
+      "map_units": [
+        "Central African Republic"
+      ],
+      "ne_ids": [
+        "1159320463"
+      ]
+    },
+    "CG": {
+      "iso3": "COG",
+      "sha256": "09d4c14e47282e1f0ef33d7400d3e8eb5bed8e81bbc082c39f261f3003cecbfe",
+      "positions": 1345,
+      "map_units": [
+        "Republic of the Congo"
+      ],
+      "ne_ids": [
+        "1159320515"
+      ]
+    },
+    "CH": {
+      "iso3": "CHE",
+      "sha256": "f0c1623250431790da5b2bdcb2b8ed1ddd305c2d4d43b4c80494167121742a78",
+      "positions": 749,
+      "map_units": [
+        "Switzerland"
+      ],
+      "ne_ids": [
+        "1159320491"
+      ]
+    },
+    "CI": {
+      "iso3": "CIV",
+      "sha256": "23b29d2d830a55053902205b8276b5064e64f1a25f5fde257ba34c3cb4753edc",
+      "positions": 1599,
+      "map_units": [
+        "Ivory Coast"
+      ],
+      "ne_ids": [
+        "1159320507"
+      ]
+    },
+    "CK": {
+      "iso3": "COK",
+      "sha256": "45d0165ef265dd6aad13ea2affff5438400f55c4084f7c82f34982f919ca23c0",
+      "positions": 131,
+      "map_units": [
+        "Cook Islands"
+      ],
+      "ne_ids": [
+        "1159321129"
+      ]
+    },
+    "CL": {
+      "iso3": "CHL",
+      "sha256": "ddf1e0ca4cdc7280059d6282c523b93b54f64cd03af8552d7625b5264e8be4aa",
+      "positions": 17197,
+      "map_units": [
+        "Chile"
+      ],
+      "ne_ids": [
+        "1159320493"
+      ]
+    },
+    "CM": {
+      "iso3": "CMR",
+      "sha256": "deec87249addd34aeb589025a3e3110d0317ff369e677064ef03863d2db20012",
+      "positions": 1456,
+      "map_units": [
+        "Cameroon"
+      ],
+      "ne_ids": [
+        "1159320509"
+      ]
+    },
+    "CN": {
+      "iso3": "CHN",
+      "sha256": "23e516ac4cc3c629f92628125df45aa375c6db8a379d194504ad981653b3abbb",
+      "positions": 14062,
+      "map_units": [
+        "China"
+      ],
+      "ne_ids": [
+        "1159320471"
+      ]
+    },
+    "CO": {
+      "iso3": "COL",
+      "sha256": "c0fd85b3d060b746a4aebf21b0657f3fa5b1c5342feb80244766afed2e970852",
+      "positions": 3286,
+      "map_units": [
+        "Colombia"
+      ],
+      "ne_ids": [
+        "1159320517"
+      ]
+    },
+    "CR": {
+      "iso3": "CRI",
+      "sha256": "f8dff5b9816ed68d3cbd019436389459191e5a09104b3e8298190549df9a9370",
+      "positions": 827,
+      "map_units": [
+        "Costa Rica"
+      ],
+      "ne_ids": [
+        "1159320525"
+      ]
+    },
+    "CU": {
+      "iso3": "CUB",
+      "sha256": "d0ac19a00286a98319cf8d5a37c867c6996ed1481adea1a8b40365e499bff8a4",
+      "positions": 2697,
+      "map_units": [
+        "Cuba"
+      ],
+      "ne_ids": [
+        "1159320527"
+      ]
+    },
+    "CV": {
+      "iso3": "CPV",
+      "sha256": "becf4f5f3e350b74842e469c2f1a9db1cf3168f3bbce761b19e88af62e437823",
+      "positions": 433,
+      "map_units": [
+        "Cabo Verde"
+      ],
+      "ne_ids": [
+        "1159320523"
+      ]
+    },
+    "CW": {
+      "iso3": "CUW",
+      "sha256": "b4a817bc6d79a9a24dc4ee4c1172857def58b8a436af207a6b48c538f8cab76d",
+      "positions": 44,
+      "map_units": [
+        "Curaçao"
+      ],
+      "ne_ids": [
+        "1159321099"
+      ]
+    },
+    "CX": {
+      "iso3": "CXR",
+      "sha256": "92279bb559828dc2de62fb8dfa9b229d8db697d72874aeb923e8acbbe49dcf64",
+      "positions": 28,
+      "map_units": [
+        "Christmas Island"
+      ],
+      "ne_ids": [
+        "1159320369"
+      ]
+    },
+    "CY": {
+      "iso3": "CYP",
+      "sha256": "085e0af726633b927dbaa572bcabf8550357471f9ee35b94cd1e184789049e30",
+      "positions": 301,
+      "map_units": [
+        "Cyprus"
+      ],
+      "ne_ids": [
+        "1159320533"
+      ]
+    },
+    "CZ": {
+      "iso3": "CZE",
+      "sha256": "0f1aaacbf8ff3bce7be5705678048e66ca1ccfcb27cef3018c7b1f4da94b1d66",
+      "positions": 922,
+      "map_units": [
+        "Czechia"
+      ],
+      "ne_ids": [
+        "1159320535"
+      ]
+    },
+    "DE": {
+      "iso3": "DEU",
+      "sha256": "246802aa4e57440de6dfa93ffbd20c993eeff57260bc130e0c1bc59c8e2ed00d",
+      "positions": 3027,
+      "map_units": [
+        "Germany"
+      ],
+      "ne_ids": [
+        "1159320539"
+      ]
+    },
+    "DJ": {
+      "iso3": "DJI",
+      "sha256": "8c6c1750c6c02bb33a26d310d8b75e7ef53f75142382057922c5d06409b5b646",
+      "positions": 209,
+      "map_units": [
+        "Djibouti"
+      ],
+      "ne_ids": [
+        "1159320541"
+      ]
+    },
+    "DK": {
+      "iso3": "DNK",
+      "sha256": "375c631aa048f541a1779a23595855d625f8ccf91baf3e504e90b6a60cb9e377",
+      "positions": 2180,
+      "map_units": [
+        "Denmark"
+      ],
+      "ne_ids": [
+        "1159320547"
+      ]
+    },
+    "DM": {
+      "iso3": "DMA",
+      "sha256": "1a209936dcbb8d3ea4c9302a0548d8fc4494bf09cc177717eeedbbfaa0a30c34",
+      "positions": 75,
+      "map_units": [
+        "Dominica"
+      ],
+      "ne_ids": [
+        "1159320543"
+      ]
+    },
+    "DO": {
+      "iso3": "DOM",
+      "sha256": "c89e039a2328800951b418ec074e952dd3cb39f6fc8f0f1a48027bd0923b5f3c",
+      "positions": 580,
+      "map_units": [
+        "Dominican Republic"
+      ],
+      "ne_ids": [
+        "1159320563"
+      ]
+    },
+    "DZ": {
+      "iso3": "DZA",
+      "sha256": "26eade27506bde80cc6c8981c7a0b1038c1984428d5a329a3f1c15832f1412e5",
+      "positions": 1249,
+      "map_units": [
+        "Algeria"
+      ],
+      "ne_ids": [
+        "1159320565"
+      ]
+    },
+    "EC": {
+      "iso3": "ECU",
+      "sha256": "df8459fe4b7de8483d110763a7b76e9d127a658f526881cae603baed55c5eae3",
+      "positions": 1513,
+      "map_units": [
+        "Ecuador"
+      ],
+      "ne_ids": [
+        "1159320567"
+      ]
+    },
+    "EE": {
+      "iso3": "EST",
+      "sha256": "6869cb82100ac2d33d788d0efe4d3186a1895dc4197632f335aafb8455010498",
+      "positions": 1044,
+      "map_units": [
+        "Estonia"
+      ],
+      "ne_ids": [
+        "1159320615"
+      ]
+    },
+    "EH": {
+      "iso3": "ESH",
+      "sha256": "9d0e42ad3fdd68f3d07ed187e5c4d14bce60d73a9f091eaddff0ad65705267bb",
+      "positions": 288,
+      "map_units": [
+        "Western Sahara"
+      ],
+      "ne_ids": [
+        "1159321223"
+      ]
+    },
+    "ER": {
+      "iso3": "ERI",
+      "sha256": "4ed4a2a87243c35e652dff9c357318b8e6a471929d081d5d7ef6edcd518c4488",
+      "positions": 1010,
+      "map_units": [
+        "Eritrea"
+      ],
+      "ne_ids": [
+        "1159320581"
+      ]
+    },
+    "ES": {
+      "iso3": "ESP",
+      "sha256": "4e4e00b177864d7a46a9e7061ca4971bf71a321191bc64db753a9959e630b823",
+      "positions": 2978,
+      "map_units": [
+        "Spain"
+      ],
+      "ne_ids": [
+        "1159320587"
+      ]
+    },
+    "ET": {
+      "iso3": "ETH",
+      "sha256": "cb4af09ab9f0274afdddabf18e5fb49d8e9e6e02b13788246b8361d36bc94c86",
+      "positions": 1074,
+      "map_units": [
+        "Ethiopia"
+      ],
+      "ne_ids": [
+        "1159320617"
+      ]
+    },
+    "FI": {
+      "iso3": "FIN",
+      "sha256": "715cc19ab25f2ff8bc94a55caecf9c516efb12613d65b97e2d49787314ff598d",
+      "positions": 3225,
+      "map_units": [
+        "Finland"
+      ],
+      "ne_ids": [
+        "1159320623"
+      ]
+    },
+    "FJ": {
+      "iso3": "FJI",
+      "sha256": "029c2efabc8ebe560960af703b4057f3f27d323bfb9103a030c1bf39a241cd2a",
+      "positions": 1476,
+      "map_units": [
+        "Fiji"
+      ],
+      "ne_ids": [
+        "1159320625"
+      ]
+    },
+    "FK": {
+      "iso3": "FLK",
+      "sha256": "79f948c73f5fb92d4e0b10b566cb2503eaca675738c6b2299c6c7fff09a589fc",
+      "positions": 1340,
+      "map_units": [
+        "Falkland Islands"
+      ],
+      "ne_ids": [
+        "1159320711"
+      ]
+    },
+    "FM": {
+      "iso3": "FSM",
+      "sha256": "4ea38c1d7793c3e0c13bdadb80c9351a35dea1498bd8beb04232e5fc18c2751b",
+      "positions": 254,
+      "map_units": [
+        "Federated States of Micronesia"
+      ],
+      "ne_ids": [
+        "1159320691"
+      ]
+    },
+    "FO": {
+      "iso3": "FRO",
+      "sha256": "d53236f01fa4487e9ee84d56778d9e5248a37c4af0cf456928f860419af314c1",
+      "positions": 485,
+      "map_units": [
+        "Faroe Islands"
+      ],
+      "ne_ids": [
+        "1159320549"
+      ]
+    },
+    "FR": {
+      "iso3": "FRA",
+      "sha256": "1f1c9d4eee5cd25ad533024c5eabf092637f7bcbbc2915c7993ac080bbbb6cec",
+      "positions": 3679,
+      "map_units": [
+        "France",
+        "Clipperton Island"
+      ],
+      "ne_ids": [
+        "1159320651",
+        "1159320635"
+      ]
+    },
+    "GA": {
+      "iso3": "GAB",
+      "sha256": "9025c67577f0aa7501ddd945ba0a8664b68f403946dccc98ac6d4e9da65fea3f",
+      "positions": 1462,
+      "map_units": [
+        "Gabon"
+      ],
+      "ne_ids": [
+        "1159320693"
+      ]
+    },
+    "GB": {
+      "iso3": "GBR",
+      "sha256": "5c0f0a74f9ad452f42ef3701bd36274100c6186531937ebb54506534ac3c66aa",
+      "positions": 7113,
+      "map_units": [
+        "Northern Ireland",
+        "Wales",
+        "England",
+        "Scotland"
+      ],
+      "ne_ids": [
+        "1159320745",
+        "1159320749",
+        "1159320743",
+        "1159320747"
+      ]
+    },
+    "GD": {
+      "iso3": "GRD",
+      "sha256": "88ed0b48c506b533b48596ad22209f12bb33edde52d9766b1fdd34c21fbbabd2",
+      "positions": 64,
+      "map_units": [
+        "Grenada"
+      ],
+      "ne_ids": [
+        "1159320813"
+      ]
+    },
+    "GE": {
+      "iso3": "GEO",
+      "sha256": "dd14cc40cc4b669c341efbb25601cec752b5a8f9628e6e1ea2f2e7bd3c44ee7a",
+      "positions": 533,
+      "map_units": [
+        "Georgia",
+        "Ajaria"
+      ],
+      "ne_ids": [
+        "1159320783",
+        "1159320781"
+      ]
+    },
+    "GF": {
+      "iso3": "GUF",
+      "sha256": "62c2bb76ec9f601199a7dff1b28d9ebc232feff577a230f1fd26929517607049",
+      "positions": 487,
+      "map_units": [
+        "French Guiana"
+      ],
+      "ne_ids": [
+        "1159320655"
+      ]
+    },
+    "GG": {
+      "iso3": "GGY",
+      "sha256": "d7aa79a7efeacc847ab470fabee7942f713bfaa382265608ead6f3d22c353ca1",
+      "positions": 59,
+      "map_units": [
+        "Guernsey"
+      ],
+      "ne_ids": [
+        "1159320715"
+      ]
+    },
+    "GH": {
+      "iso3": "GHA",
+      "sha256": "2b607f7be5679205356e68a3f6e438d37eb3f49b7ba48d2bac086f3a37a1b1df",
+      "positions": 828,
+      "map_units": [
+        "Ghana"
+      ],
+      "ne_ids": [
+        "1159320793"
+      ]
+    },
+    "GI": {
+      "iso3": "GIB",
+      "sha256": "131aba038b04fc4bf86ba4267f64d14a4684e225c492340de3376fc9fad38da1",
+      "positions": 7,
+      "map_units": [
+        "Gibraltar"
+      ],
+      "ne_ids": [
+        "1159320719"
+      ]
+    },
+    "GL": {
+      "iso3": "GRL",
+      "sha256": "42e542e35c4f4ef1733a80007680012099893535c2dde099d7af0a528e66b8cc",
+      "positions": 20133,
+      "map_units": [
+        "Greenland"
+      ],
+      "ne_ids": [
+        "1159320551"
+      ]
+    },
+    "GM": {
+      "iso3": "GMB",
+      "sha256": "0b17a2f103ab4a49dc144f3186b47b685db82619b4ea0d5531bbfb7532d8fd08",
+      "positions": 406,
+      "map_units": [
+        "Gambia"
+      ],
+      "ne_ids": [
+        "1159320797"
+      ]
+    },
+    "GN": {
+      "iso3": "GIN",
+      "sha256": "2b7ab9869d780827701095299144369776adc9de6bdd41b019953446856b44d4",
+      "positions": 1628,
+      "map_units": [
+        "Guinea"
+      ],
+      "ne_ids": [
+        "1159320795"
+      ]
+    },
+    "GP": {
+      "iso3": "GLP",
+      "sha256": "36d95d5bea33ebc1a25560bb6a92ec1cb10788ceefd367ff8a24e040058c9f3c",
+      "positions": 175,
+      "map_units": [
+        "Guadeloupe"
+      ],
+      "ne_ids": [
+        "1159320653"
+      ]
+    },
+    "GQ": {
+      "iso3": "GNQ",
+      "sha256": "dfb24ff09157cf5da0ebf953eebd3930fdcf476721bb0bc12bea934c546364f1",
+      "positions": 251,
+      "map_units": [
+        "Equatorial Guinea"
+      ],
+      "ne_ids": [
+        "1159320801"
+      ]
+    },
+    "GR": {
+      "iso3": "GRC",
+      "sha256": "0cbac99f9a56ca21da373bcea8a9d51d6a75553c55ec0d7bfcdb5d9e06fc3b32",
+      "positions": 6096,
+      "map_units": [
+        "Greece"
+      ],
+      "ne_ids": [
+        "1159320811"
+      ]
+    },
+    "GS": {
+      "iso3": "SGS",
+      "sha256": "0be87f6fa44b5ff9e857f5b1af152421425263a330e5d10e41f512ea9fee188f",
+      "positions": 586,
+      "map_units": [
+        "South Georgia and the Islands"
+      ],
+      "ne_ids": [
+        "1159320731"
+      ]
+    },
+    "GT": {
+      "iso3": "GTM",
+      "sha256": "1ebf06809b17cdc61658ab1b24d153e36b7e541f47a3bd477ed278466da4b250",
+      "positions": 459,
+      "map_units": [
+        "Guatemala"
+      ],
+      "ne_ids": [
+        "1159320815"
+      ]
+    },
+    "GU": {
+      "iso3": "GUM",
+      "sha256": "81ae75b7b165380f01850b9612477a0ae1cfcda4e66b67ebda07e3bcee4cdacc",
+      "positions": 49,
+      "map_units": [
+        "Guam"
+      ],
+      "ne_ids": [
+        "1159321359"
+      ]
+    },
+    "GW": {
+      "iso3": "GNB",
+      "sha256": "fd703bbd5131ccd57d14c3fc3549063fb927c238c29d0ad881a64706b072d6d8",
+      "positions": 1282,
+      "map_units": [
+        "Guinea-Bissau"
+      ],
+      "ne_ids": [
+        "1159320799"
+      ]
+    },
+    "GY": {
+      "iso3": "GUY",
+      "sha256": "29139c5a59d3761837090cb17702d6c3ac651424295a9a448fd81d75b520e0df",
+      "positions": 1121,
+      "map_units": [
+        "Guyana"
+      ],
+      "ne_ids": [
+        "1159320817"
+      ]
+    },
+    "HK": {
+      "iso3": "HKG",
+      "sha256": "8c88aa8acc21d63c40b95168c40788864f37b542da4da1d828a487cf838c30a4",
+      "positions": 398,
+      "map_units": [
+        "Hong Kong S.A.R."
+      ],
+      "ne_ids": [
+        "1159320473"
+      ]
+    },
+    "HM": {
+      "iso3": "HMD",
+      "sha256": "ab3df99b5f246febe623a370fa40f72647c6ee4cc505ee9d057977663da28992",
+      "positions": 54,
+      "map_units": [
+        "Heard Island and McDonald Islands"
+      ],
+      "ne_ids": [
+        "1159320361"
+      ]
+    },
+    "HN": {
+      "iso3": "HND",
+      "sha256": "91a11ff6cde98042252bc0aeb819dee2453ad5d623420198f1394ea37be40761",
+      "positions": 1184,
+      "map_units": [
+        "Honduras"
+      ],
+      "ne_ids": [
+        "1159320827"
+      ]
+    },
+    "HR": {
+      "iso3": "HRV",
+      "sha256": "46a956082a346160c5dbf1c5783fc0f4617c462f0c876831892df82cbb49e3e4",
+      "positions": 2341,
+      "map_units": [
+        "Croatia"
+      ],
+      "ne_ids": [
+        "1159320833"
+      ]
+    },
+    "HT": {
+      "iso3": "HTI",
+      "sha256": "a6f4bdb5d48314fbdf2e0d4ab48d67c41464090a00beae09e2db56d3286eb47a",
+      "positions": 652,
+      "map_units": [
+        "Haiti"
+      ],
+      "ne_ids": [
+        "1159320839"
+      ]
+    },
+    "HU": {
+      "iso3": "HUN",
+      "sha256": "4f9824f50003f549882409728086afb1113e8e1bf6756ec45710a44300cf3198",
+      "positions": 848,
+      "map_units": [
+        "Hungary"
+      ],
+      "ne_ids": [
+        "1159320841"
+      ]
+    },
+    "ID": {
+      "iso3": "IDN",
+      "sha256": "9a98d4922412f0fb73b4f492496aca9e86f1478f515689edf067004d4da3b1ab",
+      "positions": 19564,
+      "map_units": [
+        "Indonesia"
+      ],
+      "ne_ids": [
+        "1159320845"
+      ]
+    },
+    "IE": {
+      "iso3": "IRL",
+      "sha256": "8a6ff2c68be37c914307339642bc163ee9c66855e5adba06ac8c7b82770e109b",
+      "positions": 2394,
+      "map_units": [
+        "Ireland"
+      ],
+      "ne_ids": [
+        "1159320877"
+      ]
+    },
+    "IL": {
+      "iso3": "ISR",
+      "sha256": "6181293249912317ba41c38fac9746349e03308891c9b5df175021a85f93c324",
+      "positions": 471,
+      "map_units": [
+        "Israel"
+      ],
+      "ne_ids": [
+        "1159320895"
+      ]
+    },
+    "IM": {
+      "iso3": "IMN",
+      "sha256": "7b5523b1beb1d009cddaa9f3b1722d0ac6797b36c330f0134b09724495ca15bf",
+      "positions": 73,
+      "map_units": [
+        "Isle of Man"
+      ],
+      "ne_ids": [
+        "1159320721"
+      ]
+    },
+    "IN": {
+      "iso3": "IND",
+      "sha256": "2aff30f421742de2de69c6a6fd902f46d52e9bb771b1efb2baac5d07e5abe3f4",
+      "positions": 7737,
+      "map_units": [
+        "India"
+      ],
+      "ne_ids": [
+        "1159320847"
+      ]
+    },
+    "IO": {
+      "iso3": "IOT",
+      "sha256": "b810024c0c967fe265bcdecc72d8b4f368f6d4d91192c5439a7f1fb9dc7d7af0",
+      "positions": 102,
+      "map_units": [
+        "British Indian Ocean Territory"
+      ],
+      "ne_ids": [
+        "1159320723"
+      ]
+    },
+    "IQ": {
+      "iso3": "IRQ",
+      "sha256": "19f110fe585395db3382e695d69139b3f89d5363592056c2a122f741c08f841e",
+      "positions": 841,
+      "map_units": [
+        "Iraqi Kurdistan",
+        "Iraq"
+      ],
+      "ne_ids": [
+        "1159320889",
+        "1159320891"
+      ]
+    },
+    "IR": {
+      "iso3": "IRN",
+      "sha256": "3f8d6923025df8a9da1029adf088845e8ca2269cd3afb6390e724dee5cda8d97",
+      "positions": 2728,
+      "map_units": [
+        "Iran"
+      ],
+      "ne_ids": [
+        "1159320881"
+      ]
+    },
+    "IS": {
+      "iso3": "ISL",
+      "sha256": "9d321ce1dcc858ebb5aea37b5e63eb2dc2d939a27a3ba771aa309cdeaa57b130",
+      "positions": 3117,
+      "map_units": [
+        "Iceland"
+      ],
+      "ne_ids": [
+        "1159320917"
+      ]
+    },
+    "IT": {
+      "iso3": "ITA",
+      "sha256": "bad3e7f81893b010c0cdfffe04c1fa4d2219998a26ad91993097b350b7710710",
+      "positions": 3361,
+      "map_units": [
+        "Italy"
+      ],
+      "ne_ids": [
+        "1159320919"
+      ]
+    },
+    "JE": {
+      "iso3": "JEY",
+      "sha256": "2f1eb7b2332dd4b528f67d38c965096cfe6372864b58b1d3cc1fc29082405e95",
+      "positions": 47,
+      "map_units": [
+        "Jersey"
+      ],
+      "ne_ids": [
+        "1159320725"
+      ]
+    },
+    "JM": {
+      "iso3": "JAM",
+      "sha256": "e5317a255ece2565bd45df69146d6412d47b2be8e4d2abf2e8c7d740efcb4eff",
+      "positions": 254,
+      "map_units": [
+        "Jamaica"
+      ],
+      "ne_ids": [
+        "1159320931"
+      ]
+    },
+    "JO": {
+      "iso3": "JOR",
+      "sha256": "60a8975af18818076940b0c6a0aab7f88579f48bca97086bdb15330edb47b0e7",
+      "positions": 364,
+      "map_units": [
+        "Jordan"
+      ],
+      "ne_ids": [
+        "1159320935"
+      ]
+    },
+    "JP": {
+      "iso3": "JPN",
+      "sha256": "21124e33c3f65d46f2ff0e978e5a20049707f7b6ac41c1d9d764dfeca868a30a",
+      "positions": 6952,
+      "map_units": [
+        "Japan"
+      ],
+      "ne_ids": [
+        "1159320937"
+      ]
+    },
+    "KE": {
+      "iso3": "KEN",
+      "sha256": "c31e755775ae60e3d1fe7f214dc726c5765b813e97a23c482ea0b1449930b4a0",
+      "positions": 876,
+      "map_units": [
+        "Kenya"
+      ],
+      "ne_ids": [
+        "1159320971"
+      ]
+    },
+    "KG": {
+      "iso3": "KGZ",
+      "sha256": "66277cb9414264c206f3a910f6b51d32e68556a7e63cf68964030db126693e09",
+      "positions": 1206,
+      "map_units": [
+        "Kyrgyzstan"
+      ],
+      "ne_ids": [
+        "1159320977"
+      ]
+    },
+    "KH": {
+      "iso3": "KHM",
+      "sha256": "b8cca1591620e67f537eb663953715d9c5eba7bf7b1f9bc120a77393e8eeeb3c",
+      "positions": 1209,
+      "map_units": [
+        "Cambodia"
+      ],
+      "ne_ids": [
+        "1159320979"
+      ]
+    },
+    "KI": {
+      "iso3": "KIR",
+      "sha256": "00b1d3f4dcc603300a29b24631febc59ec343b69cef74723fc918387d190c446",
+      "positions": 709,
+      "map_units": [
+        "Kiribati"
+      ],
+      "ne_ids": [
+        "1159320981"
+      ]
+    },
+    "KM": {
+      "iso3": "COM",
+      "sha256": "52c9f6da02b8d86d20ebeecb2f0575608b7b91f8d35856ef8bdf8fe92190772a",
+      "positions": 127,
+      "map_units": [
+        "Comoros"
+      ],
+      "ne_ids": [
+        "1159320521"
+      ]
+    },
+    "KN": {
+      "iso3": "KNA",
+      "sha256": "03d209144b53ec72a08f06adfe35982c2df31f92d214f9ba58be718c9f34a6a1",
+      "positions": 43,
+      "map_units": [
+        "Saint Kitts and Nevis"
+      ],
+      "ne_ids": [
+        "1159320983"
+      ]
+    },
+    "KP": {
+      "iso3": "PRK",
+      "sha256": "17f5940b164e4acb4724212463088f4813098f9988a50e4931a37706f137bb68",
+      "positions": 1782,
+      "map_units": [
+        "North Korea"
+      ],
+      "ne_ids": [
+        "1159321181"
+      ]
+    },
+    "KR": {
+      "iso3": "KOR",
+      "sha256": "70e2ec25441dd811babcab8e3a7d88b074590a885f74843cc095d95c8fa40b20",
+      "positions": 3060,
+      "map_units": [
+        "South Korea"
+      ],
+      "ne_ids": [
+        "1159320985"
+      ]
+    },
+    "KW": {
+      "iso3": "KWT",
+      "sha256": "4f90a53b0bfb52f06e00f0e94e2b8babd3d7cf9563e6b0f7d30b9b1b8993f26d",
+      "positions": 248,
+      "map_units": [
+        "Kuwait"
+      ],
+      "ne_ids": [
+        "1159321009"
+      ]
+    },
+    "KY": {
+      "iso3": "CYM",
+      "sha256": "6be8b0757c23257f100bc667ef4f4bdb5d617f9f3293f51c05afbf96a96d83a8",
+      "positions": 81,
+      "map_units": [
+        "Cayman Islands"
+      ],
+      "ne_ids": [
+        "1159320707"
+      ]
+    },
+    "KZ": {
+      "iso3": "KAZ",
+      "sha256": "16a6ae7c6b0ca7f0a9d4ab78c6f36f653718f733920018b50263a3ce30f57b51",
+      "positions": 4146,
+      "map_units": [
+        "Kazakhstan",
+        "Baykonur Cosmodrome"
+      ],
+      "ne_ids": [
+        "1159320967",
+        "1159320965"
+      ]
+    },
+    "LA": {
+      "iso3": "LAO",
+      "sha256": "03767bc980d607b05d94089012c682c5a739328d1081695f28ff397a2c3ae9f9",
+      "positions": 1761,
+      "map_units": [
+        "Laos"
+      ],
+      "ne_ids": [
+        "1159321011"
+      ]
+    },
+    "LB": {
+      "iso3": "LBN",
+      "sha256": "d3ad8e434715c86f74adea3d345476c68516eb7983a52d21aa7245700c5766ff",
+      "positions": 312,
+      "map_units": [
+        "Lebanon"
+      ],
+      "ne_ids": [
+        "1159321013"
+      ]
+    },
+    "LC": {
+      "iso3": "LCA",
+      "sha256": "c3c0f38f86435fab54c9f24734546486ab4338aeaa2f5cad835708f5267df78f",
+      "positions": 50,
+      "map_units": [
+        "Saint Lucia"
+      ],
+      "ne_ids": [
+        "1159321019"
+      ]
+    },
+    "LI": {
+      "iso3": "LIE",
+      "sha256": "deb1c2271c49c5ca1e82905783138c48724866a676a04457e7cd752e24056a6b",
+      "positions": 29,
+      "map_units": [
+        "Liechtenstein"
+      ],
+      "ne_ids": [
+        "1159321021"
+      ]
+    },
+    "LK": {
+      "iso3": "LKA",
+      "sha256": "b83655b1eb073b86d273ea4c798e005c86cfd5999d6adfbf934f2f4307f32784",
+      "positions": 871,
+      "map_units": [
+        "Sri Lanka"
+      ],
+      "ne_ids": [
+        "1159321025"
+      ]
+    },
+    "LR": {
+      "iso3": "LBR",
+      "sha256": "a64d881c8547e65d5e1a54a5b1899a5ac263d5778ea8db06757a36a69c0aa4df",
+      "positions": 698,
+      "map_units": [
+        "Liberia"
+      ],
+      "ne_ids": [
+        "1159321015"
+      ]
+    },
+    "LS": {
+      "iso3": "LSO",
+      "sha256": "0c3f9e288bf76379508d446dd740caea10e566afd791f0a29f64d81c0c51656d",
+      "positions": 324,
+      "map_units": [
+        "Lesotho"
+      ],
+      "ne_ids": [
+        "1159321027"
+      ]
+    },
+    "LT": {
+      "iso3": "LTU",
+      "sha256": "ac7edede129c2ed430446c7024164e8d6a7ba53423b864f92d54b82062f3020b",
+      "positions": 562,
+      "map_units": [
+        "Lithuania"
+      ],
+      "ne_ids": [
+        "1159321029"
+      ]
+    },
+    "LU": {
+      "iso3": "LUX",
+      "sha256": "4cab057249fe223e84c1d30278a1508df79a26d2ce7fa99551461a3c4c50be1d",
+      "positions": 197,
+      "map_units": [
+        "Luxembourg"
+      ],
+      "ne_ids": [
+        "1159321031"
+      ]
+    },
+    "LV": {
+      "iso3": "LVA",
+      "sha256": "aa727a8d038b559f1140e0173e533649326d083af6e69f68f8afebd0a73121d9",
+      "positions": 543,
+      "map_units": [
+        "Latvia"
+      ],
+      "ne_ids": [
+        "1159321033"
+      ]
+    },
+    "LY": {
+      "iso3": "LBY",
+      "sha256": "66546eca6da94361843e3a70e5aaa9f6bd10cab72a27401d245e08e41780c664",
+      "positions": 660,
+      "map_units": [
+        "Libya"
+      ],
+      "ne_ids": [
+        "1159321017"
+      ]
+    },
+    "MA": {
+      "iso3": "MAR",
+      "sha256": "e9b22320cc2853cbe5c1c7c618bf18aca382bdd57b06437a6c7f9a7bd0429d71",
+      "positions": 1019,
+      "map_units": [
+        "Morocco"
+      ],
+      "ne_ids": [
+        "1159321035"
+      ]
+    },
+    "MC": {
+      "iso3": "MCO",
+      "sha256": "13ba6027647ea1bee289253441bb802761fb55808e5d9d86c23b0395c3964c7e",
+      "positions": 12,
+      "map_units": [
+        "Monaco"
+      ],
+      "ne_ids": [
+        "1159321043"
+      ]
+    },
+    "MD": {
+      "iso3": "MDA",
+      "sha256": "679607afa0ad364cc40c5e4f3918115db380c431d66d700155070d15c5447c0e",
+      "positions": 721,
+      "map_units": [
+        "Moldova"
+      ],
+      "ne_ids": [
+        "1159321045"
+      ]
+    },
+    "ME": {
+      "iso3": "MNE",
+      "sha256": "2f8376693002ba9b31f6bacda07fdc54160f78e04bc461244689fbdd72e87031",
+      "positions": 358,
+      "map_units": [
+        "Montenegro"
+      ],
+      "ne_ids": [
+        "1159321069"
+      ]
+    },
+    "MF": {
+      "iso3": "MAF",
+      "sha256": "1a38d626783866d658de796f8ee42f60b408fd95f5f1226561e491c5f964bf2f",
+      "positions": 22,
+      "map_units": [
+        "Saint Martin"
+      ],
+      "ne_ids": [
+        "1159320639"
+      ]
+    },
+    "MG": {
+      "iso3": "MDG",
+      "sha256": "1fa3dadf5ae73023cfccfcccc1cba4484e579b0cb84065949aeb188cbf6578bc",
+      "positions": 1649,
+      "map_units": [
+        "Madagascar"
+      ],
+      "ne_ids": [
+        "1159321051"
+      ]
+    },
+    "MH": {
+      "iso3": "MHL",
+      "sha256": "7ac5537399b537ef629e160cebd9b4732006c1802ec11d03e242da8f3bbf2b4d",
+      "positions": 211,
+      "map_units": [
+        "Marshall Islands"
+      ],
+      "ne_ids": [
+        "1159321057"
+      ]
+    },
+    "MK": {
+      "iso3": "MKD",
+      "sha256": "41f0294db9ed3a26e3cd4cdae0a88da45ca3b2d983c1bdb266b777993308031a",
+      "positions": 363,
+      "map_units": [
+        "North Macedonia"
+      ],
+      "ne_ids": [
+        "1159321061"
+      ]
+    },
+    "ML": {
+      "iso3": "MLI",
+      "sha256": "3ba8d4bec9d2d76af2a5e03a926c4b9b02f095112a0ba1332f4b1f6a92ab6822",
+      "positions": 1747,
+      "map_units": [
+        "Mali"
+      ],
+      "ne_ids": [
+        "1159321063"
+      ]
+    },
+    "MM": {
+      "iso3": "MMR",
+      "sha256": "0a81370152ea2c3f59a359b08e1fef62ede162373e22659e9036c6ff04e9770f",
+      "positions": 4602,
+      "map_units": [
+        "Myanmar"
+      ],
+      "ne_ids": [
+        "1159321067"
+      ]
+    },
+    "MN": {
+      "iso3": "MNG",
+      "sha256": "a593773bbb7232784c9d91db3e1338369ebeb9192753f5ca975d1ec2b4988a3b",
+      "positions": 1494,
+      "map_units": [
+        "Mongolia"
+      ],
+      "ne_ids": [
+        "1159321071"
+      ]
+    },
+    "MO": {
+      "iso3": "MAC",
+      "sha256": "bd131175f8722c7b95409f9b0749f8ec77e01bdb54daa363111c518a31721562",
+      "positions": 92,
+      "map_units": [
+        "Macao S.A.R"
+      ],
+      "ne_ids": [
+        "1159320475"
+      ]
+    },
+    "MP": {
+      "iso3": "MNP",
+      "sha256": "5e5ccea9612d329c1bd21faa1b00bd54749ed829d08cad7562e0b2ab0a2c5c92",
+      "positions": 183,
+      "map_units": [
+        "Northern Mariana Islands"
+      ],
+      "ne_ids": [
+        "1159321361"
+      ]
+    },
+    "MQ": {
+      "iso3": "MTQ",
+      "sha256": "e88628f5a0d49b76507ad6b0cf3c5331d50133b62b120d4c058b85e2fc9b6dc1",
+      "positions": 133,
+      "map_units": [
+        "Martinique"
+      ],
+      "ne_ids": [
+        "1159320657"
+      ]
+    },
+    "MR": {
+      "iso3": "MRT",
+      "sha256": "d18ca6de443bd5f15ddc84dbc8fa4ccd7f314766ceb9d82aae034b2f972d9827",
+      "positions": 1146,
+      "map_units": [
+        "Mauritania"
+      ],
+      "ne_ids": [
+        "1159321075"
+      ]
+    },
+    "MS": {
+      "iso3": "MSR",
+      "sha256": "4385544bfb787eacdde96a8af2fb3f8e2bff871d112ba8af8e477646a957600c",
+      "positions": 23,
+      "map_units": [
+        "Montserrat"
+      ],
+      "ne_ids": [
+        "1159320727"
+      ]
+    },
+    "MT": {
+      "iso3": "MLT",
+      "sha256": "69b4328f3530531cd614aa0ed4c5711aca214eb8f8d5781073300f0989254c4a",
+      "positions": 55,
+      "map_units": [
+        "Malta"
+      ],
+      "ne_ids": [
+        "1159321065"
+      ]
+    },
+    "MU": {
+      "iso3": "MUS",
+      "sha256": "81426cfad9a1d2be631b19921fc7edff98747db6d72e3a321a25d57d99f9915e",
+      "positions": 113,
+      "map_units": [
+        "Mauritius"
+      ],
+      "ne_ids": [
+        "1159321079"
+      ]
+    },
+    "MV": {
+      "iso3": "MDV",
+      "sha256": "9e9990183034a3cae34a9062f5004ac4f21c26a2237d9505c2d0d5f770b4c2a6",
+      "positions": 1454,
+      "map_units": [
+        "Maldives"
+      ],
+      "ne_ids": [
+        "1159321053"
+      ]
+    },
+    "MW": {
+      "iso3": "MWI",
+      "sha256": "fe2416490502abbbc6fe73d144121e3dfe4bc2492b91ff3f3b1ceda91710ad24",
+      "positions": 815,
+      "map_units": [
+        "Malawi"
+      ],
+      "ne_ids": [
+        "1159321081"
+      ]
+    },
+    "MX": {
+      "iso3": "MEX",
+      "sha256": "69ec6a6b0bd2e5ec47405edb559111ce43f022dfb1bd4caf7b3a4a94b73f8807",
+      "positions": 7419,
+      "map_units": [
+        "Mexico"
+      ],
+      "ne_ids": [
+        "1159321055"
+      ]
+    },
+    "MY": {
+      "iso3": "MYS",
+      "sha256": "9f37bc5fac8245dc59596de07cd52a1945d9fcf68ece13b743743532f3d8340e",
+      "positions": 2549,
+      "map_units": [
+        "Malaysia"
+      ],
+      "ne_ids": [
+        "1159321083"
+      ]
+    },
+    "MZ": {
+      "iso3": "MOZ",
+      "sha256": "156db60e9b3cdd9096a45f9043b3ed318dedeb2b4146c7c8bb4547ed52919c69",
+      "positions": 2335,
+      "map_units": [
+        "Mozambique"
+      ],
+      "ne_ids": [
+        "1159321073"
+      ]
+    },
+    "NA": {
+      "iso3": "NAM",
+      "sha256": "5037a3c829179dde019c1b138dd454aaae91e62ac9da833246e163d14b6c2fba",
+      "positions": 1183,
+      "map_units": [
+        "Namibia"
+      ],
+      "ne_ids": [
+        "1159321085"
+      ]
+    },
+    "NC": {
+      "iso3": "NCL",
+      "sha256": "19e44fd08308417c66f3387a7fb2c31715fd9396133273910fa8a1c571b9c066",
+      "positions": 986,
+      "map_units": [
+        "New Caledonia"
+      ],
+      "ne_ids": [
+        "1159320641"
+      ]
+    },
+    "NE": {
+      "iso3": "NER",
+      "sha256": "a462f5fb486564439bcf86b68cc99fad827899dc1411967961e7396dcc0ab652",
+      "positions": 1042,
+      "map_units": [
+        "Niger"
+      ],
+      "ne_ids": [
+        "1159321087"
+      ]
+    },
+    "NF": {
+      "iso3": "NFK",
+      "sha256": "c69c73cc12d3271b412d6cbce72a62212e2c08013757971729dbedaf914c1fe2",
+      "positions": 26,
+      "map_units": [
+        "Norfolk Island"
+      ],
+      "ne_ids": [
+        "1159320365"
+      ]
+    },
+    "NG": {
+      "iso3": "NGA",
+      "sha256": "4e23317431a4dcd026c6679e627f90c383ae7e051c3cb04b94a14b29e40ffe64",
+      "positions": 1772,
+      "map_units": [
+        "Nigeria"
+      ],
+      "ne_ids": [
+        "1159321089"
+      ]
+    },
+    "NI": {
+      "iso3": "NIC",
+      "sha256": "9d577016bdeae2fa13dc58e5cf2b0adf6875fc4fc08db67ad052d8727d504f6e",
+      "positions": 937,
+      "map_units": [
+        "Nicaragua"
+      ],
+      "ne_ids": [
+        "1159321091"
+      ]
+    },
+    "NL": {
+      "iso3": "NLD",
+      "sha256": "1b9ba3477c47c20b2fa1feb45e5d070d9a7b50fc439c978c58faf021c916b11e",
+      "positions": 791,
+      "map_units": [
+        "Netherlands"
+      ],
+      "ne_ids": [
+        "1159321105"
+      ]
+    },
+    "NO": {
+      "iso3": "NOR",
+      "sha256": "744d258f732183efda4704bd8c3eb4e0af9b8c326a1bd1785b94dc6db6dec491",
+      "positions": 12835,
+      "map_units": [
+        "Norway",
+        "Jan Mayen"
+      ],
+      "ne_ids": [
+        "1159321117",
+        "1159321115"
+      ]
+    },
+    "NP": {
+      "iso3": "NPL",
+      "sha256": "622e0b40c2e4253ba00ca02ff736a155fe54c0b055a1eed16221e26d7c3071a7",
+      "positions": 1021,
+      "map_units": [
+        "Nepal"
+      ],
+      "ne_ids": [
+        "1159321121"
+      ]
+    },
+    "NR": {
+      "iso3": "NRU",
+      "sha256": "25193fd528ba97fe245f50634a0d9795d7652a389ebf5c4987a6b08f60385cbb",
+      "positions": 9,
+      "map_units": [
+        "Nauru"
+      ],
+      "ne_ids": [
+        "1159321123"
+      ]
+    },
+    "NU": {
+      "iso3": "NIU",
+      "sha256": "66d8843883281b1c50aff23329f5c9a0fc890380b9e88c3de877eeb1586c5e68",
+      "positions": 36,
+      "map_units": [
+        "Niue"
+      ],
+      "ne_ids": [
+        "1159321133"
+      ]
+    },
+    "NZ": {
+      "iso3": "NZL",
+      "sha256": "baa62ec0e39cbb4c9580dc7ed84e32e893d944112274e95b7cc75520e3266a2d",
+      "positions": 4510,
+      "map_units": [
+        "New Zealand"
+      ],
+      "ne_ids": [
+        "1159321135"
+      ]
+    },
+    "OM": {
+      "iso3": "OMN",
+      "sha256": "3775d11eda159e54c6afe41bc165c9153d902fc65eef264ab67c2bae319e6eae",
+      "positions": 1033,
+      "map_units": [
+        "Oman"
+      ],
+      "ne_ids": [
+        "1159321151"
+      ]
+    },
+    "PA": {
+      "iso3": "PAN",
+      "sha256": "027070a3142e47301de29ec1f173cd0ae934b8e4589a1e1fc6ce5c488bbdf321",
+      "positions": 1999,
+      "map_units": [
+        "Panama"
+      ],
+      "ne_ids": [
+        "1159321161"
+      ]
+    },
+    "PE": {
+      "iso3": "PER",
+      "sha256": "07a89e79070efcff34c982d642e94960cdd452a9662bd0e2fa745d2260375cbb",
+      "positions": 2421,
+      "map_units": [
+        "Peru"
+      ],
+      "ne_ids": [
+        "1159321163"
+      ]
+    },
+    "PF": {
+      "iso3": "PYF",
+      "sha256": "d0e2d13b0042e8384dcb77479420cf205826ca3de529821be30f249e13b8b723",
+      "positions": 1043,
+      "map_units": [
+        "French Polynesia"
+      ],
+      "ne_ids": [
+        "1159320643"
+      ]
+    },
+    "PG": {
+      "iso3": "PNG",
+      "sha256": "f552ef78c791fb8ab502a2dcc531485ae3191f1dab033ed80ad9d34f83b24e53",
+      "positions": 4795,
+      "map_units": [
+        "Papua New Guinea",
+        "Bougainville"
+      ],
+      "ne_ids": [
+        "1159321177",
+        "1159321175"
+      ]
+    },
+    "PH": {
+      "iso3": "PHL",
+      "sha256": "6c180bde3473ec4f6eced78324523d1951ccbd46caed6370f4fbebbf32b8ba23",
+      "positions": 7406,
+      "map_units": [
+        "Philippines"
+      ],
+      "ne_ids": [
+        "1159321169"
+      ]
+    },
+    "PK": {
+      "iso3": "PAK",
+      "sha256": "78ddc813b0a2fb9bfb3611bc31a471cd7555548206821872483277c264675263",
+      "positions": 2141,
+      "map_units": [
+        "Pakistan"
+      ],
+      "ne_ids": [
+        "1159321153"
+      ]
+    },
+    "PL": {
+      "iso3": "POL",
+      "sha256": "ab7d40ec08a1d5996f34df46899e0b1ea8f59684f98a9e3b4ce8315f2742824a",
+      "positions": 1332,
+      "map_units": [
+        "Poland"
+      ],
+      "ne_ids": [
+        "1159321179"
+      ]
+    },
+    "PM": {
+      "iso3": "SPM",
+      "sha256": "74d8357b0450f6ec21043df1fdc00dabe7eba9a4052052b63e5ca4bdb29ab8dc",
+      "positions": 82,
+      "map_units": [
+        "Saint Pierre and Miquelon"
+      ],
+      "ne_ids": [
+        "1159320647"
+      ]
+    },
+    "PN": {
+      "iso3": "PCN",
+      "sha256": "4eccea1df64ed3979c6ece0a9a130a1d865462be703cb58f825041937897784d",
+      "positions": 38,
+      "map_units": [
+        "Pitcairn Islands"
+      ],
+      "ne_ids": [
+        "1159320729"
+      ]
+    },
+    "PR": {
+      "iso3": "PRI",
+      "sha256": "32305cc528a827a446c445984387853d7e324479d80ac588f6db9a2977897386",
+      "positions": 303,
+      "map_units": [
+        "Puerto Rico"
+      ],
+      "ne_ids": [
+        "1159321363"
+      ]
+    },
+    "PS": {
+      "iso3": "PSE",
+      "sha256": "4eb72dcd4c1b2f0e5ad54ecea2357ca59f78aeeec131c607b86b751b15806292",
+      "positions": 234,
+      "map_units": [
+        "Gaza",
+        "West Bank"
+      ],
+      "ne_ids": [
+        "1159320901",
+        "1159320903"
+      ]
+    },
+    "PT": {
+      "iso3": "PRT",
+      "sha256": "7eb6224169100562b08b90d8ab8f7cc7e040aa78b324a506970bec3cefe878e9",
+      "positions": 1255,
+      "map_units": [
+        "Portugal",
+        "Madeira",
+        "Azores"
+      ],
+      "ne_ids": [
+        "1159321193",
+        "1159321191",
+        "1159321189"
+      ]
+    },
+    "PW": {
+      "iso3": "PLW",
+      "sha256": "07ac8036e3d6205ef996ac76d555bea81356ab33fbd383c444b2ce6ab81992c5",
+      "positions": 165,
+      "map_units": [
+        "Palau"
+      ],
+      "ne_ids": [
+        "1159321171"
+      ]
+    },
+    "PY": {
+      "iso3": "PRY",
+      "sha256": "ccac74f618a4a0b5fbddf4be818516e474d68e0d5a6865a6e98704030094cee3",
+      "positions": 1139,
+      "map_units": [
+        "Paraguay"
+      ],
+      "ne_ids": [
+        "1159321195"
+      ]
+    },
+    "QA": {
+      "iso3": "QAT",
+      "sha256": "7a72bec6a3656cd43fed9c44a0881bbcb64238ff1cd3dc034054747d2d64131b",
+      "positions": 241,
+      "map_units": [
+        "Qatar"
+      ],
+      "ne_ids": [
+        "1159321197"
+      ]
+    },
+    "RE": {
+      "iso3": "REU",
+      "sha256": "84293da8b30998f11fb0b0e6cd8aa5383d81a65c67d0232854ce0563deeefbc3",
+      "positions": 84,
+      "map_units": [
+        "Reunion"
+      ],
+      "ne_ids": [
+        "1159320661"
+      ]
+    },
+    "RO": {
+      "iso3": "ROU",
+      "sha256": "5529cf075718ab604b90a7c39465ca3d0d96e78e606abae620a2d2019c0b4396",
+      "positions": 1198,
+      "map_units": [
+        "Romania"
+      ],
+      "ne_ids": [
+        "1159321199"
+      ]
+    },
+    "RS": {
+      "iso3": "SRB",
+      "sha256": "3e906e8602111c5988f439f431bcab498578e7a6e7be622602d972a71787197a",
+      "positions": 940,
+      "map_units": [
+        "Vojvodina",
+        "Serbia"
+      ],
+      "ne_ids": [
+        "1159321271",
+        "1159321269"
+      ]
+    },
+    "RU": {
+      "iso3": "RUS",
+      "sha256": "375d2892ffe17b6d0f58f06c1f36b06b1db54bbefcca5d94de279742cf1142e2",
+      "positions": 36756,
+      "map_units": [
+        "Russia"
+      ],
+      "ne_ids": [
+        "1159321201"
+      ]
+    },
+    "RW": {
+      "iso3": "RWA",
+      "sha256": "f530417704b686ede14c2ca58bfd060e56aa0038ccbbfbac8a10873b3b818ddd",
+      "positions": 321,
+      "map_units": [
+        "Rwanda"
+      ],
+      "ne_ids": [
+        "1159321219"
+      ]
+    },
+    "SA": {
+      "iso3": "SAU",
+      "sha256": "eab865703a22a544e9c4fb329af5add8676e9639812c8194f38759930e38ee68",
+      "positions": 2368,
+      "map_units": [
+        "Saudi Arabia"
+      ],
+      "ne_ids": [
+        "1159321225"
+      ]
+    },
+    "SB": {
+      "iso3": "SLB",
+      "sha256": "81e98c4ccb50bbaad7d6bc435189673b9c739d09aaf9c3dc96344d274006a017",
+      "positions": 2177,
+      "map_units": [
+        "Solomon Islands"
+      ],
+      "ne_ids": [
+        "1159321249"
+      ]
+    },
+    "SC": {
+      "iso3": "SYC",
+      "sha256": "d0e8374eb9a5e063c7483dd0e12f8dfedb189034eec72799db0b54c7d4540a97",
+      "positions": 330,
+      "map_units": [
+        "Seychelles"
+      ],
+      "ne_ids": [
+        "1159321291"
+      ]
+    },
+    "SD": {
+      "iso3": "SDN",
+      "sha256": "2f18213e89244e1f18406308329f2e2e41e56216546ba0d5830147e796111f5f",
+      "positions": 1178,
+      "map_units": [
+        "Sudan"
+      ],
+      "ne_ids": [
+        "1159321229"
+      ]
+    },
+    "SE": {
+      "iso3": "SWE",
+      "sha256": "66544dacb4f93baded8e96804533fad46dd57a5361063b1bde3604e375621d0e",
+      "positions": 4665,
+      "map_units": [
+        "Sweden"
+      ],
+      "ne_ids": [
+        "1159321287"
+      ]
+    },
+    "SG": {
+      "iso3": "SGP",
+      "sha256": "bd53d2cb3c669e22cd4e8d11090fa430a0e6cf7726e5e156567f8a112ac0b108",
+      "positions": 40,
+      "map_units": [
+        "Singapore"
+      ],
+      "ne_ids": [
+        "1159321247"
+      ]
+    },
+    "SH": {
+      "iso3": "SHN",
+      "sha256": "8232e3762c93e5cbda554d0014c137f62350874add17558cda678f7b89eb6a43",
+      "positions": 83,
+      "map_units": [
+        "Saint Helena"
+      ],
+      "ne_ids": [
+        "1159320733"
+      ]
+    },
+    "SI": {
+      "iso3": "SVN",
+      "sha256": "ebcda50d8c06c34ed4cac474ad1eb43872146a1ca42ac7f1530321d201c923a8",
+      "positions": 519,
+      "map_units": [
+        "Slovenia"
+      ],
+      "ne_ids": [
+        "1159321285"
+      ]
+    },
+    "SJ": {
+      "iso3": "SJM",
+      "sha256": "1cf562b0794dd3954ebeac72cdbb6e58823d6476493e40b1ad55e940e53dd1e3",
+      "positions": 2964,
+      "map_units": [
+        "Svalbard"
+      ],
+      "ne_ids": [
+        "1159321119"
+      ]
+    },
+    "SK": {
+      "iso3": "SVK",
+      "sha256": "fd7dae4d453cd7afb79058b9674de5d44b91a30df23f238ed4a1957548014647",
+      "positions": 572,
+      "map_units": [
+        "Slovakia"
+      ],
+      "ne_ids": [
+        "1159321283"
+      ]
+    },
+    "SL": {
+      "iso3": "SLE",
+      "sha256": "fa7a8f38e196af2fe4670f819c4b3c11d93b6188b32bec9835df4177571f8b66",
+      "positions": 695,
+      "map_units": [
+        "Sierra Leone"
+      ],
+      "ne_ids": [
+        "1159321251"
+      ]
+    },
+    "SM": {
+      "iso3": "SMR",
+      "sha256": "907045d3f564d67264dabf580ca2661cb6e1009baf07fd3369ca4afcb7ca2787",
+      "positions": 19,
+      "map_units": [
+        "San Marino"
+      ],
+      "ne_ids": [
+        "1159321255"
+      ]
+    },
+    "SN": {
+      "iso3": "SEN",
+      "sha256": "89412d90cf37ff161b1ed7f9c97d2e22be8e67f00104d2f94c289211ee1a5f6b",
+      "positions": 1378,
+      "map_units": [
+        "Senegal"
+      ],
+      "ne_ids": [
+        "1159321243"
+      ]
+    },
+    "SO": {
+      "iso3": "SOM",
+      "sha256": "bd938b919a534d381a083db5dbcbd5e8dcf647faa18d57f18d92ce503e17297f",
+      "positions": 668,
+      "map_units": [
+        "Puntland",
+        "Somalia"
+      ],
+      "ne_ids": [
+        "1159321263",
+        "1159321265"
+      ]
+    },
+    "SR": {
+      "iso3": "SUR",
+      "sha256": "790b2773e18e78e7c907b56dc69b5e2ef33e3072204b20e537674aff87fc50c2",
+      "positions": 737,
+      "map_units": [
+        "Suriname"
+      ],
+      "ne_ids": [
+        "1159321281"
+      ]
+    },
+    "SS": {
+      "iso3": "SSD",
+      "sha256": "73913cd21b92529ed3b6b0db97ba71ce8ccc72d4dcb9b67211b494f74b20c8e6",
+      "positions": 1158,
+      "map_units": [
+        "South Sudan"
+      ],
+      "ne_ids": [
+        "1159321235"
+      ]
+    },
+    "ST": {
+      "iso3": "STP",
+      "sha256": "c3977534974429fb593c0f8f93c7e00ab83ada4f1267c1c5d78bf8996b361320",
+      "positions": 96,
+      "map_units": [
+        "São Tomé and Principe"
+      ],
+      "ne_ids": [
+        "1159321273"
+      ]
+    },
+    "SV": {
+      "iso3": "SLV",
+      "sha256": "d7a32438fc6ae6bb547e16d1e0355d75bd53473e7797451c9152e82d19da93f2",
+      "positions": 380,
+      "map_units": [
+        "El Salvador"
+      ],
+      "ne_ids": [
+        "1159321253"
+      ]
+    },
+    "SX": {
+      "iso3": "SXM",
+      "sha256": "4ee9e39b3122d3ac03ac4d7c2514e3b50b2aa1a7b9276df410a07cc4311eb01f",
+      "positions": 9,
+      "map_units": [
+        "Sint Maarten"
+      ],
+      "ne_ids": [
+        "1159321103"
+      ]
+    },
+    "SY": {
+      "iso3": "SYR",
+      "sha256": "6e8e8120d3de7d38cd4745e12e59e580d74c633a49129d4dca98e581cee7d5cc",
+      "positions": 625,
+      "map_units": [
+        "Syria"
+      ],
+      "ne_ids": [
+        "1159321299"
+      ]
+    },
+    "SZ": {
+      "iso3": "SWZ",
+      "sha256": "c4d84aa178094cd966e348f26255617833eabc51f35bb08a318b36f5ced80036",
+      "positions": 85,
+      "map_units": [
+        "eSwatini"
+      ],
+      "ne_ids": [
+        "1159321289"
+      ]
+    },
+    "TC": {
+      "iso3": "TCA",
+      "sha256": "c3ec3dfe5317dd72f8744403e7d90bd681e0b89daf54af4b71762566522c6154",
+      "positions": 213,
+      "map_units": [
+        "Turks and Caicos Islands"
+      ],
+      "ne_ids": [
+        "1159320737"
+      ]
+    },
+    "TD": {
+      "iso3": "TCD",
+      "sha256": "30854cefef2344e68ecc787a07683302a577b8346aed73cc9ab5468dbc223bb1",
+      "positions": 1216,
+      "map_units": [
+        "Chad"
+      ],
+      "ne_ids": [
+        "1159321301"
+      ]
+    },
+    "TF": {
+      "iso3": "ATF",
+      "sha256": "2c404672f72ab0fed71d55643384e9d349ec9a061c19c709be6ee1e10e665ff9",
+      "positions": 533,
+      "map_units": [
+        "French Southern and Antarctic Lands"
+      ],
+      "ne_ids": [
+        "1159320631"
+      ]
+    },
+    "TG": {
+      "iso3": "TGO",
+      "sha256": "48bd12d003edc6f3deb0f1a8368544f892adbcc2c62e142580fae4f7c0472e5d",
+      "positions": 486,
+      "map_units": [
+        "Togo"
+      ],
+      "ne_ids": [
+        "1159321303"
+      ]
+    },
+    "TH": {
+      "iso3": "THA",
+      "sha256": "5ca3aadf1567f4ce13e02bf58c098a730fa3ade0fca9c9610cad38ca974e85ef",
+      "positions": 3317,
+      "map_units": [
+        "Thailand"
+      ],
+      "ne_ids": [
+        "1159321305"
+      ]
+    },
+    "TJ": {
+      "iso3": "TJK",
+      "sha256": "ba4da87661d0cc17cc2652f4c8cc87961d6e766cbad60b3c35ebce2888ae4d60",
+      "positions": 1257,
+      "map_units": [
+        "Tajikistan"
+      ],
+      "ne_ids": [
+        "1159321307"
+      ]
+    },
+    "TK": {
+      "iso3": "TKL",
+      "sha256": "10ef7782e892f15ee2536dacdf7cad879789e44a21d74c33d5980dbb1659e9d7",
+      "positions": 22,
+      "map_units": [
+        "Tokelau"
+      ],
+      "ne_ids": [
+        "1159321137"
+      ]
+    },
+    "TL": {
+      "iso3": "TLS",
+      "sha256": "fa51ddf5a4a767bbea2a4daafe3bdbab50d65cfa0fd873c7b3253998545de9a8",
+      "positions": 279,
+      "map_units": [
+        "East Timor"
+      ],
+      "ne_ids": [
+        "1159321313"
+      ]
+    },
+    "TM": {
+      "iso3": "TKM",
+      "sha256": "c2781228e3f6457b47ae2ccf19b7e3e8fccaee17a4193f9e42101185ba07d6fc",
+      "positions": 1664,
+      "map_units": [
+        "Turkmenistan"
+      ],
+      "ne_ids": [
+        "1159321309"
+      ]
+    },
+    "TN": {
+      "iso3": "TUN",
+      "sha256": "78d7ba3f49673c9242f1d43f8c8260dc622a51ce790096eba776f4069add8904",
+      "positions": 700,
+      "map_units": [
+        "Tunisia"
+      ],
+      "ne_ids": [
+        "1159321327"
+      ]
+    },
+    "TO": {
+      "iso3": "TON",
+      "sha256": "110eadc581c25c87fd8a0512dfea6805daa5c072c14b8b6be324e05f1382fd3d",
+      "positions": 212,
+      "map_units": [
+        "Tonga"
+      ],
+      "ne_ids": [
+        "1159321319"
+      ]
+    },
+    "TR": {
+      "iso3": "TUR",
+      "sha256": "dbbfa296afc3bbe895145516a91bda826648d8ea60815678272af84eeaa171a7",
+      "positions": 3640,
+      "map_units": [
+        "Turkey"
+      ],
+      "ne_ids": [
+        "1159321331"
+      ]
+    },
+    "TT": {
+      "iso3": "TTO",
+      "sha256": "f0846058b6de9789e6f3760550f502bc445e1293b2d96145a2ffe51d812789a3",
+      "positions": 196,
+      "map_units": [
+        "Trinidad and Tobago"
+      ],
+      "ne_ids": [
+        "1159321321"
+      ]
+    },
+    "TV": {
+      "iso3": "TUV",
+      "sha256": "cbd0eb7b21047cfa116dc0a92a7d833bb5109c5bb4b6039d3db96e8fd841c48d",
+      "positions": 69,
+      "map_units": [
+        "Tuvalu"
+      ],
+      "ne_ids": [
+        "1159321333"
+      ]
+    },
+    "TW": {
+      "iso3": "TWN",
+      "sha256": "70aa518f3d92f29125e441bb6cca0ba7621ecdb0c7e7390bbd632d92c9904edd",
+      "positions": 561,
+      "map_units": [
+        "Taiwan"
+      ],
+      "ne_ids": [
+        "1159321335"
+      ]
+    },
+    "TZ": {
+      "iso3": "TZA",
+      "sha256": "6c51819b1689ebf2fd2885fce95482a8af8bc22745cbf640ef8191087e5eed06",
+      "positions": 1762,
+      "map_units": [
+        "Tanzania",
+        "Zanzibar"
+      ],
+      "ne_ids": [
+        "1159321337",
+        "1159321341"
+      ]
+    },
+    "UA": {
+      "iso3": "UKR",
+      "sha256": "763b01444f8e82d338e66aad80039d4cfb2e0f8b5de9920235f8fc67dbea5429",
+      "positions": 2659,
+      "map_units": [
+        "Ukraine"
+      ],
+      "ne_ids": [
+        "1159321345"
+      ]
+    },
+    "UG": {
+      "iso3": "UGA",
+      "sha256": "8743b0984f7aa099e929555aa05ec511b5b3e9ac12925d8e7ebb5b936ed44440",
+      "positions": 611,
+      "map_units": [
+        "Uganda"
+      ],
+      "ne_ids": [
+        "1159321343"
+      ]
+    },
+    "US": {
+      "iso3": "USA",
+      "sha256": "b8956cf7b5f2a00f773cf6681a03cd116e943d1ecef795de92d76b1bf6ce5d01",
+      "positions": 36103,
+      "map_units": [
+        "United States of America",
+        "Johnston Atoll",
+        "Jarvis Island",
+        "Baker Island",
+        "Howland Island",
+        "Wake Atoll",
+        "Midway Islands",
+        "Navassa Island",
+        "Palmyra Atoll",
+        "Kingman Reef"
+      ],
+      "ne_ids": [
+        "1159321369",
+        "1159321381",
+        "1159321375",
+        "1159321377",
+        "1159321379",
+        "1159321391",
+        "1159321389",
+        "1159321373",
+        "1159321387",
+        "1159321385"
+      ]
+    },
+    "UY": {
+      "iso3": "URY",
+      "sha256": "a6940add625397442f44c758fd92b4ec6598289017038b572b2c49ee3dfc6c19",
+      "positions": 584,
+      "map_units": [
+        "Uruguay"
+      ],
+      "ne_ids": [
+        "1159321353"
+      ]
+    },
+    "UZ": {
+      "iso3": "UZB",
+      "sha256": "efb7b4762c3f26ffbf667f07db30b21659ab0ec66c853b671eae054508d6489b",
+      "positions": 1666,
+      "map_units": [
+        "Uzbekistan"
+      ],
+      "ne_ids": [
+        "1159321405"
+      ]
+    },
+    "VA": {
+      "iso3": "VAT",
+      "sha256": "a61bf27f83544bd933a736fbd52b1ba07c81950aacbfe5f5bfd0ff76973ca004",
+      "positions": 7,
+      "map_units": [
+        "Vatican"
+      ],
+      "ne_ids": [
+        "1159321407"
+      ]
+    },
+    "VC": {
+      "iso3": "VCT",
+      "sha256": "d05815cb985b42aa4ddd1824df7004767cae75ea537c4b8783c4c177418a25f8",
+      "positions": 83,
+      "map_units": [
+        "Saint Vincent and the Grenadines"
+      ],
+      "ne_ids": [
+        "1159321409"
+      ]
+    },
+    "VE": {
+      "iso3": "VEN",
+      "sha256": "1521029050cc46a5eb080f039414205077ae2f98b1eae62c4f0131a1c6063dbc",
+      "positions": 3201,
+      "map_units": [
+        "Venezuela"
+      ],
+      "ne_ids": [
+        "1159321411"
+      ]
+    },
+    "VG": {
+      "iso3": "VGB",
+      "sha256": "7a0e9728740001fdefdbcdc643b1c8f2c4cde215853a8af8625436185172a204",
+      "positions": 93,
+      "map_units": [
+        "British Virgin Islands"
+      ],
+      "ne_ids": [
+        "1159320739"
+      ]
+    },
+    "VI": {
+      "iso3": "VIR",
+      "sha256": "309fcce081dbd7acc8abc3861f6c05c9124215cd3157998dc8471ce364106386",
+      "positions": 71,
+      "map_units": [
+        "United States Virgin Islands"
+      ],
+      "ne_ids": [
+        "1159321371"
+      ]
+    },
+    "VN": {
+      "iso3": "VNM",
+      "sha256": "809745e5204ed436955724edf25afbf411aced8a30481b21f64509bfa69584a5",
+      "positions": 4166,
+      "map_units": [
+        "Vietnam"
+      ],
+      "ne_ids": [
+        "1159321417"
+      ]
+    },
+    "VU": {
+      "iso3": "VUT",
+      "sha256": "05a8a6377c89fd6072baaeddecb8a7d202755dc23a7ff6e9efd9a55fe04e1de4",
+      "positions": 1015,
+      "map_units": [
+        "Vanuatu"
+      ],
+      "ne_ids": [
+        "1159321421"
+      ]
+    },
+    "WF": {
+      "iso3": "WLF",
+      "sha256": "668eb54e17a1b0d89d0e7a023eb530ce966e087497bdab62e5c00cb45d2fcc79",
+      "positions": 38,
+      "map_units": [
+        "Wallis and Futuna"
+      ],
+      "ne_ids": [
+        "1159320649"
+      ]
+    },
+    "WS": {
+      "iso3": "WSM",
+      "sha256": "20b7a2bc01386a36d28e21b49b3d642779c5d24d1338d6ea026054f2c7b20129",
+      "positions": 132,
+      "map_units": [
+        "Samoa"
+      ],
+      "ne_ids": [
+        "1159321423"
+      ]
+    },
+    "YE": {
+      "iso3": "YEM",
+      "sha256": "1232ec9d8c9f6c5be52012a2102360662369b41a27e3881cdd836d3c34216aa9",
+      "positions": 1029,
+      "map_units": [
+        "Yemen"
+      ],
+      "ne_ids": [
+        "1159321425"
+      ]
+    },
+    "YT": {
+      "iso3": "MYT",
+      "sha256": "f91964789dfb486213cbf45842bf24c2ff69cd098bb1918270ac46b0d78c6cdf",
+      "positions": 90,
+      "map_units": [
+        "Mayotte"
+      ],
+      "ne_ids": [
+        "1159320659"
+      ]
+    },
+    "ZA": {
+      "iso3": "ZAF",
+      "sha256": "03e8fc7760ef28f9c4c1d04ca153e84c94cc061d4e6d666acdb2eed031b70155",
+      "positions": 2207,
+      "map_units": [
+        "South Africa"
+      ],
+      "ne_ids": [
+        "1159321431"
+      ]
+    },
+    "ZM": {
+      "iso3": "ZMB",
+      "sha256": "dff0457842e121158f2e7e998f0ce82e55c96744b910f4343986247f7ca779a4",
+      "positions": 1508,
+      "map_units": [
+        "Zambia"
+      ],
+      "ne_ids": [
+        "1159321439"
+      ]
+    },
+    "ZW": {
+      "iso3": "ZWE",
+      "sha256": "1375b0156241c55f7798b2bf8fe1eb96344d541bc775a1bbbfffe9ccc486229c",
+      "positions": 766,
+      "map_units": [
+        "Zimbabwe"
+      ],
+      "ne_ids": [
+        "1159321441"
+      ]
+    }
+  },
+  "excluded": {
+    "AQ": "REFERENCE_COORDINATE_UNSUPPORTED",
+    "EG": "UPSTREAM_TOPOLOGY_INVALID",
+    "UM": "NO_UNAMBIGUOUS_ISO_MAP_UNIT"
+  },
+  "unmapped_units": [
+    {
+      "ne_id": "1159320709",
+      "name": "Dhekelia Sovereign Base Area",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159321297",
+      "name": "UNDOF",
+      "code": "XD"
+    },
+    {
+      "ne_id": "1159321259",
+      "name": "Somaliland",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159320991",
+      "name": "Korean Demilitarized Zone (south)",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159321183",
+      "name": "Korean Demilitarized Zone (north)",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159321007",
+      "name": "Kosovo",
+      "code": "XK"
+    },
+    {
+      "ne_id": "1159320529",
+      "name": "US Naval Base Guantanamo Bay",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159320531",
+      "name": "Northern Cyprus",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159320511",
+      "name": "Cyprus No Mans Area",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159320963",
+      "name": "Siachen Glacier",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159320741",
+      "name": "Akrotiri Sovereign Base Area",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1729635141",
+      "name": "Southern Patagonian Ice Field",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1729635091",
+      "name": "Bir Tawil",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159320477",
+      "name": "Paracel Islands",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159321165",
+      "name": "Spratly Islands",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159320425",
+      "name": "Bajo Nuevo Bank (Petrel Is.)",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159321245",
+      "name": "Serranilla Bank",
+      "code": "-99"
+    },
+    {
+      "ne_id": "1159321227",
+      "name": "Scarborough Reef",
+      "code": "-99"
+    }
+  ],
+  "preparation_postgis": "POSTGIS=\"3.5.2 dea6d0a\" [EXTENSION] PGSQL=\"170\" GEOS=\"3.13.1-CAPI-1.19.2\" PROJ=\"9.6.0 NETWORK_ENABLED=OFF URL_ENDPOINT=https://cdn.proj.org USER_WRITABLE_DIRECTORY=/var/lib/postgresql/.local/share/proj DATABASE_PATH=/usr/share/proj/proj.db\" (compiled against PROJ 9.5.1) LIBXML=\"2.9.14\" LIBJSON=\"0.18\" LIBPROTOBUF=\"1.5.1\" WAGYU=\"0.5.0 (Internal)\""
+}

@@ -25,7 +25,7 @@ from test_geometry import square
 def test_pinned_public_reference_and_rejected_france():
     geom = read_reference(CIV)
     assert reference_structure(geom) == 1599
-    assert "FR" not in references.CATALOGUE
+    assert references.CATALOGUE["FR"].dataset == "Natural Earth"
     assert CIV.provenance()["represented_year"] == "2018"
     assert CIV.provenance()["downloaded_on"] == "2026-09-28"
     assert CIV.provenance()["accuracy_m"] is None
@@ -40,12 +40,12 @@ def test_real_reference_indicative_only():
     assert (
         result["country_verified"] is False and result["human_review_required"] is True
     )
-    assert result["source"]["sha256"] == CIV.sha256
+    assert result["source"]["sha256"] == references.CATALOGUE["CI"].sha256
     assert result["distance_to_reference_boundary_m"] > 1000
     assert original == {"type": "Point", "coordinates": [-5.5, 7.5]}
 
 
-@pytest.mark.parametrize("country", ["FR", "BR", "GH"])
+@pytest.mark.parametrize("country", ["AQ", "EG", "UM"])
 def test_missing_country_does_not_guess_or_match(country):
     with transaction() as conn:
         r = screening.screen_country(
@@ -188,6 +188,7 @@ def test_query_failure_rolls_back_savepoint(synthetic_reference):
 
 
 def test_tampered_or_missing_source_is_not_a_match(monkeypatch, tmp_path):
+    monkeypatch.setattr(screening, "CATALOGUE", {"CI": CIV})
     monkeypatch.setattr(references, "ROOT", tmp_path)
     with pytest.raises(ReferenceUnavailable, match="FILE_UNAVAILABLE"):
         read_reference(CIV)

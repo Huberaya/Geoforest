@@ -25,6 +25,9 @@ type Result = {
     primary_license: string;
     source_url: string;
     license_url: string;
+    worldview?: string;
+    scale?: string;
+    map_units?: string[];
   };
 };
 type Check = {
@@ -61,6 +64,28 @@ export function CountryChecks({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [loaded, setLoaded] = useState(false);
+  const [catalogue, setCatalogue] = useState<{
+    coverage: string;
+    covered_count: number;
+    excluded: { country: string; reason: string }[];
+  } | null>(null);
+  useEffect(() => {
+    const c = new AbortController();
+    api("/geospatial/sources", "GET", undefined, c.signal)
+      .then((r) =>
+        setCatalogue(
+          r as {
+            coverage: string;
+            covered_count: number;
+            excluded: { country: string; reason: string }[];
+          },
+        ),
+      )
+      .catch((e) => {
+        if (e.name !== "AbortError") setError(e.message);
+      });
+    return () => c.abort();
+  }, [api]);
   const request = useRef<string | null>(null);
   useEffect(() => {
     const c = new AbortController();
@@ -118,9 +143,22 @@ export function CountryChecks({
     <section className="collection-card" aria-label="Cohérence pays indicative">
       <h3>Cohérence pays — comparaison indicative</h3>
       <p>
-        Pilote limité à la Côte d’Ivoire (CI), source représentant 2018. France
-        et autres pays : non couverts. Ce contrôle ne vérifie ni le pays réel,
-        ni la conformité EUDR.
+        Référentiel mondial indicatif Natural Earth, échelle 1:10 millions,
+        conventions territoriales de facto. Aucun pays réel ni conformité EUDR
+        n’est vérifié.
+      </p>
+      <p>
+        {catalogue
+          ? catalogue.coverage === "UNAVAILABLE"
+            ? "Catalogue indisponible. Aucun résultat favorable ne peut en être déduit."
+            : `${catalogue.covered_count} codes ISO (pays et territoires) admis. Non couverts : ${catalogue.excluded.map((e) => e.country).join(", ")}.`
+          : "Chargement de la couverture…"}
+      </p>
+      <p className="caption">
+        Exceptions : AQ (Antarctique), région polaire non prise en charge ; EG
+        (Égypte), géométrie source invalide ; UM (îles mineures éloignées des
+        États-Unis), rattachement ISO non établi. Les unités disputées sans code
+        ISO non ambigu ne sont pas réaffectées automatiquement.
       </p>
       <p className="caption">
         Historique de la révision {revision}. Une nouvelle révision ne reprend
@@ -202,7 +240,7 @@ export function CountryChecks({
                   target="_blank"
                   rel="noreferrer"
                 >
-                  geoBoundaries
+                  {c.result.source.provider}
                 </a>{" "}
                 · {c.result.source.boundary_id} · année représentée{" "}
                 {c.result.source.represented_year}
@@ -221,7 +259,7 @@ export function CountryChecks({
             </>
           ) : (
             <p>
-              Aucun référentiel admis pour ce pays. Aucune conclusion
+              Aucun référentiel utilisé lors de ce contrôle. Aucune conclusion
               géographique.
             </p>
           )}
@@ -235,6 +273,15 @@ export function CountryChecks({
             {c.result.source && (
               <>
                 <p>Source SHA-256 : {c.result.source.sha256}</p>
+                <p>
+                  {c.result.source.scale} · {c.result.source.worldview}
+                </p>
+                {c.result.source.map_units && (
+                  <p>
+                    Unités cartographiques :{" "}
+                    {c.result.source.map_units.join(", ")}
+                  </p>
+                )}
                 <p>Commit amont : {c.result.source.upstream_commit}</p>
                 <p>
                   Construction : {c.result.source.built_on} · téléchargement :{" "}

@@ -2,7 +2,7 @@
 
 28 septembre 2026 · application **0.5.0** · schéma **0004**
 
-**Pilote fonctionnel et recetté localement. Chantier 4 non clôturé : couverture géographique supplémentaire à définir et qualifier. Aucun chantier 5 engagé.**
+**ARCHIVE : état de l’intégration du pilote CI avant le choix mondial.** Voir le [rapport de livraison final](04-chantier-4.md). Les limites CI ci-dessous décrivent cet état historique, pas le catalogue actuel.
 
 Ce rapport remplace, pour l’état courant, le point d’avancement du premier incrément. Il ne transforme pas le pilote ivoirien en couverture mondiale.
 

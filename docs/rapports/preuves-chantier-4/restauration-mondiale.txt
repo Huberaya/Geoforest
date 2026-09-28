@@ -1,0 +1,40 @@
+CREATE EXTENSION
+REVOKE
+GRANT
+REVOKE
+All persisted checks (including historical pilot and world results): full row fingerprints identical.
+ version_num
+-------------
+ 0004
+(1 row)
+
+                 method                 | count
+----------------------------------------+-------
+ country-screening-v1-pilot             |     4
+ country-screening-v2-global-indicative |     2
+(2 rows)
+
+ runtime_update | runtime_delete
+----------------+----------------
+ f              | f
+(1 row)
+
+BEGIN
+SET
+ visible_without_context
+-------------------------
+                       0
+(1 row)
+
+COMMIT
+UPDATE 11
+UPDATE 4
+ unrevoked_staff
+-----------------
+               0
+(1 row)
+
+ unrevoked_portal
+------------------
+                0
+(1 row)

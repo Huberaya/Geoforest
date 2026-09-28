@@ -1,6 +1,6 @@
 # Parcelles et géolocalisation — guide utilisateur
 
-Version 0.4.0 · 28 septembre 2026 · chantier 3
+Version 0.5.0 · 28 septembre 2026 · chantiers 3 et 4
 
 ## Ce que fait ce module
 
@@ -95,7 +95,7 @@ Admin / Compliance Manager / Procurement : écriture canonique ; Analyst / Viewe
 
 Polygones traversant l’antiméridien ou dépassant 85° de latitude : non pris en charge. Plafond technique de surface : 100 000 ha, sans rapport avec un seuil réglementaire. Pas de connecteur satellite, analyse de déforestation, validation de pays, export officiel, pièces de légalité ou déclaration EUDR dans ce chantier.
 
-## 8. Comparer le pays déclaré — pilote chantier 4 (version 0.5.0)
+## 8. Comparer le pays déclaré — référence mondiale indicative (version 0.5.0)
 
 Dans le détail d’une parcelle, sélectionnez d’abord la **révision consultée**, puis ouvrez la section **Cohérence pays — comparaison indicative**.
 
@@ -104,7 +104,11 @@ Dans le détail d’une parcelle, sélectionnez d’abord la **révision consult
 3. Lisez le résultat, la source, l’année représentée et les limites. Tous les résultats nécessitent une revue humaine et restent « pays non vérifié / risque non évalué ».
 4. Consultez l’historique par révision. Une nouvelle révision ne reçoit pas les anciennes analyses ; revenez à l’ancienne pour retrouver son résultat. Les archives restent consultables et peuvent faire l’objet d’une comparaison historique.
 
-**Couverture actuelle : pilote Côte d’Ivoire uniquement**, contour représentant 2018, fourni par geoBoundaries/Natural Earth. Il ne s’agit pas d’une frontière certifiée actuelle ou d’une donnée cadastrale. France et autres pays : **Pays non couvert**, sans inférer un autre pays. Une source illisible, modifiée ou une erreur du calcul donne **Source indisponible**, jamais une correspondance favorable.
+**Couverture actuelle : 246 codes ISO de pays et territoires**, référentiel Natural Earth à l’échelle **1:10 millions, pas dix mètres**. Son point de vue est de facto, pas une décision de souveraineté. Le snapshot du dépôt date de 2022 ; aucune actualité juridique des frontières en 2026 ni précision cadastrale n’est garantie.
+
+Exceptions visibles : **AQ (Antarctique)**, étendue polaire non prise en charge ; **EG (Égypte)**, géométrie source invalide ; **UM (îles mineures éloignées des États-Unis)**, rattachement ISO non établi. Ces cas donnent **Pays non couvert**. Les unités disputées/non ISO ne sont pas affectées par supposition à un autre pays. Une source illisible/altérée ou une erreur de calcul donne **Source indisponible**, jamais une correspondance favorable.
+
+La France et la Guyane ont des contours/code ISO distincts dans cette source. Ne déduisez pas de cette convention cartographique la bonne déclaration légale d’un produit. Les anciens résultats du pilote ivoirien, y compris les anciens résultats « non couvert » pour FR, sont conservés avec leur ancienne méthode/source. Un nouveau contrôle demande une action explicite.
 
 « Dans le référentiel » signifie que la géométrie est contenue dans ce contour précis. « Hors du référentiel », « intersection partielle » et « limite géographique » demandent de confronter les données ; aucun de ces messages ne démontre une fausse déclaration ou une fraude.
 

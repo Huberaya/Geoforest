@@ -11,15 +11,22 @@ import re
 from datetime import datetime, timezone
 
 import pycountry
-from app.geospatial.references import CATALOGUE, ReferenceUnavailable, read_reference
+from app.geospatial.references import (
+    CATALOGUE,
+    CATALOGUE_ERROR,
+    EXCLUDED,
+    ReferenceUnavailable,
+    read_reference,
+)
 from app.plots.geometry import validate_geometry
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-METHOD_VERSION = "country-screening-v1-pilot"
+METHOD_VERSION = "country-screening-v2-global-indicative"
 LIMITATIONS = [
     "Comparaison indicative avec un référentiel historique, pas une preuve du pays réel.",
     "Résolution et précision métrique non garanties ; côtes, îles et zones disputées nécessitent une revue.",
+    "Natural Earth 1:10 millions utilise des conventions de facto ; aucune reconnaissance juridique de souveraineté. Les unités non rattachées sans ambiguïté à un code ISO restent exclues.",
     "La marge de proximité est un paramètre technique de revue, pas un seuil EUDR ni une précision mesurée.",
     "Aucun verdict de propriété, légalité, risque ou déforestation ; aucune déclaration aux autorités.",
 ]
@@ -69,7 +76,11 @@ def screen_country(conn, geometry, declared_country, *, review_distance_m):
     }
     spec = CATALOGUE.get(declared_country)
     if spec is None:
-        result["reason"] = "NO_ADMITTED_SOURCE_FOR_DECLARED_COUNTRY"
+        result["reason"] = CATALOGUE_ERROR or EXCLUDED.get(
+            declared_country, "NO_ADMITTED_SOURCE_FOR_DECLARED_COUNTRY"
+        )
+        if CATALOGUE_ERROR:
+            result["status"] = "SOURCE_UNAVAILABLE"
         return result
     result["source"] = spec.provenance()
     try:

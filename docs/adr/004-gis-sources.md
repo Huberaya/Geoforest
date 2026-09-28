@@ -2,9 +2,9 @@
 
 28 septembre 2026 · GO utilisateur reçu après publication du chantier 3.
 
-**Statut : pilote intégré et recetté localement, application 0.5.0 / migration 0004 ; couverture CI uniquement.**
+**Statut : périmètre mondial indicatif choisi par le propriétaire, intégré et recetté localement ; application 0.5.0 / migration 0004.**
 
-Le noyau local est exposé par des routes OIDC autorisées ; résultats persistants append-only, liés à la révision de parcelle. La couche française examinée reste rejetée. Aucun fond externe ou source satellite activé. Voir `docs/rapports/04-chantier-4-integration.md`.
+Le noyau local est exposé par des routes OIDC autorisées ; résultats persistants append-only, liés à la révision de parcelle. Le snapshot français geoBoundaries reste rejeté ; un autre référentiel, Natural Earth Map Units, fournit désormais 246 codes ISO, dont FR et GF distincts, avec exceptions AQ/EG/UM. Aucun fond externe ou source satellite activé. Voir `docs/rapports/04-chantier-4.md`.
 
 Branche : `chantier-4/gis-sources`, issue de `106cfa3c7afa0b4716930ca78f3a58a69f196fad`.
 
@@ -45,4 +45,4 @@ Le chantier 4 doit apporter la cohérence géographique avec des référentiels 
 
 Au moins un référentiel géographique effectivement qualifié et reproductible, ou un blocage explicite soumis au propriétaire avant de prétendre livrer la cohérence pays. Résultats et versions traçables, comportement sûr en cas d’indisponibilité, frontières et cas ambigus testés, droits/isolation préservés, non-régression des chantiers précédents, guide et rapport honnête.
 
-**Prochaine action : définir et qualifier la couverture supplémentaire nécessaire avant clôture du chantier 4.**
+**Décision de sortie : livraison locale du périmètre mondial indicatif avec exceptions explicites ; nouveau GO obligatoire avant chantier 5.**

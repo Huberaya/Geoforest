@@ -1,7 +1,7 @@
 """Pinned public reference data. No fetching, reprojection or silent repair.
 
-Only CI is admitted for indicative screening in this first increment. FRA is
-archived for rejected-source qualification, never used as a country boundary.
+Natural Earth map units provide global indicative screening with explicit
+exceptions. The former gbOpen snapshots remain historical, not the active catalogue.
 A country outline is NOT a parcel: its surface has no parcel-area limit.
 """
 
@@ -11,6 +11,7 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
+WORLD_ROOT = Path(__file__).resolve().parents[2] / "reference" / "naturalearth"
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
 MAX_REFERENCE_POSITIONS = 250_000
 ROOT = Path(__file__).resolve().parents[2] / "reference" / "geoboundaries"
@@ -33,8 +34,36 @@ class ReferenceSpec:
     built_on: str
     primary_source: str
     primary_license: str
+    dataset: str = "geoBoundaries"
+    upstream_sha256: str = ""
+    map_units: tuple[str, ...] = ()
 
     def provenance(self):
+        if self.dataset == "Natural Earth":
+            return {
+                "provider": "Natural Earth 1:10m Admin 0 Map Units",
+                "country": self.country,
+                "boundary_id": self.boundary_id,
+                "upstream_commit": self.upstream_commit,
+                "sha256": self.sha256,
+                "upstream_sha256": self.upstream_sha256,
+                "represented_year": self.represented_year,
+                "downloaded_on": self.downloaded_on,
+                "built_on": self.built_on,
+                "primary_source": "Natural Earth",
+                "primary_license": "Public Domain",
+                "collection_license": "Domaine public",
+                "license_url": "https://www.naturalearthdata.com/about/terms-of-use/",
+                "source_url": "https://www.naturalearthdata.com/",
+                "download_url": f"https://raw.githubusercontent.com/nvkelso/natural-earth-vector/{self.upstream_commit}/geojson/ne_10m_admin_0_map_units.geojson",
+                "attribution": "Made with Natural Earth — naturalearthdata.com",
+                "qualification": "GLOBAL_INDICATIVE_ONLY",
+                "accuracy_m": None,
+                "scale": "1:10 000 000 — not parcel-level accuracy",
+                "worldview": "de facto snapshot; no legal sovereignty conclusion",
+                "coordinate_handling": "WGS84 lon/lat; ISO_A2_EH grouping and validated PostGIS dissolve; no repair, reprojection or simplification",
+                "map_units": list(self.map_units),
+            }
         return {
             "provider": "geoBoundaries gbOpen",
             "country": self.country,
@@ -74,7 +103,38 @@ CIV = ReferenceSpec(
     primary_source="Natural Earth",
     primary_license="Public Domain",
 )
-CATALOGUE = {"CI": CIV}
+CATALOGUE = {}
+EXCLUDED = {}
+CATALOGUE_ERROR = None
+WORLD_MANIFEST_SHA256 = (
+    "3d76211b1a04284c721558c0db8de6c89435689253ffff59091103ad6cd5d9ba"
+)
+try:
+    _raw = (WORLD_ROOT / "manifest.json").read_bytes()
+    if hashlib.sha256(_raw).hexdigest() != WORLD_MANIFEST_SHA256:
+        raise ValueError("World catalogue checksum mismatch")
+    _manifest = json.loads(_raw)
+    EXCLUDED = _manifest["excluded"]
+    for _code, _entry in _manifest["countries"].items():
+        CATALOGUE[_code] = ReferenceSpec(
+            country=_code,
+            iso3=_entry["iso3"],
+            filename=_code + ".geojson",
+            sha256=_entry["sha256"],
+            boundary_id="NE-10M-MAPUNITS-" + _code,
+            represented_year="non renseignée par la source",
+            upstream_commit=_manifest["upstream_commit"],
+            downloaded_on="2026-09-28",
+            built_on="snapshot dépôt du 2022-05-13 (tag v5.1.2)",
+            primary_source="Natural Earth",
+            primary_license="Public Domain",
+            dataset="Natural Earth",
+            upstream_sha256=_manifest["upstream_sha256"],
+            map_units=tuple(_entry["map_units"]),
+        )
+except (OSError, ValueError, KeyError, TypeError):
+    CATALOGUE = {}
+    CATALOGUE_ERROR = "WORLD_CATALOGUE_UNAVAILABLE"
 
 
 def _unique_pairs(pairs):
@@ -124,8 +184,9 @@ def reference_structure(geometry):
 
 def read_reference(spec: ReferenceSpec):
     # Spec comes from the deployment-controlled catalogue, never an API payload.
-    path = ROOT / spec.filename
-    if path.resolve().parent != ROOT.resolve():
+    root = WORLD_ROOT / "countries" if spec.dataset == "Natural Earth" else ROOT
+    path = root / spec.filename
+    if path.resolve().parent != root.resolve():
         raise ReferenceUnavailable("REFERENCE_PATH_REJECTED")
     try:
         with path.open("rb") as stream:

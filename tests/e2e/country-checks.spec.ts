@@ -81,7 +81,7 @@ test("Cohérence pays : résultat sourcé, historique immuable et pays non couve
   await checks
     .getByText("Provenance et limites du contrôle", { exact: true })
     .click();
-  await expect(checks.getByText(/CIV-ADM0-2848817/)).toBeVisible();
+  await expect(checks.getByText(/NE-10M-MAPUNITS-CI/)).toBeVisible();
   await expect(
     checks.getByText(
       "Revue humaine nécessaire · pays non vérifié · risque non évalué",
@@ -89,7 +89,7 @@ test("Cohérence pays : résultat sourcé, historique immuable et pays non couve
   ).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1100 });
   await dialog.screenshot({
-    path: "docs/rapports/preuves-chantier-4/coherence-desktop.png",
+    path: "docs/rapports/preuves-chantier-4/monde-coherence-desktop.png",
   });
   await dialog.getByRole("button", { name: "Fermer la fenêtre" }).click();
   await page.evaluate(async (f) => {
@@ -102,7 +102,7 @@ test("Cohérence pays : résultat sourcé, historique immuable et pays non couve
         "Content-Type": "application/json",
         "X-CSRF-Token": me.csrf_token,
       },
-      body: JSON.stringify({ ...data, country: "FR", version: 1 }),
+      body: JSON.stringify({ ...data, country: "AQ", version: 1 }),
     });
     if (!r.ok) throw new Error("Revision fixture failed " + r.status);
   }, fixture);
@@ -136,7 +136,7 @@ test("Cohérence pays : résultat sourcé, historique immuable et pays non couve
     ).toBeTruthy();
   }
   await checks.locator("article").first().screenshot({
-    path: "docs/rapports/preuves-chantier-4/coherence-mobile.png",
+    path: "docs/rapports/preuves-chantier-4/monde-coherence-mobile.png",
   });
   expect(errors).toEqual([]);
   // Renewal of the shared network-peer quota before the following dense suites.

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.database import transaction
 from app.events import event
-from app.geospatial.references import CATALOGUE
+from app.geospatial.references import CATALOGUE, CATALOGUE_ERROR, EXCLUDED
 from app.geospatial.screening import screen_country
 from app.plots.services import bounded, get_plot
 from app.schemas import StrictModel
@@ -30,14 +30,13 @@ def sources(org: UUID, identity=Depends(require_identity)):
     with transaction(identity.id, org) as conn:
         authorize(conn, org, identity, READERS)
         return {
-            "coverage": "LIMITED_PILOT",
+            "coverage": "GLOBAL_INDICATIVE_WITH_EXCEPTIONS"
+            if not CATALOGUE_ERROR
+            else "UNAVAILABLE",
+            "covered_count": len(CATALOGUE),
             "sources": [s.provenance() for s in CATALOGUE.values()],
-            "excluded": [
-                {
-                    "country": "FR",
-                    "reason": "Primary provenance incomplete; full territorial coverage not established",
-                }
-            ],
+            "excluded": [{"country": c, "reason": r} for c, r in EXCLUDED.items()],
+            "catalogue_error": CATALOGUE_ERROR,
             "regulatory_status": "NOT_ASSESSED",
         }
 

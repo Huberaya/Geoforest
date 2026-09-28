@@ -1,0 +1,9 @@
+{
+  "tag": "v5.1.2",
+  "commit": "f1890d9f152c896d250a77557a5751a93d494776",
+  "commit_date": "2022-05-13T23:22:31Z",
+  "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_10m_admin_0_map_units.geojson",
+  "downloaded_on": "2026-09-28",
+  "sha256": "57da82be755f4afccd8f3b14251bb2752f5df1395f47d2d86f817470c4a48862",
+  "selection": "Map units, for explicit overseas ISO codes"
+}
