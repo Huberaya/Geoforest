@@ -830,13 +830,20 @@ def test_portal_isolation_between_organizations_and_pool_reset(
 
 
 def test_readiness_refuses_obsolete_schema(client):
+    assert client.get("/health/ready").status_code == 200
     with owner.begin() as conn:
+        previous = conn.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
         conn.execute(text("UPDATE alembic_version SET version_num='0001'"))
     try:
         assert client.get("/health/ready").status_code == 503
     finally:
         with owner.begin() as conn:
-            conn.execute(text("UPDATE alembic_version SET version_num='0003'"))
+            conn.execute(
+                text("UPDATE alembic_version SET version_num=:v"), {"v": previous}
+            )
+    assert client.get("/health/ready").status_code == 200
 
 
 @pytest.mark.parametrize("role", ["Admin", "Compliance Manager", "Procurement"])

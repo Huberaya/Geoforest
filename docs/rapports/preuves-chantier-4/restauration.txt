@@ -1,0 +1,39 @@
+CREATE EXTENSION
+REVOKE
+GRANT
+REVOKE
+Country check counts and complete row fingerprints identical after restoration.
+ version_num
+-------------
+ 0004
+(1 row)
+
+ restored_country_checks
+-------------------------
+                       4
+(1 row)
+
+ runtime_can_update | runtime_can_delete
+--------------------+--------------------
+ f                  | f
+(1 row)
+
+BEGIN
+SET
+ visible_without_context
+-------------------------
+                       0
+(1 row)
+
+COMMIT
+UPDATE 6
+UPDATE 2
+ unrevoked_staff_sessions
+--------------------------
+                        0
+(1 row)
+
+ unrevoked_portal_sessions
+---------------------------
+                         0
+(1 row)

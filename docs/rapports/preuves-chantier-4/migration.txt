@@ -1,0 +1,11 @@
+Populated synthetic 0003 -> 0004 -> repeated upgrade: successful.
+Existing parcel/import/proposal counts and fingerprints unchanged.
+ version_num
+-------------
+ 0004
+(1 row)
+
+   tablename    | rowsecurity
+----------------+-------------
+ country_checks | t
+(1 row)

@@ -1,4 +1,4 @@
-# GeoForest Trace — chantiers 1 à 3 · v0.4.0
+# GeoForest Trace — chantiers 1 à 3 et pilote géospatial · v0.5.0
 
 Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OIDC, organisations, fournisseurs, produits, lots, parcelles versionnées et portail sécurisé.
 
@@ -123,4 +123,10 @@ CI : `.github/workflows/ci.yml` exécute lint/build/typecheck/audit npm, migrati
 - `docs/reglementation/03-geolocalisation-verification.md` — références et limites.
 - `docs/rapports/03-chantier-3.md` — livraison, preuves et réserves.
 
-**Le chantier 4 ne commence qu’après un nouveau GO explicite du propriétaire.** Aucun PAT GitHub n'est nécessaire pour travailler et tester localement.
+**Le chantier 4 est en cours : pilote de cohérence pays intégré, couverture limitée à CI. Aucun chantier 5 sans nouveau GO.** Aucun PAT GitHub n'est nécessaire pour travailler et tester localement.
+
+## Pilote de cohérence pays — chantier 4
+
+Migration **0004** requise pour l’application 0.5.0. Dans le détail d’une parcelle, comparaison indicative et historique immuable par révision, avec marge de revue explicite et source/version/année visibles. Aucun pays n’est déclaré vérifié. Couverture : Côte d’Ivoire seulement, source historique 2018 ; tous les autres pays restent non couverts. Aucun calcul satellite ni source distante appelée pendant l’analyse.
+
+Voir `docs/rapports/04-chantier-4-integration.md`, `docs/reglementation/04-sources-geographiques.md` et la section 8 de `docs/GUIDE_PARCELLES.md`. Les E2E créent quatre organisations par suite complète : utiliser une base synthétique dédiée et surveiller le quota, sans modifier les limites de l’application.

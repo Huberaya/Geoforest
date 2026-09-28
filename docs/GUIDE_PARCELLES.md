@@ -94,3 +94,18 @@ Une référence déjà utilisée provoque un conflit, pas un remplacement implic
 Admin / Compliance Manager / Procurement : écriture canonique ; Analyst / Viewer : lecture. Supplier OIDC : lecture de son propre périmètre seulement. Le portail fournisseur utilise une session distincte et ne donne pas ces droits d’écriture canoniques.
 
 Polygones traversant l’antiméridien ou dépassant 85° de latitude : non pris en charge. Plafond technique de surface : 100 000 ha, sans rapport avec un seuil réglementaire. Pas de connecteur satellite, analyse de déforestation, validation de pays, export officiel, pièces de légalité ou déclaration EUDR dans ce chantier.
+
+## 8. Comparer le pays déclaré — pilote chantier 4 (version 0.5.0)
+
+Dans le détail d’une parcelle, sélectionnez d’abord la **révision consultée**, puis ouvrez la section **Cohérence pays — comparaison indicative**.
+
+1. Pour les rôles autorisés en écriture, renseignez explicitement la marge de revue en mètres (entier de 0 à 50 000). Ce n’est pas une précision de position ni une exigence légale. Avec 0, seuls les contacts/intersections exacts déclenchent la proximité.
+2. Lancez **Comparer le pays de cette révision**. Le pays et la géométrie sont relus côté serveur ; la déclaration n’est jamais corrigée automatiquement.
+3. Lisez le résultat, la source, l’année représentée et les limites. Tous les résultats nécessitent une revue humaine et restent « pays non vérifié / risque non évalué ».
+4. Consultez l’historique par révision. Une nouvelle révision ne reçoit pas les anciennes analyses ; revenez à l’ancienne pour retrouver son résultat. Les archives restent consultables et peuvent faire l’objet d’une comparaison historique.
+
+**Couverture actuelle : pilote Côte d’Ivoire uniquement**, contour représentant 2018, fourni par geoBoundaries/Natural Earth. Il ne s’agit pas d’une frontière certifiée actuelle ou d’une donnée cadastrale. France et autres pays : **Pays non couvert**, sans inférer un autre pays. Une source illisible, modifiée ou une erreur du calcul donne **Source indisponible**, jamais une correspondance favorable.
+
+« Dans le référentiel » signifie que la géométrie est contenue dans ce contour précis. « Hors du référentiel », « intersection partielle » et « limite géographique » demandent de confronter les données ; aucun de ces messages ne démontre une fausse déclaration ou une fraude.
+
+Le calcul ne consulte aucun service externe. Les liens de source/licence sont accessibles sur clic explicite ; aucun fond cartographique ni suivi GPS supplémentaire n’est activé. Analyst/Viewer et Supplier OIDC ne peuvent que lire les résultats de leur périmètre. Le portail par lien n’expose pas l’historique du référentiel entreprise.

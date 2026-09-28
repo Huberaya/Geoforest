@@ -11,6 +11,7 @@ import {
 } from "./types";
 import { PlotForm } from "./PlotForm";
 import { PlotImport } from "./PlotImport";
+import { CountryChecks } from "./CountryChecks";
 import { AnalysisView } from "./AnalysisView";
 import { ProposalCard } from "./ProposalCard";
 import GeoMap from "./GeoMap";
@@ -506,6 +507,17 @@ export function PlotsWorkspace({
               }
             />
             <AnalysisView analysis={history?.analysis || selected.analysis} />
+            <CountryChecks
+              key={
+                selected.id +
+                ":" +
+                (history?.revision || selected.current_revision)
+              }
+              api={api}
+              plot={selected.id}
+              revision={history?.revision || selected.current_revision}
+              writable={writable}
+            />
             <p className="caption">
               Contrôles enregistrés à cette révision, pas une surveillance
               continue. Source : {(history || selected).source_kind}. Précision

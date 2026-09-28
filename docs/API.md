@@ -102,3 +102,25 @@ Erreurs : 413 budget HTTP ; 422 validation/confirmation absente ; 409 conflit de
 Budgets : routes géographiques ciblées 2 Mio HTTP, source d’import 1 Mio, 100 éléments et 10 000 positions cumulées ; une géométrie isolée 10 000 positions ; surface maximale technique 100 000 ha ; relations spatiales limitées à 50 résultats, avec indication de troncature. SQL géospatial borné par `statement_timeout` de 8 secondes par instruction, **pas** un SLA de durée totale d’import.
 
 La version du validateur est enregistrée dans chaque analyse (`plots-v1-draft` pour cette première règle technique, non homologuée pour un échange officiel). L’API conserve la géométrie source ; la simulation à six décimales n’écrase rien. Les snapshots et imports sont append-only pour le rôle runtime. La provenance d’un lot ne change pas automatiquement après une modification parcellaire.
+
+## Cohérence pays — intégration pilote chantier 4 / API 0.5.0
+
+Schéma requis : **0004**. Contrôles séparés des géolocalisations immuables existantes, sans remplacement des résultats géométriques ni du pays déclaré.
+
+`O=/api/v1/organizations/{org}` :
+
+| Méthode | Chemin | Contrat |
+|---|---|---|
+| GET | O/geospatial/sources | Catalogue du pilote et limites, session OIDC et appartenance ; seule CI admise à ce stade, FR explicitement exclue |
+| GET | O/plots/{plot}/country-checks?revision=N&page=1 | Historique de la révision demandée, 20 résultats/page, page 1..1000 ; permissions de lecture et périmètre fournisseur identiques à la parcelle |
+| POST | O/plots/{plot}/country-checks | `{revision,review_distance_m,request_id}` ; Admin/Compliance Manager/Procurement ; source et géométrie déterminées exclusivement par le serveur |
+
+`revision` est un entier strict positif ; `review_distance_m` est obligatoire, entier 0..50 000, sans valeur implicite ; `request_id` est un UUID généré par le client. Ce paramètre de proximité est une marge de revue, **pas une précision de la source ni une règle EUDR**.
+
+La même requête dans l’organisation retourne le même résultat et `replayed:true`, y compris après changement de disponibilité du référentiel ; changer de révision, parcelle ou marge en réutilisant le même identifiant produit 409. Verrou transactionnel par organisation/identifiant et unicité DB empêchent les doublons simultanés. Pour une nouvelle analyse, utiliser un nouvel identifiant. Une réponse `SOURCE_UNAVAILABLE` reste historisée ; ce n’est pas une validation et une nouvelle tentative doit être explicite.
+
+La géométrie et le pays proviennent du snapshot de révision autorisé. Le résultat conserve son identifiant, la révision, la source/version/hash/année/licence, la version de méthode/PostGIS et les limites. `country_verified` reste faux, `regulatory_status` reste `NOT_ASSESSED`, revue humaine requise. GET ne lance aucun calcul et ne remet pas les résultats historiques au goût du jour.
+
+Analyst/Viewer/Supplier OIDC : lecture uniquement ; Supplier limité à son fournisseur. Portail par lien : aucun accès à ces routes OIDC. L’ancienne collecte/proposition du portail reste inchangée ; les contrôles persistants concernent le référentiel entreprise, y compris ses anciennes révisions et archives.
+
+Erreurs 404 pour parcelle/révision absente ou hors périmètre ; 403 droits/CSRF ; 422 entrée invalide ; 409 réutilisation incompatible ; indisponibilité générale DB : 503. Une panne pendant le calcul référentiel est classée `SOURCE_UNAVAILABLE`, isolée par savepoint, sans transformer l’erreur en correspondance.

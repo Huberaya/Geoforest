@@ -1,7 +1,7 @@
-"""Non-persistent, offline country screening prototype.
+"""Offline country screening core; persistence belongs to authorized routes.
 
 Callers must authorize access to their own parcel BEFORE calling this module.
-No HTTP endpoint exposes this increment. No source failure becomes a match.
+The core is not an authorization boundary. No source failure becomes a match.
 """
 
 import hashlib

@@ -2,7 +2,7 @@
 
 28 septembre 2026 · branche `chantier-4/gis-sources`
 
-**CHANTIER EN COURS — pas encore livré dans l’application.** Aucun chantier 5 commencé.
+**ARCHIVE DU PREMIER INCRÉMENT.** Voir [l’intégration courante](04-chantier-4-integration.md) : pilote désormais accessible dans l’application. Les éléments NON FAIT ci-dessous décrivent l’état antérieur. Aucun chantier 5 commencé.
 
 ## FAIT
 
