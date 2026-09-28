@@ -47,6 +47,10 @@ class Settings(BaseSettings):
         return self.public_origin.startswith("https://")
 
     @property
+    def portal_cookie(self):
+        return "__Host-gft-supplier" if self.secure_cookie else "gft-supplier"
+
+    @property
     def session_cookie(self):
         return "__Host-gft-session" if self.secure_cookie else "gft-session"
 

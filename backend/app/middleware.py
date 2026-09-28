@@ -47,7 +47,11 @@ class RequestBoundary:
             # Do not trust caller-controlled X-Forwarded-For. Proxy-level per-IP limits
             # are additionally needed in production; peer limits here are conservative.
             peer = (scope.get("client") or ("unknown", 0))[0]
-            category = "login" if scope["path"] == "/api/auth/login" else "api"
+            category = (
+                "login"
+                if scope["path"] in {"/api/auth/login", "/api/portal/exchange"}
+                else "api"
+            )
             window = datetime.now(timezone.utc).replace(second=0, microsecond=0)
             key = hashlib.sha256(f"{peer}|{category}".encode()).hexdigest()
 

@@ -1,0 +1,16 @@
+CREATE EXTENSION
+REVOKE
+Fresh migration run 1: OK
+Fresh migration run 2: OK
+Schema 0002; 11 tenant business/portal tables have RLS; 7 commodities.
+Restored suppliers: 8 rows; match OK
+Restored supplier_contacts: 4 rows; match OK
+Restored products: 4 rows; match OK
+Restored supplier_products: 4 rows; match OK
+Restored lots: 4 rows; match OK
+Restored supplier_collections: 4 rows; match OK
+Restored collection_revisions: 4 rows; match OK
+Restored supplier_invitations: 4 rows; match OK
+Restored supplier_sessions: 4 rows; match OK
+Restored audit_events: 59 rows; match OK
+Backup/restore synthetic demo: OK. No dump persisted; no production data.

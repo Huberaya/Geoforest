@@ -1,22 +1,24 @@
-import json
 from uuid import UUID
 
 from app.auth import router as auth_router
 from app.config import settings
 from app.database import transaction
+from app.events import event
 from app.middleware import RequestBoundary
+from app.portal.routes import router as portal_router
 from app.schemas import MemberInput, OrganizationCreate, OrganizationUpdate
 from app.security import authorize, require_identity, require_mfa
+from app.supply.routes import router as supply_router
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 app = FastAPI(
     title="GeoForest Trace — socle sécurisé",
-    version="0.2.0",
+    version="0.3.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -34,6 +36,18 @@ app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=settings().allowed_hosts.split(",")
 )
 app.include_router(auth_router)
+app.include_router(supply_router)
+app.include_router(portal_router)
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error(request: Request, exc):
+    return JSONResponse(
+        {
+            "detail": "Référence déjà utilisée ou relation incompatible. Aucun changement enregistré."
+        },
+        status_code=409,
+    )
 
 
 @app.exception_handler(SQLAlchemyError)
@@ -58,6 +72,8 @@ def readiness():
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
         postgis = conn.execute(text("SELECT postgis_version()")).scalar_one()
+    if version != "0002" or not postgis:
+        raise HTTPException(503, "Schéma de données incompatible avec cette version")
     return {"status": "ok", "migration": version, "postgis": bool(postgis)}
 
 
@@ -114,22 +130,6 @@ def create_organization(body: OrganizationCreate, identity=Depends(require_ident
             text("SELECT authz.create_organization(:n)"), {"n": body.name}
         ).scalar_one()
     return {"id": org, "name": body.name, "version": 1, "role": "Admin"}
-
-
-def event(conn, org, identity, action, kind, object_id, before, after):
-    conn.execute(
-        text("""INSERT INTO audit_events(organization_id,actor_id,action,object_type,object_id,previous_value,new_value)
-      VALUES(:o,:u,:a,:k,:id,CAST(:b AS jsonb),CAST(:n AS jsonb))"""),
-        {
-            "o": org,
-            "u": identity.id,
-            "a": action,
-            "k": kind,
-            "id": object_id,
-            "b": json.dumps(before, default=str) if before is not None else None,
-            "n": json.dumps(after, default=str) if after is not None else None,
-        },
-    )
 
 
 @app.patch("/api/v1/organizations/{org}")
@@ -202,6 +202,18 @@ def set_member(org: UUID, body: MemberInput, identity=Depends(require_identity))
                 "Le compte doit se connecter une première fois avec une adresse vérifiée et unique",
             )
         target = matches[0]
+        if (
+            body.role == "Supplier"
+            and not conn.execute(
+                text(
+                    "SELECT 1 FROM suppliers WHERE organization_id=:o AND id=:s AND archived_at IS NULL"
+                ),
+                {"o": org, "s": body.supplier_id},
+            ).first()
+        ):
+            raise HTTPException(
+                422, "Choisissez une fiche fournisseur active de cette organisation"
+            )
         old = (
             conn.execute(
                 text(
@@ -290,7 +302,7 @@ def audit(
         authorize(conn, org, identity, {"Admin", "Compliance Manager"})
         return (
             conn.execute(
-                text("""SELECT id,actor_id,action,object_type,object_id,previous_value,new_value,source,created_at
+                text("""SELECT id,actor_id,actor_kind,supplier_actor_id,action,object_type,object_id,previous_value,new_value,source,created_at
            FROM audit_events WHERE organization_id=:o ORDER BY created_at DESC,id DESC LIMIT :l"""),
                 {"o": org, "l": limit},
             )

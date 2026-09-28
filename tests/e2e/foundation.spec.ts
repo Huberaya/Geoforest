@@ -18,7 +18,10 @@ test("Connexion publique responsive sans indicateurs réglementaires fictifs", a
     ).toBeTruthy();
   }
   await page.screenshot({
-    path: path.join("docs/rapports/preuves-chantier-1", "connexion-mobile.png"),
+    path: path.join(
+      process.env.E2E_PROOF_DIR || "docs/rapports/preuves-chantier-1",
+      "connexion-mobile.png",
+    ),
     fullPage: true,
   });
 });
@@ -64,7 +67,7 @@ test("OIDC réel : connexion, organisation, paramètres, journal, déconnexion",
     .click();
   await page.setViewportSize({ width: 1440, height: 1100 });
   await page.screenshot({
-    path: "docs/rapports/preuves-chantier-1/espace-desktop.png",
+    path: `${process.env.E2E_PROOF_DIR || "docs/rapports/preuves-chantier-1"}/espace-desktop.png`,
     fullPage: true,
   });
   for (const width of [768, 390, 360]) {
@@ -76,7 +79,7 @@ test("OIDC réel : connexion, organisation, paramètres, journal, déconnexion",
     ).toBeTruthy();
   }
   await page.screenshot({
-    path: "docs/rapports/preuves-chantier-1/espace-mobile.png",
+    path: `${process.env.E2E_PROOF_DIR || "docs/rapports/preuves-chantier-1"}/espace-mobile.png`,
     fullPage: true,
   });
   const cookies = await page.context().cookies();

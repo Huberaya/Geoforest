@@ -13,13 +13,17 @@ def engine():
 
 
 @contextmanager
-def transaction(user_id=None, organization_id=None):
+def transaction(user_id=None, organization_id=None, portal_session=None):
     with engine().begin() as conn:
         # LOCAL scope prevents identity leakage when a pooled connection is reused.
         conn.execute(
             text(
-                "SELECT set_config('app.user_id', :u, true), set_config('app.organization_id', :o, true)"
+                "SELECT set_config('app.user_id', :u, true), set_config('app.organization_id', :o, true), set_config('app.portal_session', :p, true)"
             ),
-            {"u": str(user_id or ""), "o": str(organization_id or "")},
+            {
+                "u": str(user_id or ""),
+                "o": str(organization_id or ""),
+                "p": str(portal_session or ""),
+            },
         )
         yield conn

@@ -21,6 +21,7 @@ packaging==26.3
 pluggy==1.6.0
 psycopg==3.3.3
 psycopg-binary==3.3.3
+pycountry==24.6.1
 pycparser==3.0
 pydantic==2.13.5
 pydantic-settings==2.14.2

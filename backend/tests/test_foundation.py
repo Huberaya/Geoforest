@@ -181,6 +181,22 @@ def test_supplier_scope_and_unknown_identity(client, identity, signin, org):
             path,
             json={"email": b["email"], "role": "Supplier", "supplier_id": str(uuid4())},
         ).status_code
+        == 422
+    )
+
+    supplier = client.post(
+        f"/api/v1/organizations/{o}/suppliers",
+        json={"reference": "SCOPE-01", "name": "Fournisseur fictif"},
+    ).json()
+    assert (
+        client.put(
+            path,
+            json={
+                "email": b["email"],
+                "role": "Supplier",
+                "supplier_id": supplier["id"],
+            },
+        ).status_code
         == 200
     )
 

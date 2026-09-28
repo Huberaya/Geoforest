@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { SupplyWorkspace } from "@/components/supply/SupplyWorkspace";
 import { useEffect, useState, type FormEvent } from "react";
 
 type Org = {
@@ -28,7 +29,9 @@ type Audit = {
   id: string;
   action: string;
   created_at: string;
-  actor_id: string;
+  actor_id: string | null;
+  actor_kind: "user" | "supplier";
+  supplier_actor_id: string | null;
   previous_value: unknown;
   new_value: unknown;
 };
@@ -41,6 +44,26 @@ const roles = [
   "Supplier",
 ];
 const actions: Record<string, string> = {
+  "supplier.created": "Fournisseur créé",
+  "supplier.updated": "Fournisseur modifié",
+  "supplier.archived": "Fournisseur archivé",
+  "supplier.imported": "Fournisseur importé",
+  "contact.created": "Contact ajouté",
+  "contact.updated": "Contact modifié",
+  "contact.removed": "Contact retiré",
+  "product.created": "Produit créé",
+  "product.updated": "Produit modifié",
+  "product.archived": "Produit archivé",
+  "lot.created": "Lot créé",
+  "lot.updated": "Lot modifié",
+  "lot.archived": "Lot archivé",
+  "supplier.invitation_created":
+    "Lien fournisseur créé (transmission manuelle)",
+  "supplier.invitation_revoked": "Accès fournisseur révoqué",
+  "supplier.portal_opened": "Portail fournisseur ouvert",
+  "supplier.collection_saved": "Brouillon fournisseur enregistré",
+  "supplier.collection_submitted": "Collecte fournisseur transmise",
+  "supplier.collection_reviewed": "Revue humaine de collecte",
   "organization.created": "Organisation créée",
   "organization.updated": "Organisation modifiée",
   "membership.created": "Membre ajouté",
@@ -428,8 +451,21 @@ export default function Home() {
           </button>
           <div className="nav-label">VOTRE CHAÎNE D’APPROVISIONNEMENT</div>
           {[
-            ["users", "Fournisseurs"],
-            ["file", "Produits & lots"],
+            ["users", "Fournisseurs", "suppliers"],
+            ["file", "Produits", "products"],
+            ["grid", "Lots", "lots"],
+          ].map(([icon, label, id]) => (
+            <button
+              key={id}
+              disabled={!org}
+              className={view === id ? "active" : ""}
+              onClick={() => setView(id)}
+            >
+              <Icon name={icon} />
+              {label}
+            </button>
+          ))}
+          {[
             ["map", "Parcelles"],
             ["shield", "Diligence raisonnée"],
           ].map(([icon, label]) => (
@@ -507,27 +543,42 @@ export default function Home() {
           </span>
         </header>
         <main id="main" className="main">
-          <div className="page-heading">
-            <div>
-              <span className="eyebrow">VOTRE ESPACE GEOFOREST</span>
-              <h1>
-                {view === "members"
-                  ? "Membres & accès"
-                  : view === "audit"
-                    ? "Journal d’activité"
-                    : view === "settings"
-                      ? "Paramètres"
-                      : "Vue d’ensemble"}
-              </h1>
-              <p className="muted">
-                {view === "overview"
-                  ? "Posez les bases de votre démarche de diligence raisonnée."
-                  : "Gérez votre organisation avec des actions traçables."}
-              </p>
+          {!["suppliers", "products", "lots"].includes(view) && (
+            <div className="page-heading">
+              <div>
+                <span className="eyebrow">VOTRE ESPACE GEOFOREST</span>
+                <h1>
+                  {view === "members"
+                    ? "Membres & accès"
+                    : view === "audit"
+                      ? "Journal d’activité"
+                      : view === "settings"
+                        ? "Paramètres"
+                        : "Vue d’ensemble"}
+                </h1>
+                <p className="muted">
+                  {view === "overview"
+                    ? "Posez les bases de votre démarche de diligence raisonnée."
+                    : "Gérez votre organisation avec des actions traçables."}
+                </p>
+              </div>
+              {org && <span className="badge role">{org.role}</span>}
             </div>
-            {org && <span className="badge role">{org.role}</span>}
-          </div>
+          )}
           {feedback}
+          {org && ["suppliers", "products", "lots"].includes(view) && (
+            <SupplyWorkspace
+              key={org.id + view}
+              kind={view as "suppliers" | "products" | "lots"}
+              org={org.id}
+              role={org.role}
+              csrf={me.csrf_token}
+              writable={Boolean(
+                admin ||
+                ["Compliance Manager", "Procurement"].includes(org.role),
+              )}
+            />
+          )}
           {!me.admin_mfa_satisfied && (
             <div className="message warning">
               Une authentification renforcée est requise pour administrer cet
@@ -538,30 +589,30 @@ export default function Home() {
             <>
               <section className="welcome">
                 <div>
-                  <span className="badge light">ÉTAPE 01 / 08</span>
+                  <span className="badge light">ÉTAPE 02 / 08</span>
                   <h2>
-                    Un socle sûr.
+                    Des partenaires identifiés.
                     <br />
-                    Une démarche qui se construit.
+                    Une collecte qui avance.
                   </h2>
                   <p>
-                    Organisez votre espace, attribuez les bons accès et
-                    retrouvez chaque action importante. Les modules métier
-                    seront ouverts progressivement.
+                    Référencez vos fournisseurs, reliez vos produits et vos
+                    lots, puis invitez vos contacts à compléter leur collecte
+                    initiale.
                   </p>
                   <button
                     className="button white"
-                    disabled={!admin}
-                    onClick={() => setView("members")}
+                    disabled={!org}
+                    onClick={() => setView("suppliers")}
                   >
-                    Gérer les accès <Icon name="arrow" />
+                    Ouvrir les fournisseurs <Icon name="arrow" />
                   </button>
                 </div>
                 <div className="welcome-emblem" aria-hidden="true">
                   <Icon name="shield" />
                   <span>
-                    IDENTITÉ
-                    <br />& CONFIANCE
+                    COLLECTE
+                    <br />& TRAÇABILITÉ
                   </span>
                   <div className="orbit one" />
                   <div className="orbit two" />
@@ -596,7 +647,7 @@ export default function Home() {
                   </strong>
                   <small>
                     {canAudit
-                      ? "Actions d’administration enregistrées"
+                      ? "Actions et collectes enregistrées"
                       : "Selon votre rôle dans cet espace"}
                   </small>
                 </article>
@@ -631,12 +682,13 @@ export default function Home() {
                         <p>Attribuez un rôle adapté à chaque membre.</p>
                       </div>
                     </li>
-                    <li className="future">
+                    <li>
                       <span>4</span>
                       <div>
                         <strong>Collecter les données fournisseurs</strong>
                         <p>
-                          Disponible au prochain chantier, après validation.
+                          Fiches, produits, lots et portail sécurisé
+                          disponibles.
                         </p>
                       </div>
                     </li>
@@ -813,8 +865,9 @@ export default function Home() {
                     placeholder="UUID — uniquement pour le rôle Supplier"
                   />
                   <p className="caption">
-                    Obligatoire uniquement pour Supplier. Ce périmètre réserve
-                    un accès limité ; le portail n’est pas encore disponible.
+                    Obligatoire uniquement pour Supplier : UUID d’une fiche
+                    active de cette organisation. Pour le portail sans compte,
+                    créez plutôt un lien sécurisé depuis la fiche fournisseur.
                   </p>
                   <button className="button primary" disabled={busy}>
                     Enregistrer les permissions
@@ -844,7 +897,10 @@ export default function Home() {
                         <strong>{actions[e.action] || e.action}</strong>
                         <small>
                           {new Date(e.created_at).toLocaleString("fr-FR")} ·
-                          Auteur : {e.actor_id}
+                          Auteur :{" "}
+                          {e.actor_kind === "supplier"
+                            ? "Portail fournisseur · " + e.supplier_actor_id
+                            : e.actor_id}
                         </small>
                         <details>
                           <summary>Voir les valeurs avant / après</summary>
@@ -871,7 +927,7 @@ export default function Home() {
         </main>
         <footer className="main-footer">
           <span>© GeoForest Trace</span>
-          <span>Chantier 01 · Identité, organisations & accès</span>
+          <span>Chantier 02 · Collecte fournisseurs & approvisionnement</span>
         </footer>
       </div>
     </div>
