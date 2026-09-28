@@ -1,0 +1,128 @@
+{
+  "checked_at": "2026-09-28T20:57:05.325473+00:00",
+  "cases": {
+    "clean-fictional-text": {
+      "status": "SCAN_PASSED",
+      "reason": "NO_DETECTION_IN_THIS_SCAN",
+      "engine_version": "1.4.6",
+      "database_versions": {
+        "daily": {
+          "version": 28137,
+          "signatures": 355678,
+          "build_epoch": 1790576652
+        },
+        "main": {
+          "version": 63,
+          "signatures": 3287027,
+          "build_epoch": 1765927102
+        },
+        "bytecode": {
+          "version": 339,
+          "signatures": 80,
+          "build_epoch": 1757593759
+        }
+      },
+      "input_sha256": "baf7cf58035438b2989bacdeccbd170dfc3dd8c5e76d8e4530d4f672b512e2a0",
+      "input_bytes": 53,
+      "expected_status": "SCAN_PASSED"
+    },
+    "eicar-standard-test": {
+      "status": "SCAN_REJECTED",
+      "reason": "DETECTION_OR_POLICY_LIMIT",
+      "engine_version": "1.4.6",
+      "database_versions": {
+        "daily": {
+          "version": 28137,
+          "signatures": 355678,
+          "build_epoch": 1790576652
+        },
+        "main": {
+          "version": 63,
+          "signatures": 3287027,
+          "build_epoch": 1765927102
+        },
+        "bytecode": {
+          "version": 339,
+          "signatures": 80,
+          "build_epoch": 1757593759
+        }
+      },
+      "input_sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+      "input_bytes": 68,
+      "expected_status": "SCAN_REJECTED"
+    },
+    "clean-280000-bytes": {
+      "status": "SCAN_PASSED",
+      "reason": "NO_DETECTION_IN_THIS_SCAN",
+      "engine_version": "1.4.6",
+      "database_versions": {
+        "daily": {
+          "version": 28137,
+          "signatures": 355678,
+          "build_epoch": 1790576652
+        },
+        "main": {
+          "version": 63,
+          "signatures": 3287027,
+          "build_epoch": 1765927102
+        },
+        "bytecode": {
+          "version": 339,
+          "signatures": 80,
+          "build_epoch": 1757593759
+        }
+      },
+      "input_sha256": "c032c3b27c2d4a55b0e619374fc7bb1070d6974e7ef38740e899736404ba54d7",
+      "input_bytes": 280000,
+      "expected_status": "SCAN_PASSED"
+    },
+    "forced-timeout": {
+      "status": "SCAN_UNAVAILABLE",
+      "reason": "SCAN_TIMEOUT",
+      "engine_version": "1.4.6",
+      "database_versions": {
+        "daily": {
+          "version": 28137,
+          "signatures": 355678,
+          "build_epoch": 1790576652
+        },
+        "main": {
+          "version": 63,
+          "signatures": 3287027,
+          "build_epoch": 1765927102
+        },
+        "bytecode": {
+          "version": 339,
+          "signatures": 80,
+          "build_epoch": 1757593759
+        }
+      },
+      "input_sha256": "c032c3b27c2d4a55b0e619374fc7bb1070d6974e7ef38740e899736404ba54d7",
+      "expected_status": "SCAN_UNAVAILABLE"
+    },
+    "synthetic-invalid-signatures": {
+      "status": "SCAN_UNAVAILABLE",
+      "reason": "SCAN_FAILED_OR_LIMIT",
+      "engine_version": "1.4.6",
+      "database_versions": {
+        "daily": {
+          "version": 1,
+          "signatures": 1,
+          "build_epoch": 1790629050
+        },
+        "main": {
+          "version": 1,
+          "signatures": 1,
+          "build_epoch": 1790629050
+        },
+        "bytecode": {
+          "version": 1,
+          "signatures": 1,
+          "build_epoch": 1790629050
+        }
+      },
+      "input_sha256": "c032c3b27c2d4a55b0e619374fc7bb1070d6974e7ef38740e899736404ba54d7",
+      "expected_status": "SCAN_UNAVAILABLE"
+    }
+  }
+}
