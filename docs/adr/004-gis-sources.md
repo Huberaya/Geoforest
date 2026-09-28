@@ -2,7 +2,9 @@
 
 28 septembre 2026 · GO utilisateur reçu après publication du chantier 3.
 
-**Statut : cadrage initial. Aucune fonctionnalité chantier 4 implémentée ou source externe activée.**
+**Statut : premier incrément technique implémenté et testé ; pas encore intégré à l’application.**
+
+Le noyau de comparaison local et un échantillon ivoirien historique sont testés. La couche française examinée est rejetée pour les contrôles applicatifs. Aucun endpoint, migration 0004 ou fond externe activé. Voir `docs/rapports/04-chantier-4-avancement.md`.
 
 Branche : `chantier-4/gis-sources`, issue de `106cfa3c7afa0b4716930ca78f3a58a69f196fad`.
 
@@ -43,4 +45,4 @@ Le chantier 4 doit apporter la cohérence géographique avec des référentiels 
 
 Au moins un référentiel géographique effectivement qualifié et reproductible, ou un blocage explicite soumis au propriétaire avant de prétendre livrer la cohérence pays. Résultats et versions traçables, comportement sûr en cas d’indisponibilité, frontières et cas ambigus testés, droits/isolation préservés, non-régression des chantiers précédents, guide et rapport honnête.
 
-**Prochaine action : recherche et qualification des sources, avant implémentation des nouveaux contrôles.**
+**Prochaine action : qualification complémentaire du catalogue et modèle de résultats versionnés, puis intégration API/UI et recette complète.**

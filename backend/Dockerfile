@@ -5,6 +5,7 @@ COPY requirements.lock .
 RUN pip install --no-cache-dir -r requirements.lock && useradd --create-home app
 COPY --chown=app:app app ./app
 COPY --chown=app:app migrations ./migrations
+COPY --chown=app:app reference ./reference
 COPY --chown=app:app alembic.ini ./
 USER app
 EXPOSE 8000
