@@ -3,6 +3,7 @@
 import hashlib
 import json
 from contextlib import contextmanager
+from typing import Literal
 from uuid import UUID
 
 from app.config import settings
@@ -26,6 +27,7 @@ class ForestInput(StrictModel):
     revision: int = Field(ge=1, le=2147483647, strict=True)
     request_id: UUID
     allow_public_tile_requests: bool = Field(strict=True)
+    source_id: Literal["gfc-2025-v1.13", "tmf-2025-epoch"] = "gfc-2025-v1.13"
 
 
 @contextmanager
@@ -102,9 +104,13 @@ def sources(org: UUID, identity=Depends(require_identity)):
                 "attribution": "Source: Hansen/UMD/Google/USGS/NASA",
             },
             {
-                "id": "jrc-tmf-2025",
-                "state": "NOT_QUALIFIED",
-                "reason": "Version, classes and access qualification pending",
+                "id": "tmf-2025-epoch",
+                "state": "AVAILABLE_ON_DEMAND"
+                if settings().forest_analysis_enabled
+                else "DISABLED",
+                "period_end": "2025-12-31",
+                "extent": "86 native grids; tropical moist forests, not every forest type",
+                "attribution": "Source: EC JRC; COG repackaging: Epoch / Source Cooperative; no EU endorsement",
             },
         ],
         "regulatory_status": "NOT_ASSESSED",
@@ -189,6 +195,11 @@ def create(
                 "plot": str(plot),
                 "revision": body.revision,
                 "allow_public_tile_requests": True,
+                **(
+                    {"source_id": body.source_id}
+                    if body.source_id != "gfc-2025-v1.13"
+                    else {}
+                ),
             },
             sort_keys=True,
         ).encode()
@@ -243,7 +254,13 @@ def create(
         if prior:
             return public_record(prior) | {"replayed": True}
         try:
-            result = isolated_analysis(record["payload"]["geometry"])
+            result = (
+                isolated_analysis(record["payload"]["geometry"])
+                if body.source_id == "gfc-2025-v1.13"
+                else isolated_analysis(
+                    record["payload"]["geometry"], source_id=body.source_id
+                )
+            )
         except SourceReadError as exc:
             raise HTTPException(
                 503,
@@ -267,6 +284,7 @@ def create(
         ).hexdigest()
         if (
             result.get("geometry_sha256") != expected_sha
+            or result.get("source_id", "gfc-2025-v1.13") != body.source_id
             or result.get("regulatory_status") != "NOT_ASSESSED"
             or result.get("human_review_required") is not True
             or result.get("status")
@@ -324,6 +342,7 @@ def create(
                     "signal_status": result["signal_status"],
                     "geometry_sha256": result["geometry_sha256"],
                     "external_tile_access_acknowledged": True,
+                    "source_id": body.source_id,
                 },
             )
             return public_record(saved) | {"replayed": False}

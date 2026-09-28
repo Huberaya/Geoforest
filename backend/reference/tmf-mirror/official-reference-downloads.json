@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://forobs.jrc.ec.europa.eu/TMF/download?type=symbology&dataset=AnnualChange&output=qgis",
+    "resolved_url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=symbology&dataset=AnnualChange&output=qgis",
+    "sha256": "7eac00cbf5cfc6d149c452bf5461e737c8668523b7299e1461aa1d06ff2bb10c",
+    "bytes": 9900
+  },
+  {
+    "url": "https://forobs.jrc.ec.europa.eu/TMF/download?type=metadata&dataset=AnnualChange",
+    "resolved_url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=metadata&dataset=AnnualChange",
+    "sha256": "e03fc1d47ca301f6cab21864bc0c07e553cf609f64b854dac5eb84d8a5de1a6a",
+    "bytes": 5095
+  },
+  {
+    "url": "https://forobs.jrc.ec.europa.eu/TMF/download?type=symbology&dataset=DegradationYear&output=qgis",
+    "resolved_url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=symbology&dataset=DegradationYear&output=qgis",
+    "sha256": "cfec428d59b33f913784bee227310eb78e4e8054c20aa60c57f23d6500c8a95b",
+    "bytes": 12783
+  },
+  {
+    "url": "https://forobs.jrc.ec.europa.eu/TMF/download?type=metadata&dataset=DegradationYear",
+    "resolved_url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=metadata&dataset=DegradationYear",
+    "sha256": "e1d4e2ba96711f6664bfcdd5e45838063fd18157f385d3a95380ccc64ebd3556",
+    "bytes": 5087
+  },
+  {
+    "url": "https://forobs.jrc.ec.europa.eu/TMF/download?type=symbology&dataset=DeforestationYear&output=qgis",
+    "resolved_url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=symbology&dataset=DeforestationYear&output=qgis",
+    "sha256": "3f839f043c95e8219c344f323eb846f10f1c13607a594a94ac6e711d61b78a8b",
+    "bytes": 12763
+  },
+  {
+    "url": "https://forobs.jrc.ec.europa.eu/TMF/download?type=metadata&dataset=DeforestationYear",
+    "resolved_url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=metadata&dataset=DeforestationYear",
+    "sha256": "434ca887170c93a01b0c53662de8dfc6a8caf39e63d71d7c34f95f3be568a994",
+    "bytes": 5217
+  }
+]

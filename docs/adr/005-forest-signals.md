@@ -67,3 +67,10 @@ Lecture réelle de trois fenêtres 64×64 dans GFC v1.13 via requêtes partielle
 Le premier connecteur est désormais intégré : intersections pixel/parcelle GEOS après validation PostGIS, worker sous limites Linux, budget réseau agrégé, verrous PostgreSQL de session (deux travaux globaux, un par organisation), sans transaction métier ouverte pendant les lectures. Résultats/preuves append-only sous RLS ; réauthentification et autorisation après calcul ; UI et téléchargement privé. 572 tests backend et 7 E2E verts, migration/restauration vérifiées.
 
 La distribution officielle JRC examinée ignore Range (HTTP 200 pour bytes=0-15) et ne fournit pas de validateur de version dans les en-têtes examinés ; aucun téléchargement complet ou miroir admis tacitement. Choix d’accès au second connecteur ou acceptation explicite d’un périmètre GFC seul nécessaire. Voir `docs/rapports/05-chantier-5-integration.md`. Le chantier global reste ouvert.
+
+
+## Mise à jour — admission du miroir TMF, 28 septembre 2026
+
+Les réserves d’accès TMF ci-dessus décrivent l’état initial. Après décision utilisateur `qualify_mirror`, Epoch / Source Cooperative a été qualifié pour le périmètre indicatif : 86 grilles natives, contrôle de version/Range, comparaison ponctuelle au primaire, classes et licence corroborées par le tutoriel JRC v2025. Admission et réserves détaillées dans `../rapports/05b-qualification-miroir-tmf.md` (ou `05b-qualification-miroir-tmf.md` depuis le répertoire rapports).
+
+GFC et TMF sont désormais sélectionnables séparément, avec preuves conservées et consentement renouvelé. La baseline TMF 2020 ne qualifie pas juridiquement une forêt ; les premières années d’événement ne détectent pas toutes les récidives, les années récentes sont révisables et 2026 n’est pas observée. La concordance de sources utilisant Landsat n’est pas une indépendance statistique. Résultat toujours `NOT_ASSESSED` réglementairement, revue humaine requise. 604 backend et 7 E2E réussis ; aucune certification ou transmission officielle ajoutée.

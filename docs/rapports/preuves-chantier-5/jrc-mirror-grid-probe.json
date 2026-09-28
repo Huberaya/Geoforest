@@ -1,0 +1,82 @@
+{
+  "width": 37108,
+  "height": 37246,
+  "transform": [
+    0.00026949458523585647,
+    0.0,
+    -10.000135574346926,
+    0.0,
+    -0.00026949458523585647,
+    10.03759532169471,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "bounds": [
+    -10.000135574346926,
+    0.0,
+    0.0002694945852361741,
+    10.03759532169471
+  ],
+  "dtype": [
+    "uint16"
+  ],
+  "nodata": null,
+  "block_shapes": [
+    [
+      512,
+      512
+    ]
+  ],
+  "crs": "EPSG:4326",
+  "row": 16837,
+  "col": 16698,
+  "minimum": 0,
+  "maximum": 2025,
+  "source_reads": [
+    {
+      "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+      "version": "v1_2025",
+      "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W10/DeforestationYear.tif",
+      "generation": null,
+      "etag": "\"788a0a8ad9b932a7cd5527e4f592a33c-18\"",
+      "upstream_size_bytes": 143670370,
+      "last_modified": "Fri, 19 Jun 2026 13:27:09 GMT",
+      "range_sha256": [
+        {
+          "offset": 0,
+          "length": 65536,
+          "sha256": "6b145a9d1252d312cb71d2e02afb9959c977c3876cd91bcf1f4e8695166aaae4"
+        },
+        {
+          "offset": 123600896,
+          "length": 65536,
+          "sha256": "bdb0eee194b272bb5a174b75d207c4c9156b47e3a221e1226daadd7ee4b0c73e"
+        },
+        {
+          "offset": 123666432,
+          "length": 65536,
+          "sha256": "cc4095619a406a83016141b38d8da5f15d68b9a199cbb5b98ae380bf38ff6758"
+        },
+        {
+          "offset": 128188416,
+          "length": 65536,
+          "sha256": "93eed543aeedc929b3ffb39c80d547ef9ea9f6a5564103844af90ff6e4381137"
+        },
+        {
+          "offset": 128253952,
+          "length": 65536,
+          "sha256": "23ae9b385c11793658d142850ea42325f4c036e8b01d6df1781a2bf78db57ca5"
+        },
+        {
+          "offset": 128319488,
+          "length": 65536,
+          "sha256": "cc518b89a55c165557e69014ac29770ce172a6dbdbed508a7c18c916c184f4fa"
+        }
+      ],
+      "whole_upstream_sha256": null,
+      "reserved_transfer_bytes": 393216,
+      "requests": 7
+    }
+  ]
+}

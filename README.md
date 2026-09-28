@@ -93,7 +93,7 @@ Sans identifiants, les tests OIDC/collecte sont explicitement ignorés ; ce n'es
 
 Les E2E créent des organisations fictives ; renouveler le compte/la base de recette avant d’atteindre le quota de dix organisations administrées. Ne pas exécuter ces scénarios sur des données réelles. `E2E_PROOF_DIR` permet de changer le dossier des captures du socle pour préserver les preuves historiques.
 
-CI : `.github/workflows/ci.yml` exécute lint/build/typecheck/audit npm, migrations répétables, tests PostGIS et audit Python, builds Docker. Les identifiants CI sont exclusivement éphémères. L’exécution distante du workflow et les builds Docker ne sont pas qualifiés par la recette locale ; les branches 1/2 ont été poussées, la livraison 3 reste locale.
+CI : `.github/workflows/ci.yml` exécute lint/build/typecheck/audit npm, migrations répétables, tests PostGIS et audit Python, builds Docker. Les identifiants CI sont exclusivement éphémères. L’exécution distante du workflow et les builds Docker ne sont pas qualifiés par la recette locale ; les branches 1–5 ont été poussées jusqu’au premier incrément du chantier 5 ; les derniers incréments du chantier 5 restent locaux tant qu’aucun nouveau push n’a été confirmé.
 
 ## Limites importantes
 
@@ -133,8 +133,8 @@ Natural Earth 1:10 millions, snapshot épinglé, **246 codes ISO de pays et terr
 
 Voir `docs/rapports/04-chantier-4.md`, `docs/reglementation/04-sources-geographiques.md`, `backend/reference/naturalearth/NOTICE.md` et le guide utilisateur. Les six E2E créent quatre organisations par suite : base synthétique dédiée et quota à surveiller, sans modifier les limites de l’application.
 
-## Chantier 5 — premier connecteur intégré, clôture globale en attente
+## Chantier 5 — GFC et JRC TMF intégrés
 
 Application **0.6.0 / migration 0005**. GFC à la demande intégré au détail parcellaire, résultats immuables et preuves JSON privées. Activation explicite `FOREST_ANALYSIS_ENABLED=true` et confirmation des lectures publiques dans l’interface ; désactivé par défaut. Pas de conformité EUDR automatique.
 
-572 tests backend et 7 parcours navigateur réussis ; migration peuplée et restauration vérifiées localement. Le deuxième connecteur JRC reste inactif : la distribution primaire testée ne respecte pas les requêtes partielles. Voir `docs/rapports/05-chantier-5-integration.md`. Aucun chantier 6 sans GO.
+604 tests backend et 7 parcours navigateur réussis, sans skip ; GFC et JRC TMF via miroir Epoch qualifié, sources séparées et preuves natives. Migration 0005 et restauration GFC vérifiées localement ; schéma inchangé pour TMF. Voir `docs/rapports/05-chantier-5-integration.md` et `05b-qualification-miroir-tmf.md`. Aucun verdict EUDR ni observation 2026. Aucun chantier 6 sans GO.

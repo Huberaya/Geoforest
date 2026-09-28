@@ -122,6 +122,38 @@ test("Observations forestières : vraie source, preuves et historique par révis
     .getByRole("button", { name: "Télécharger les preuves JSON" })
     .click();
   expect((await download).suggestedFilename()).toContain(snapshot.id);
+  await forest.getByLabel("Source à analyser").selectOption("tmf-2025-epoch");
+  await expect(forest.getByRole("checkbox")).not.toBeChecked();
+  await forest.getByRole("checkbox").check();
+  await forest
+    .getByRole("button", { name: "Analyser les signaux forestiers" })
+    .click();
+  await expect(forest.locator("article").first()).toContainText(
+    "Source: EC JRC",
+    { timeout: 110000 },
+  );
+  const tmfProof = await page.evaluate(async (f) => {
+    const h = await (
+      await fetch(`${f.base}/plots/${f.id}/forest-analyses?revision=1`)
+    ).json();
+    return (
+      await fetch(`${f.base}/plots/${f.id}/forest-analyses/${h.items[0].id}`)
+    ).json();
+  }, fixture);
+  expect(tmfProof.result.source_id).toBe("tmf-2025-epoch");
+  expect(tmfProof.result.status).toBe("OBSERVED");
+  expect(tmfProof.result.regulatory_status).toBe("NOT_ASSESSED");
+  expect(tmfProof.result.windows[0].evidence).toHaveLength(3);
+  expect(
+    tmfProof.result.windows[0].evidence[0].source_reads[0].generation,
+  ).toBeNull();
+  expect(
+    tmfProof.result.windows[0].evidence[0].source_reads[0].etag,
+  ).toBeTruthy();
+  await forest
+    .locator("article")
+    .first()
+    .screenshot({ path: "docs/rapports/preuves-chantier-5/tmf-desktop.png" });
   await dialog
     .getByRole("button", { name: "Fermer la fenêtre", exact: true })
     .click();
@@ -180,7 +212,10 @@ test("Observations forestières : vraie source, preuves et historique par révis
       ).json(),
     fixture,
   );
-  expect(unchanged.items[0].id).toBe(snapshot.id);
+  expect(unchanged.items.map((item: { id: string }) => item.id)).toContain(
+    snapshot.id,
+  );
+  expect(unchanged.items).toHaveLength(2);
   expect(errors).toEqual([]);
   expect(externalRequests).toEqual([]);
   if (process.env.E2E_RATE_PACE === "1")

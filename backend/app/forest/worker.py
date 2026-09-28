@@ -19,7 +19,8 @@ def main():
         raise ValueError("WORK_INPUT_LIMIT")
     from app.forest.engine import analyze_geometry
 
-    result = analyze_geometry(json.loads(raw))
+    body = json.loads(raw)
+    result = analyze_geometry(body["geometry"], source_id=body["source_id"])
     sys.stdout.write(json.dumps(result, allow_nan=False, separators=(",", ":")))
 
 

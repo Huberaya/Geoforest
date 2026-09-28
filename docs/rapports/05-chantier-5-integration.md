@@ -1,8 +1,8 @@
-# Chantier 5 — intégration fonctionnelle du premier connecteur
+# Chantier 5 — GFC et JRC TMF intégrés
 
 **28 septembre 2026 · application 0.6.0 · migration 0005**
 
-Branche `chantier-5/forest-signals`. **Le connecteur GFC est intégré et recetté localement. Le chantier 5 global n’est pas clôturé : décision/qualification du second connecteur nécessaire. Aucun chantier 6.**
+Branche `chantier-5/forest-signals`. **GFC et JRC TMF via le miroir Epoch sont intégrés et recettés localement. Chantier 5 livré dans ce périmètre indicatif ; attente du GO avant chantier 6. Pas de déploiement de production.**
 
 Ce rapport remplace l’état du premier incrément conservé dans `05-chantier-5-avancement.md`.
 
@@ -40,9 +40,9 @@ Le mode Automatique qualifie le calcul, pas une décision de conformité. `regul
 
 | Contrôle | Résultat |
 |---|---|
-| Backend complet avec PostgreSQL/PostGIS | **572 réussis**, 7 avertissements documentés |
+| Backend complet avec PostgreSQL/PostGIS | **604 réussis**, 13 avertissements documentés |
 | Navigateur, OIDC/API/DB réels | **7 réussis**, aucun ignoré ; TLS local de recette |
-| Source réelle depuis le navigateur via worker serveur | Parcelle fictive analysée, preuves téléchargées, révision polaire non couverte, première révision conservée |
+| Source réelle depuis le navigateur via worker serveur | Parcelle fictive analysée avec GFC puis les trois couches TMF ; preuves, source distincte, consentement renouvelé, révision polaire, historique conservé |
 | Mobile | 390 et 360 px, absence de débordement horizontal du dialogue ; aucune erreur JavaScript |
 | Réseau navigateur | Aucun appel direct à un fournisseur de données externe |
 | Build / TypeScript / ESLint / Ruff | Réussis |
@@ -50,11 +50,11 @@ Le mode Automatique qualifie le calcul, pas une décision de conformité. `regul
 | Migration | 0004 peuplée → 0005 puis répétition, empreintes complètes des anciennes géolocalisations/contrôles inchangées |
 | Restauration | **5 analyses forestières complètes identiques**, dont preuves pixels ; contrôle RLS/privilèges et révocation des sessions restaurées |
 
-Preuves : `preuves-chantier-5/pytest-integration.txt`, `e2e-integration.txt`, `{build,types,lint,ruff}-integration.txt`, `migration-0005.txt`, `restauration-0005.txt`, `pip-audit-integration.txt`. Captures : [desktop](preuves-chantier-5/forest-desktop.png), [mobile](preuves-chantier-5/forest-mobile.png).
+Preuves de la première recette GFC (historiques) : `preuves-chantier-5/pytest-integration.txt`, `e2e-integration.txt`, `{build,types,lint,ruff}-integration.txt`, `migration-0005.txt`, `restauration-0005.txt`, `pip-audit-integration.txt`. Captures : [desktop](preuves-chantier-5/forest-desktop.png), [mobile](preuves-chantier-5/forest-mobile.png).
 
 Un essai de worker réel indépendant est conservé dans `parcelle-fictive-worker-reel.json`. Les tests API utilisent des sources synthétiques explicitement contrôlées ; la recette navigateur utilise bien les données publiques réelles, pas un faux satellite.
 
-Les avertissements sont le TestClient/httpx déjà connu et six avertissements PendingDeprecation Rasterio/Affine. Les premières tentatives navigateur ont rencontré des dépendances système absentes, puis une mauvaise URL d’issuer dans l’IdP local réinstallé. Corrigés sans supprimer la vérification d’issuer. Un sélecteur de fermeture erroné dans le nouveau test a ensuite été corrigé ; la suite complète finale est verte. Les limites de débit restent actives ; attentes de renouvellement explicites dans la recette.
+Les avertissements sont le TestClient/httpx déjà connu et douze avertissements PendingDeprecation Rasterio/Affine. Les premières tentatives navigateur ont rencontré des dépendances système absentes, puis une mauvaise URL d’issuer dans l’IdP local réinstallé. Corrigés sans supprimer la vérification d’issuer. Un sélecteur de fermeture erroné dans le nouveau test a ensuite été corrigé ; la suite complète finale est verte. Les limites de débit restent actives ; attentes de renouvellement explicites dans la recette.
 
 ## MIGRATION ET RESTAURATION
 
@@ -66,26 +66,35 @@ Toutes les bases sont **synthétiques et locales** :
 
 L’empreinte SHA-256 des cinq enregistrements complets est `51a1a3c151032fcad60620839b26c74c834e122c12a652ef423f7bd2f6517420`. La procédure de restauration a retiré le droit INSERT temporaire nécessaire à `spatial_ref_sys`. Aucune production n’a été modifiée.
 
-## SECOND CONNECTEUR : BLOCAGE RÉEL CONSTATÉ
+## SECOND CONNECTEUR : BLOCAGE PRIMAIRE ET MIROIR QUALIFIÉ
 
-Le JRC TMF reste **inactif**, pas simulé. Après lecture de la page officielle et de son composant de téléchargement, la distribution officielle suivante a été sondée :
+État initial : le JRC TMF était inactif. Après lecture de la page officielle et de son composant de téléchargement, la distribution officielle suivante a été sondée :
 
 `https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DeforestationYear&lat=N10&lon=W10`
 
 - HEAD : HTTP 200, fichier annoncé `JRC_TMF_DeforestationYear_INT_1982_2025_v1_AFR_ID52_N10_W10.tif`, **114 721 845 octets**.
 - GET avec `Range: bytes=0-15` : **HTTP 200, pas 206**, même longueur complète ; pas d’ETag, Last-Modified ou Content-Range dans la réponse examinée.
-- Le corps complet n’a pas été téléchargé. Aucun dépassement silencieux de budget, aucune présomption de lecture partielle ou d’immuabilité.
+- Le corps complet n’avait pas été téléchargé pendant cette sonde. Un téléchargement administratif distinct a ensuite servi exclusivement à comparer le miroir ; aucun fallback de téléchargement complet dans les jobs.
 
 Preuve : [sonde d’accès JRC](preuves-chantier-5/jrc-access-probe.json). La page officielle signale en outre des métadonnées encore basées sur v2024. Les ressources/FAQ précisent que les années récentes peuvent être reclassées et que forêt TMF intacte n’équivaut pas automatiquement à forêt primaire EUDR.
 
-**Choix restant :** qualifier séparément un miroir tiers avec fichiers adaptés aux lectures partielles ; ou précharger/archiver les fichiers primaires dans un stockage dimensionné ; ou accepter explicitement un premier périmètre GFC seul et reporter TMF. Aucun miroir ni changement de budget n’a été admis silencieusement.
+**Choix utilisateur `qualify_mirror` exécuté.** Qualification et limites détaillées dans [05b-qualification-miroir-tmf.md](05b-qualification-miroir-tmf.md). Le miroir tiers Epoch / Source Cooperative est admis pour des observations indicatives, avec vérification de chaque lecture. Pas de service payant ni de modification des budgets.
+
+- 86 grilles natives contrôlées ; leurs emprises remplacent les boîtes nominales STAC, toutes différentes.
+- 36 864 pixels DeforestationYear comparés au primaire sur neuf fenêtres, concordants. Échantillonnage technique seulement, pas validation exhaustive ou terrain.
+- Trois couches : années du premier événement de déforestation et de dégradation, classe annuelle 2020. Années entières 1982–2025, jamais codes GFC ; classes 1–6 corroborées par le tutoriel primaire v2025.
+- Zéros/absence de classe interprétable : aucune preuve d’absence de déforestation. Aux chevauchements, dédoublonnage déterministe et absence de conclusion négative complète faute de comparaison des copies.
+- Source sélectionnable dans l’interface ; consentement renouvelé au changement ; preuves/historiques séparés, empreinte de requête liée à la source, résultat du worker contrôlé contre la source demandée.
+- Recette complète finale : **7 E2E, aucun ignoré, 4,3 minutes**. Une tentative a atteint la limite applicative de dix organisations administrées du compte de recette réutilisé : nouveau compte fictif OIDC, aucune suppression de tenant ni modification des quotas, puis suite complète verte.
+
+Preuves nouvelles : `pytest-multi-sources.txt`, `e2e-multi-sources.txt`, `build-multi-sources.txt`, `tmf-desktop.png` dans `preuves-chantier-5/`. Les traces d’intégration précédentes sont conservées comme historiques. La restauration des cinq analyses ci-dessus concernait GFC avant cet ajout ; aucun changement de schéma n’a été nécessaire pour TMF.
 
 ## STATUT DE SORTIE
 
-- **PRÊT localement :** premier connecteur GFC, moteur parcellaire, worker borné, API/RLS, interface, preuves/historique et restauration.
-- **À FINALISER avant clôture globale du chantier 5 :** décision et qualification du second connecteur, ou validation explicite du périmètre à un seul connecteur.
+- **PRÊT localement :** connecteurs GFC et JRC TMF (miroir), moteur parcellaire, worker borné, API/RLS, interface, preuves/historique et restauration.
+- **À FINALISER :** publication GitHub des commits locaux avec une nouvelle autorisation sécurisée ; aucun ancien token réutilisé.
 - **À QUALIFIER pour production :** Docker/CI distante, MFA IdP cible, accès public/TLS, isolation OS/egress, charge, supervision, sauvegardes chiffrées avec RPO/RTO. Le TLS local n’est pas une preuve d’accessibilité publique.
-- **RISQUE RÉGLEMENTAIRE :** indices cartographiques seulement ; usages agricoles, état 2020, dégradation juridique et données 2026 non établis par ce calcul.
+- **RISQUE RÉGLEMENTAIRE :** indices cartographiques seulement ; usages agricoles, état forestier juridique en 2020, dégradation juridique et données 2026 non établis par ce calcul.
 - **PROCHAINE VERSION :** file durable/asynchrone, cache persistant et traitement de masse, sources complémentaires et suivi des nouvelles éditions.
 
 Aucun chantier 6, aucun nouveau push ni déploiement de production effectué pendant cet incrément.

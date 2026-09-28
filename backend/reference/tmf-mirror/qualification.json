@@ -1,0 +1,5089 @@
+{
+  "checked_at": "2026-09-28T16:33:38.492222+00:00",
+  "index_sha256": "243752c8953f09b8da9567eadb7f73a74ece4ce0de30959951d13819d0464804",
+  "step": 0.00026949458523585647,
+  "rasterio_version": "1.5.1",
+  "gdal_version": "3.12.4",
+  "tiles": [
+    {
+      "tile_id": "N0_E0",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        0.0,
+        -10.03759532169471,
+        10.000135574346926,
+        0.00026949458523585647
+      ],
+      "global_col0": 0,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 0.0,
+        "ymin": -10.0,
+        "xmax": 10.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E0/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"13bac853ec10daacd5c4c1f140c84db0\"",
+          "upstream_size_bytes": 1404626,
+          "last_modified": "Fri, 19 Jun 2026 13:47:40 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "a5cf56a9b7494be087e9fb3a26d0040295acb14a90a76f3ac7209fb20c730533"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E10",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        9.99986607976169,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        9.99986607976169,
+        -10.03759532169471,
+        20.000001654108615,
+        0.00026949458523585647
+      ],
+      "global_col0": 37106,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 10.0,
+        "ymin": -10.0,
+        "xmax": 20.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E10/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"669b8b03ebb1384b4af7c6577a704860-20\"",
+          "upstream_size_bytes": 161208911,
+          "last_modified": "Fri, 19 Jun 2026 13:51:50 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "113d2327000bffd4be9db61008ff28871c0a56bd1e0818d2c3db58082331f8f6"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E100",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        100.00000827054308,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        100.00000827054308,
+        -10.03759532169471,
+        110.00014384489,
+        0.00026949458523585647
+      ],
+      "global_col0": 371065,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 100.0,
+        "ymin": -10.0,
+        "xmax": 110.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E100/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"9f54490f77ba65d353f022dbddfdfaa2-18\"",
+          "upstream_size_bytes": 146960748,
+          "last_modified": "Fri, 19 Jun 2026 13:49:55 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "01eea6683b0c131168cf32f07442804eda5b085cc61459adafea94cf5905fbdd"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E110",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        109.99987435030478,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        109.99987435030478,
+        -10.03759532169471,
+        120.0000099246517,
+        0.00026949458523585647
+      ],
+      "global_col0": 408171,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 110.0,
+        "ymin": -10.0,
+        "xmax": 120.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E110/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"c7082494cf16e087ee5fc996a060c383-15\"",
+          "upstream_size_bytes": 124536907,
+          "last_modified": "Fri, 19 Jun 2026 13:53:59 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "c16f82c2e7227c37a2746f2f692df114b03103d5a5794adbf390fca16295160a"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E120",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        119.99974043006647,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        119.99974043006647,
+        -10.03759532169471,
+        130.00014549899862,
+        0.00026949458523585647
+      ],
+      "global_col0": 445277,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 120.0,
+        "ymin": -10.0,
+        "xmax": 130.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E120/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"795e61ce6cccf9e6e063ff6c1e6b96b7-5\"",
+          "upstream_size_bytes": 40401028,
+          "last_modified": "Fri, 19 Jun 2026 13:53:00 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "13cae11a0a22fbe8322f2811affa695f6ba3b81ce7439ddfff3e73b413a8147d"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E130",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        129.99987600441338,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        129.99987600441338,
+        -10.03759532169471,
+        140.0000115787603,
+        0.00026949458523585647
+      ],
+      "global_col0": 482384,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 130.0,
+        "ymin": -10.0,
+        "xmax": 140.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E130/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"bf20b06037aef623973e5ca248d083cf-3\"",
+          "upstream_size_bytes": 23678256,
+          "last_modified": "Fri, 19 Jun 2026 13:52:45 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "9e0afc0f808981bd9e411f9c450ff7ed24e9c648907a67f2ccc9f51adca89a3f"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E140",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        139.99974208417507,
+        0.0,
+        -0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        139.99974208417507,
+        -10.03759532169471,
+        150.00014715310724,
+        0.0
+      ],
+      "global_col0": 519490,
+      "global_row0": 0,
+      "nominal_index_bbox": {
+        "xmin": 140.0,
+        "ymin": -10.0,
+        "xmax": 150.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E140/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"5ac40b5b0000b9f6c6ba4de1a75cfc85-6\"",
+          "upstream_size_bytes": 44106303,
+          "last_modified": "Fri, 19 Jun 2026 13:52:12 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "5f5f62826b02d8b0e48f11ab726a4dd10574e3a4b9e360153fa402d996a9740b"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E150",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        149.999877658522,
+        0.0,
+        -0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        149.999877658522,
+        -10.03759532169471,
+        160.00001323286892,
+        0.0
+      ],
+      "global_col0": 556597,
+      "global_row0": 0,
+      "nominal_index_bbox": {
+        "xmin": 150.0,
+        "ymin": -10.0,
+        "xmax": 160.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E150/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"48a157d0fe3b2f0848b90de061f3b4ea\"",
+          "upstream_size_bytes": 4579373,
+          "last_modified": "Fri, 19 Jun 2026 13:48:34 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "c72b539cb96ca6ee2675c3a68adbfaed3e6fd9d05793108efb17a61e5368ca89"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E160",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        159.99974373828368,
+        0.0,
+        -0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        159.99974373828368,
+        -10.03759532169471,
+        170.00014880721585,
+        0.0
+      ],
+      "global_col0": 593703,
+      "global_row0": 0,
+      "nominal_index_bbox": {
+        "xmin": 160.0,
+        "ymin": -10.0,
+        "xmax": 170.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E160/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"bdc24f8dc89cfd7a6c80029b7d3f110f\"",
+          "upstream_size_bytes": 814084,
+          "last_modified": "Fri, 19 Jun 2026 13:51:22 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "e58903d8aa98b2315fefd14d6634672120b86906156a3303b78dc204ea27d890"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E20",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        19.99973215952338,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        19.99973215952338,
+        -10.03759532169471,
+        30.000137228455543,
+        0.00026949458523585647
+      ],
+      "global_col0": 74212,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 20.0,
+        "ymin": -10.0,
+        "xmax": 30.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E20/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"4bdf337fd6ff3f6ae37b00a993308274-20\"",
+          "upstream_size_bytes": 161703456,
+          "last_modified": "Fri, 19 Jun 2026 13:51:34 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "282c4020ed58c479633826dee428f8408f4dab428241b4eac5d19c1eea85a721"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E30",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        29.999867733870307,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        29.999867733870307,
+        -10.03759532169471,
+        40.00000330821723,
+        0.00026949458523585647
+      ],
+      "global_col0": 111319,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 30.0,
+        "ymin": -10.0,
+        "xmax": 40.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E30/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"37b098b085a8ce4cf668049f04c88693-4\"",
+          "upstream_size_bytes": 25483905,
+          "last_modified": "Fri, 19 Jun 2026 13:51:26 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "c2f5c3ed132e28752ef39f3fa2e5ba88aec1aa808b2b910f2fccdee56877708c"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E40",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        39.999733813632,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        39.999733813632,
+        -10.03759532169471,
+        50.00013888256416,
+        0.00026949458523585647
+      ],
+      "global_col0": 148425,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 40.0,
+        "ymin": -10.0,
+        "xmax": 50.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E40/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"345c0bf47c04bc1bf212f793d9a2b5ce\"",
+          "upstream_size_bytes": 1245263,
+          "last_modified": "Fri, 19 Jun 2026 13:50:33 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "d1ec8ade730073c46ba0cf02c0a257df7cdbe2d369e49bfc5d8c32b4e14e7091"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_E90",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        89.99987269619615,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        89.99987269619615,
+        -10.03759532169471,
+        100.00027776512832,
+        0.00026949458523585647
+      ],
+      "global_col0": 333958,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": 90.0,
+        "ymin": -10.0,
+        "xmax": 100.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_E90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"c1e2520656caa16a285520c29898935c\"",
+          "upstream_size_bytes": 1278883,
+          "last_modified": "Fri, 19 Jun 2026 13:47:39 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "9349121bf23d6583375aaba435c77d5ff0fba4bd1fc43377a5c60ce681a4564f"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_W40",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -40.00000330821723,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -40.00000330821723,
+        -10.03759532169471,
+        -29.999867733870303,
+        0.00026949458523585647
+      ],
+      "global_col0": -148426,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": -40.0,
+        "ymin": -10.0,
+        "xmax": -30.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_W40/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"ee706f5ed57c89afe80d596f71fde2d6\"",
+          "upstream_size_bytes": 8189882,
+          "last_modified": "Fri, 19 Jun 2026 13:27:17 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "6b42a6b9bf9d0d1157534a068b0f685567a07b4ffa2b28fc06133766125cd866"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_W50",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -50.00013888256416,
+        0.0,
+        -0.00026949458523585647,
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -50.00013888256416,
+        -10.03759532169471,
+        -39.999733813632,
+        0.00026949458523585647
+      ],
+      "global_col0": -185533,
+      "global_row0": -1,
+      "nominal_index_bbox": {
+        "xmin": -50.0,
+        "ymin": -10.0,
+        "xmax": -40.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_W50/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"44ad5e37b7decb8cea17f5c338215a60-21\"",
+          "upstream_size_bytes": 170959138,
+          "last_modified": "Fri, 19 Jun 2026 13:49:30 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "56347bae11c9f61a1e350f9371810224883d29d3e8748169af3b7d18d88b4ccf"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_W60",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -60.000004962325846,
+        0.0,
+        -0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -60.000004962325846,
+        -10.03759532169471,
+        -49.99986938797892,
+        0.0
+      ],
+      "global_col0": -222639,
+      "global_row0": 0,
+      "nominal_index_bbox": {
+        "xmin": -60.0,
+        "ymin": -10.0,
+        "xmax": -50.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_W60/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"793c2b9ff1cfc510040ef4349a4357fc-23\"",
+          "upstream_size_bytes": 190000803,
+          "last_modified": "Fri, 19 Jun 2026 13:49:37 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "7ee06206c4d3021b8c41a3f9372ed8f906996ea68de6d5c2b9777c4f3533f4ae"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_W70",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -70.00014053667277,
+        0.0,
+        -0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -70.00014053667277,
+        -10.03759532169471,
+        -59.999735467740614,
+        0.0
+      ],
+      "global_col0": -259746,
+      "global_row0": 0,
+      "nominal_index_bbox": {
+        "xmin": -70.0,
+        "ymin": -10.0,
+        "xmax": -60.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_W70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"990ba588fa0138df411d3546ac214260-10\"",
+          "upstream_size_bytes": 77981782,
+          "last_modified": "Fri, 19 Jun 2026 13:48:33 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "dd36e21abb4528c1ca504d173f5bba2442a820c64d9a4141d91807658773fc9e"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_W80",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -80.0002761110197,
+        0.0,
+        -0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -80.0002761110197,
+        -10.03759532169471,
+        -69.99987104208753,
+        0.0
+      ],
+      "global_col0": -296853,
+      "global_row0": 0,
+      "nominal_index_bbox": {
+        "xmin": -80.0,
+        "ymin": -10.0,
+        "xmax": -70.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_W80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"63b7dcce2f3e25eac703161417f7d026-12\"",
+          "upstream_size_bytes": 92905998,
+          "last_modified": "Fri, 19 Jun 2026 13:48:44 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "ae2a7db2c9404d53bf44e3401398e1b9b1dd8f8bcf6b57166f58fbb5fdeb53bf"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N0_W90",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -90.00014219078139,
+        0.0,
+        -0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -90.00014219078139,
+        -10.03759532169471,
+        -80.00000661643446,
+        0.0
+      ],
+      "global_col0": -333959,
+      "global_row0": 0,
+      "nominal_index_bbox": {
+        "xmin": -90.0,
+        "ymin": -10.0,
+        "xmax": -80.0,
+        "ymax": 0.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N0_W90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"107143672471587e271b2abced7da7bb\"",
+          "upstream_size_bytes": 3568697,
+          "last_modified": "Fri, 19 Jun 2026 13:31:20 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "9e3ddb1271e1e303f9303c648c5cb10ce727340dee111e6b744c48f53c48b964"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E0",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        0.0,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        0.0,
+        0.0,
+        10.000135574346926,
+        10.03759532169471
+      ],
+      "global_col0": 0,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 0.0,
+        "ymin": 0.0,
+        "xmax": 10.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E0/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"a0ff091a57aba3b42c5efebdbb0e96f5-7\"",
+          "upstream_size_bytes": 56244332,
+          "last_modified": "Fri, 19 Jun 2026 13:29:52 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "42a552f9adfcca68876695547d9789a6fc4fedc2f8975cfa42c8c7608c00cf31"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E10",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        9.99986607976169,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        9.99986607976169,
+        0.0,
+        20.000001654108615,
+        10.03759532169471
+      ],
+      "global_col0": 37106,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 10.0,
+        "ymin": 0.0,
+        "xmax": 20.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E10/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"ba39c0859dfe76fbf3c837d888845f56-10\"",
+          "upstream_size_bytes": 80250701,
+          "last_modified": "Fri, 19 Jun 2026 13:26:40 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "7a022872e79a7e972881f48c8a3a307427a0174e81c6330ff8ba1681f1c0993f"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E100",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        100.00000827054308,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        100.00000827054308,
+        0.0,
+        110.00014384489,
+        10.03759532169471
+      ],
+      "global_col0": 371065,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 100.0,
+        "ymin": 0.0,
+        "xmax": 110.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E100/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"8317467065db52e12cd658a64db5e9a0-13\"",
+          "upstream_size_bytes": 106161191,
+          "last_modified": "Fri, 19 Jun 2026 13:31:55 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "da10cc8816c1f7816fbeef07294d5414fbc1dd56ac012546b1c059880697cee9"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E110",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        109.99987435030478,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        109.99987435030478,
+        0.0,
+        120.0000099246517,
+        10.03759532169471
+      ],
+      "global_col0": 408171,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 110.0,
+        "ymin": 0.0,
+        "xmax": 120.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E110/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"a234fb3582b0f789483d6cd9367021b4-11\"",
+          "upstream_size_bytes": 88492303,
+          "last_modified": "Fri, 19 Jun 2026 13:31:00 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "13b011c88c22591093abde6e5c3c628de2cbfc91a6463cda3fa14603bfde9c9f"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E120",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        119.99974043006647,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        119.99974043006647,
+        0.0,
+        130.00014549899862,
+        10.03759532169471
+      ],
+      "global_col0": 445277,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 120.0,
+        "ymin": 0.0,
+        "xmax": 130.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E120/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"8f8aacdb6ac1e3a9163ddd1ab403ff66-6\"",
+          "upstream_size_bytes": 48373831,
+          "last_modified": "Fri, 19 Jun 2026 13:25:28 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "22aef35603ec69511aa4f618e7583f41c9cd2e0db50782faef1dae3753fd1e74"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E20",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        19.99973215952338,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        19.99973215952338,
+        0.0,
+        30.000137228455543,
+        10.03759532169471
+      ],
+      "global_col0": 74212,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 20.0,
+        "ymin": 0.0,
+        "xmax": 30.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E20/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"708da0a7b30e1d825a9245a6089fe5f0-13\"",
+          "upstream_size_bytes": 104654911,
+          "last_modified": "Fri, 19 Jun 2026 13:27:02 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "2e8ca0ced30372069bc09644a420852a783554bdb3eecc5155c00739a2bae504"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E30",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        29.999867733870307,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        29.999867733870307,
+        0.0,
+        40.00000330821723,
+        10.03759532169471
+      ],
+      "global_col0": 111319,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 30.0,
+        "ymin": 0.0,
+        "xmax": 40.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E30/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"7462ccfa754c44906f20f67e5ab2eea3-8\"",
+          "upstream_size_bytes": 65731505,
+          "last_modified": "Fri, 19 Jun 2026 13:27:24 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "88eb8dffc053f2eaec3ad431573e9056002fb139e7c48ea09dadec962d8dd422"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E40",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        39.999733813632,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        39.999733813632,
+        0.0,
+        50.00013888256416,
+        10.03759532169471
+      ],
+      "global_col0": 148425,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 40.0,
+        "ymin": 0.0,
+        "xmax": 50.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E40/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"4f2641462dbddd23cb83ea6988423d71\"",
+          "upstream_size_bytes": 2446956,
+          "last_modified": "Fri, 19 Jun 2026 13:17:23 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "bb70c1462455c903e818df4ddf048d7b76603b9a372a1c39b6f8a66c8192acfd"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E70",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        69.99987104208753,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        69.99987104208753,
+        0.0,
+        80.0002761110197,
+        10.03759532169471
+      ],
+      "global_col0": 259745,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 70.0,
+        "ymin": 0.0,
+        "xmax": 80.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"144660322bd03a4ff0209362ec837e5f-2\"",
+          "upstream_size_bytes": 11339223,
+          "last_modified": "Fri, 19 Jun 2026 13:18:18 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "a442fe43bd3b271859e027cfe4d21bf7ec056aa8e2dc8acf2acc15ef733f78b8"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E80",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        80.00000661643446,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        80.00000661643446,
+        0.0,
+        90.00014219078139,
+        10.03759532169471
+      ],
+      "global_col0": 296852,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 80.0,
+        "ymin": 0.0,
+        "xmax": 90.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"7b4ebc2b13741e7a7f74e1c416ce1ae6-2\"",
+          "upstream_size_bytes": 16366834,
+          "last_modified": "Fri, 19 Jun 2026 13:25:14 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "52f4a43acb08d1a451b16e3c0ccaa6cb9430427804d4acf3cabb90dfdd20d041"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_E90",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        89.99987269619615,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        89.99987269619615,
+        0.0,
+        100.00027776512832,
+        10.03759532169471
+      ],
+      "global_col0": 333958,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": 90.0,
+        "ymin": 0.0,
+        "xmax": 100.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_E90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"0071e5cc8e8a32cb7e8547b006da676d-7\"",
+          "upstream_size_bytes": 56525122,
+          "last_modified": "Fri, 19 Jun 2026 13:30:19 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "be0cc7c43ca6d6153ab656e764c4ade2de7939ee67ae7871ab4df9441fe9fb07"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_W10",
+      "width": 37108,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -10.000135574346926,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -10.000135574346926,
+        0.0,
+        0.0002694945852361741,
+        10.03759532169471
+      ],
+      "global_col0": -37107,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": -10.0,
+        "ymin": 0.0,
+        "xmax": 0.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W10/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"788a0a8ad9b932a7cd5527e4f592a33c-18\"",
+          "upstream_size_bytes": 143670370,
+          "last_modified": "Fri, 19 Jun 2026 13:27:09 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "6b145a9d1252d312cb71d2e02afb9959c977c3876cd91bcf1f4e8695166aaae4"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_W20",
+      "width": 37107,
+      "height": 37246,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -20.000001654108615,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -20.000001654108615,
+        0.0,
+        -9.99986607976169,
+        10.03759532169471
+      ],
+      "global_col0": -74213,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": -20.0,
+        "ymin": 0.0,
+        "xmax": -10.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W20/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"dcbcfad20464d7a47242811a58430731-6\"",
+          "upstream_size_bytes": 46914288,
+          "last_modified": "Fri, 19 Jun 2026 13:19:10 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "a5e5748203e2b4a6acce9241faeb040474674e4d7a3bb6f230ae48338a50395d"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_W50",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -50.00013888256416,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -50.00013888256416,
+        -0.0002694945852361741,
+        -39.999733813632,
+        10.03759532169471
+      ],
+      "global_col0": -185533,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": -50.0,
+        "ymin": 0.0,
+        "xmax": -40.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W50/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"42d9c1df8e7885e866677b805290aa8e\"",
+          "upstream_size_bytes": 954361,
+          "last_modified": "Fri, 19 Jun 2026 13:16:49 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "56fe617fc4ac41ca1450895732e296f258216bedd7ec56210a421922f2490850"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_W60",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -60.000004962325846,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -60.000004962325846,
+        -0.0002694945852361741,
+        -49.99986938797892,
+        10.03759532169471
+      ],
+      "global_col0": -222639,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": -60.0,
+        "ymin": 0.0,
+        "xmax": -50.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W60/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"afd455a4b3d0cb717bb54dac51c9292f-4\"",
+          "upstream_size_bytes": 30765556,
+          "last_modified": "Fri, 19 Jun 2026 13:14:26 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "936df131fa175428a4a8902441c34c1ccccacabfb4f440f373a3ae66c377868c"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_W70",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -70.00014053667277,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -70.00014053667277,
+        -0.0002694945852361741,
+        -59.999735467740614,
+        10.03759532169471
+      ],
+      "global_col0": -259746,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": -70.0,
+        "ymin": 0.0,
+        "xmax": -60.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"32d0cb326d169e53702bef1e85862a14-10\"",
+          "upstream_size_bytes": 81621673,
+          "last_modified": "Fri, 19 Jun 2026 13:13:07 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "2ecf111adbd9cf77945b486b69441ceee9e62708ef0736489705d746887ccbee"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_W80",
+      "width": 37108,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -80.0002761110197,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -80.0002761110197,
+        -0.0002694945852361741,
+        -69.99987104208753,
+        10.03759532169471
+      ],
+      "global_col0": -296853,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": -80.0,
+        "ymin": 0.0,
+        "xmax": -70.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"491b0790f6c1d7ae4bc676e750bb24fc-22\"",
+          "upstream_size_bytes": 181160903,
+          "last_modified": "Fri, 19 Jun 2026 13:13:36 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "11ac37bf3e447c9e11aba394573203b44279c1cf2b8805b0dd9a70cb8a7c8cc8"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N10_W90",
+      "width": 37107,
+      "height": 37247,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -90.00014219078139,
+        0.0,
+        -0.00026949458523585647,
+        10.03759532169471,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -90.00014219078139,
+        -0.0002694945852361741,
+        -80.00000661643446,
+        10.03759532169471
+      ],
+      "global_col0": -333959,
+      "global_row0": -37246,
+      "nominal_index_bbox": {
+        "xmin": -90.0,
+        "ymin": 0.0,
+        "xmax": -80.0,
+        "ymax": 10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"8287620a553c6a8f160563a8fb0813f1-2\"",
+          "upstream_size_bytes": 11616416,
+          "last_modified": "Fri, 19 Jun 2026 13:10:54 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "2d6ffc0c21cfeca72901c1a7c3e8c67a49b2bde6e071740d2bfabac15fdbda8f"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_E100",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        100.00000827054308,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        100.00000827054308,
+        9.99986607976169,
+        110.00014384489,
+        20.070339740855175
+      ],
+      "global_col0": 371065,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": 100.0,
+        "ymin": 10.0,
+        "xmax": 110.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_E100/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"a1ab9b2edaedd76f629920e20c060180-21\"",
+          "upstream_size_bytes": 174551947,
+          "last_modified": "Fri, 19 Jun 2026 13:11:58 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "e2e675425d818e0ed6dda2cab912cc27b3762c4faf4608acb12a4acbabcfcd4c"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_E110",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        109.99987435030478,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        109.99987435030478,
+        9.99986607976169,
+        120.0000099246517,
+        20.070339740855175
+      ],
+      "global_col0": 408171,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": 110.0,
+        "ymin": 10.0,
+        "xmax": 120.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_E110/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"0a34356ed6add5353022d87f54258e0c\"",
+          "upstream_size_bytes": 2751633,
+          "last_modified": "Fri, 19 Jun 2026 11:39:24 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "d211d70d87eac151ac04c937d1300e57e920ab47ec81664019bd3e66b89fa21f"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_E120",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        119.99974043006647,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        119.99974043006647,
+        9.99986607976169,
+        130.00014549899862,
+        20.070339740855175
+      ],
+      "global_col0": 445277,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": 120.0,
+        "ymin": 10.0,
+        "xmax": 130.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_E120/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"9039c15d38a7dddeef2370ab63f8fc6d-5\"",
+          "upstream_size_bytes": 37778453,
+          "last_modified": "Fri, 19 Jun 2026 13:10:21 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "7e7b87c46633ca79241dc947134205ae5418136492053e83a238e8d545b24673"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_E70",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        69.99987104208753,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        69.99987104208753,
+        9.99986607976169,
+        80.0002761110197,
+        20.070339740855175
+      ],
+      "global_col0": 259745,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": 70.0,
+        "ymin": 10.0,
+        "xmax": 80.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_E70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"a0aa2edded61f4cd351667608374a013-4\"",
+          "upstream_size_bytes": 32066155,
+          "last_modified": "Fri, 19 Jun 2026 13:05:27 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "f348edab47f553509ba9651c95e1b23ec28017b6cd48a3ae01c49c3ceab534a6"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_E80",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        80.00000661643446,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        80.00000661643446,
+        9.99986607976169,
+        90.00014219078139,
+        20.070339740855175
+      ],
+      "global_col0": 296852,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": 80.0,
+        "ymin": 10.0,
+        "xmax": 90.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_E80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"8d42c2feb9632f5f895a267e1c209899\"",
+          "upstream_size_bytes": 4779278,
+          "last_modified": "Fri, 19 Jun 2026 11:41:12 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "b9b460027d3f0fd7447266ef8a20142b0f01df5d45396b569f4ae4b2028a1574"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_E90",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        89.99987269619615,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        89.99987269619615,
+        9.99986607976169,
+        100.00027776512832,
+        20.070339740855175
+      ],
+      "global_col0": 333958,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": 90.0,
+        "ymin": 10.0,
+        "xmax": 100.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_E90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"df23cf2856eb0c129924908e478d6c63-10\"",
+          "upstream_size_bytes": 79712483,
+          "last_modified": "Fri, 19 Jun 2026 13:08:00 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "ff236a209c93b41a6b418c940fec3cccaf3604beeae743c60ba839ca0be955fb"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_W100",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -100.00027776512832,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -100.00027776512832,
+        9.99986607976169,
+        -89.99987269619615,
+        20.070339740855175
+      ],
+      "global_col0": -371066,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": -100.0,
+        "ymin": 10.0,
+        "xmax": -90.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_W100/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"39274ece6936f73949ef4cdbaac0b234-11\"",
+          "upstream_size_bytes": 86823632,
+          "last_modified": "Fri, 19 Jun 2026 13:01:49 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "551d6a6549bf4ff952df7d31c847fd1733a8278b3f71827454d9c971e4b0f81c"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_W110",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -110.00014384489,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -110.00014384489,
+        9.99986607976169,
+        -100.00000827054308,
+        20.070339740855175
+      ],
+      "global_col0": -408172,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": -110.0,
+        "ymin": 10.0,
+        "xmax": -100.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_W110/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"145305e349e156ee3bfe1e251f59d510-2\"",
+          "upstream_size_bytes": 11935713,
+          "last_modified": "Fri, 19 Jun 2026 13:00:53 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "3aa96df1ff638f99c6fe22468578fd60ed8058b304fab97afa081493c19480cc"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_W20",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -20.000001654108615,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -20.000001654108615,
+        9.99986607976169,
+        -9.99986607976169,
+        20.070339740855175
+      ],
+      "global_col0": -74213,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": -20.0,
+        "ymin": 10.0,
+        "xmax": -10.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_W20/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"f571306ca3c01821f6f998cf40f6672a-2\"",
+          "upstream_size_bytes": 13868039,
+          "last_modified": "Fri, 19 Jun 2026 13:04:56 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "3923435581cb87758ac988a8836925be6b42065bb5070905cd9fa5abc743a736"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_W60",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -60.000004962325846,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -60.000004962325846,
+        9.99986607976169,
+        -49.99986938797892,
+        20.070339740855175
+      ],
+      "global_col0": -222639,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": -60.0,
+        "ymin": 10.0,
+        "xmax": -50.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_W60/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"d023d1ec657a376a4870498a5e927b77\"",
+          "upstream_size_bytes": 417337,
+          "last_modified": "Fri, 19 Jun 2026 11:39:24 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "1d7ebbe1818a2033d5a1ccc8395a6c57a76f1e1ded05c9b5d30fba843142ec50"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_W70",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -70.00014053667277,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -70.00014053667277,
+        9.99986607976169,
+        -59.999735467740614,
+        20.070339740855175
+      ],
+      "global_col0": -259746,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": -70.0,
+        "ymin": 10.0,
+        "xmax": -60.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_W70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"13cb33d330653554864bde73fcd282ce-3\"",
+          "upstream_size_bytes": 21554937,
+          "last_modified": "Fri, 19 Jun 2026 13:03:18 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "211fd16eea07f268197d3d6c6a15640e06a01cb195cf7bf1cd4e51064ba8d25f"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_W80",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -80.0002761110197,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -80.0002761110197,
+        9.99986607976169,
+        -69.99987104208753,
+        20.070339740855175
+      ],
+      "global_col0": -296853,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": -80.0,
+        "ymin": 10.0,
+        "xmax": -70.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_W80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"f3701807d96fcf1e5835da91409d804d-4\"",
+          "upstream_size_bytes": 25199036,
+          "last_modified": "Fri, 19 Jun 2026 13:02:58 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "7b82ca1b8cbf137bd70994493da56b00bd6a1da4cea2433f579a6185f82702e0"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N20_W90",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -90.00014219078139,
+        0.0,
+        -0.00026949458523585647,
+        20.070339740855175,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -90.00014219078139,
+        9.99986607976169,
+        -80.00000661643446,
+        20.070339740855175
+      ],
+      "global_col0": -333959,
+      "global_row0": -74474,
+      "nominal_index_bbox": {
+        "xmin": -90.0,
+        "ymin": 10.0,
+        "xmax": -80.0,
+        "ymax": 20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N20_W90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"467f947fbd88cb09da1f55fcb4d861fa-13\"",
+          "upstream_size_bytes": 105459012,
+          "last_modified": "Fri, 19 Jun 2026 13:03:47 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "c2951dde0490c3f8ec6ac2faa0c7df5120ef3bd2bb3c6f5eebd782e253ec11ef"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_E100",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        100.00000827054308,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        100.00000827054308,
+        19.99973215952338,
+        110.00014384489,
+        30.094729827873326
+      ],
+      "global_col0": 371065,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": 100.0,
+        "ymin": 20.0,
+        "xmax": 110.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_E100/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"590fc4894d36683f5cef77dac4914918-11\"",
+          "upstream_size_bytes": 90155229,
+          "last_modified": "Fri, 19 Jun 2026 13:02:17 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "2c840d31e6bab820bb3ced95b7cc7a3a4ba097aad0f922fdd83891ce782b9437"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_E110",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        109.99987435030478,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        109.99987435030478,
+        19.99973215952338,
+        120.0000099246517,
+        30.094729827873326
+      ],
+      "global_col0": 408171,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": 110.0,
+        "ymin": 20.0,
+        "xmax": 120.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_E110/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"c6e8dc2a7df48acc62e68ed1710224eb\"",
+          "upstream_size_bytes": 365526,
+          "last_modified": "Fri, 19 Jun 2026 11:33:56 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "7713941e79a01ceb277186123505e94d8ca62b362e48f973daa999d5349fc626"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_E70",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        69.99987104208753,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        69.99987104208753,
+        19.99973215952338,
+        80.0002761110197,
+        30.094729827873326
+      ],
+      "global_col0": 259745,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": 70.0,
+        "ymin": 20.0,
+        "xmax": 80.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_E70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"1c5a6d992a94c80ca8882498591440a4\"",
+          "upstream_size_bytes": 1898900,
+          "last_modified": "Fri, 19 Jun 2026 11:26:44 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "2621a3bb814632eff874958c841408a176da8448f12fa6e36adcac842f52da8c"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_E80",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        80.00000661643446,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        80.00000661643446,
+        19.99973215952338,
+        90.00014219078139,
+        30.094729827873326
+      ],
+      "global_col0": 296852,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": 80.0,
+        "ymin": 20.0,
+        "xmax": 90.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_E80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"600f728752a6d697f6c3abc7a321bfc8-3\"",
+          "upstream_size_bytes": 22500648,
+          "last_modified": "Fri, 19 Jun 2026 12:03:05 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "7951c9adda43a577ae3addfefd25cdef3cab060f703c2b7eeaa911e6a1b2cc32"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_E90",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        89.99987269619615,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        89.99987269619615,
+        19.99973215952338,
+        100.00027776512832,
+        30.094729827873326
+      ],
+      "global_col0": 333958,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": 90.0,
+        "ymin": 20.0,
+        "xmax": 100.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_E90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"e09f48a17bc8c291e514e86d4fd97aec-23\"",
+          "upstream_size_bytes": 188770643,
+          "last_modified": "Fri, 19 Jun 2026 13:04:28 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "ec5372ae96f2702287f0f482f0c7acb86885168bf8e6b682b249c687e5cd53e7"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_W100",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -100.00027776512832,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -100.00027776512832,
+        19.99973215952338,
+        -89.99987269619615,
+        30.094729827873326
+      ],
+      "global_col0": -371066,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": -100.0,
+        "ymin": 20.0,
+        "xmax": -90.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_W100/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"bf348db7c9b978f29919f5beeaada4c8-3\"",
+          "upstream_size_bytes": 17324891,
+          "last_modified": "Fri, 19 Jun 2026 11:32:06 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "14d3667670d0bed60d5de98664fe28b02f073ed76f64bee3b54f8d805aa3faca"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_W110",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -110.00014384489,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -110.00014384489,
+        19.99973215952338,
+        -100.00000827054308,
+        30.094729827873326
+      ],
+      "global_col0": -408172,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": -110.0,
+        "ymin": 20.0,
+        "xmax": -100.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_W110/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"4994dae82943eb4c44a6bde29e14036c-2\"",
+          "upstream_size_bytes": 12579303,
+          "last_modified": "Fri, 19 Jun 2026 11:22:27 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "f768c216a99106b39e1e82c02b350aa8dccdc3957f82a66c7fab78a7d63cd308"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_W80",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -80.0002761110197,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -80.0002761110197,
+        19.99973215952338,
+        -69.99987104208753,
+        30.094729827873326
+      ],
+      "global_col0": -296853,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": -80.0,
+        "ymin": 20.0,
+        "xmax": -70.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_W80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"4a278fa0786f562969e3cd873ef59417-2\"",
+          "upstream_size_bytes": 10726322,
+          "last_modified": "Fri, 19 Jun 2026 11:32:06 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "094d44ab93b0c6b56eff90e5345a4daf9c1dcdac53496714e912594d679af9a9"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "N30_W90",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -90.00014219078139,
+        0.0,
+        -0.00026949458523585647,
+        30.094729827873326,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -90.00014219078139,
+        19.99973215952338,
+        -80.00000661643446,
+        30.094729827873326
+      ],
+      "global_col0": -333959,
+      "global_row0": -111671,
+      "nominal_index_bbox": {
+        "xmin": -90.0,
+        "ymin": 20.0,
+        "xmax": -80.0,
+        "ymax": 30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N30_W90/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"55aecd4accb6bfa41f422546147bb651-2\"",
+          "upstream_size_bytes": 11365819,
+          "last_modified": "Fri, 19 Jun 2026 11:32:06 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "98a2de35ea7a036e68acdf4339a2a1ee499c4adfa28047509bd3c5547010cf02"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E10",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        9.99986607976169,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        9.99986607976169,
+        -20.070339740855175,
+        20.000001654108615,
+        -9.99986607976169
+      ],
+      "global_col0": 37106,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 10.0,
+        "ymin": -20.0,
+        "xmax": 20.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E10/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"1feff478a92f911e26d8f824da3fe9b8-2\"",
+          "upstream_size_bytes": 14931928,
+          "last_modified": "Fri, 19 Jun 2026 13:52:35 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "82146dcc34cde318602c40edb01913cc6e3c13febe17d18cb9aea1302bb0f6f1"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E120",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        119.99974043006647,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        119.99974043006647,
+        -20.070339740855175,
+        130.00014549899862,
+        -9.99986607976169
+      ],
+      "global_col0": 445277,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 120.0,
+        "ymin": -20.0,
+        "xmax": 130.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E120/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"0a95cd81026cf51cd647affa2669a364\"",
+          "upstream_size_bytes": 1454495,
+          "last_modified": "Fri, 19 Jun 2026 13:50:59 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "86c7ed51ce73e07cde7a082ea998154509e981f19bd70091502d3eff9f2a61bb"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E130",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        129.99987600441338,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        129.99987600441338,
+        -20.070339740855175,
+        140.0000115787603,
+        -9.99986607976169
+      ],
+      "global_col0": 482384,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 130.0,
+        "ymin": -20.0,
+        "xmax": 140.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E130/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"2c1f3e75f03c8048dbe5fbf5368a9756\"",
+          "upstream_size_bytes": 3184976,
+          "last_modified": "Fri, 19 Jun 2026 13:53:39 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "b4e1faeecd03b7662ad0a7307e65588a2e5f6f6e5e40da3b6a8238ea86feef68"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E140",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        139.99974208417507,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        139.99974208417507,
+        -20.070339740855175,
+        150.00014715310724,
+        -9.99986607976169
+      ],
+      "global_col0": 519490,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 140.0,
+        "ymin": -20.0,
+        "xmax": 150.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E140/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"dc3c1b560c2f1a15410fed3c378d62c6-2\"",
+          "upstream_size_bytes": 8893045,
+          "last_modified": "Fri, 19 Jun 2026 13:58:23 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "e4b157183cfd810ba98d470bad8ea5f3e603c7c9156368a7fe7cd4b0cfca38d4"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E150",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        149.999877658522,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        149.999877658522,
+        -20.070339740855175,
+        160.00001323286892,
+        -9.99986607976169
+      ],
+      "global_col0": 556597,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 150.0,
+        "ymin": -20.0,
+        "xmax": 160.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E150/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"757622b29640832ed80decc0212c4072\"",
+          "upstream_size_bytes": 1010220,
+          "last_modified": "Fri, 19 Jun 2026 13:59:05 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "ce84d587d54d8e5a975e957898472ad9559ada128589562b115eee1cdb60797b"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E160",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        159.99974373828368,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        159.99974373828368,
+        -20.070339740855175,
+        170.00014880721585,
+        -9.99986607976169
+      ],
+      "global_col0": 593703,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 160.0,
+        "ymin": -20.0,
+        "xmax": 170.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E160/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"02dfc3ff5871b407f4a49fa3c900eb19\"",
+          "upstream_size_bytes": 1461857,
+          "last_modified": "Fri, 19 Jun 2026 13:58:51 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "80f3f764be716f67103a55fcd75235e9c5b111a84b8c63f59ccb417f8cf10a73"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E170",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        169.9998793126306,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        169.9998793126306,
+        -20.070339740855175,
+        180.00001488697754,
+        -9.99986607976169
+      ],
+      "global_col0": 630810,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 170.0,
+        "ymin": -20.0,
+        "xmax": 180.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E170/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"fda5b52cfe93d961daf739df3b6d311d\"",
+          "upstream_size_bytes": 2275284,
+          "last_modified": "Fri, 19 Jun 2026 13:55:55 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "66ed99f775e2dcb904d62ba5d6d79421dee2d3ab8a3259ed8f14ce55ebef60b5"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E20",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        19.99973215952338,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        19.99973215952338,
+        -20.070339740855175,
+        30.000137228455543,
+        -9.99986607976169
+      ],
+      "global_col0": 74212,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 20.0,
+        "ymin": -20.0,
+        "xmax": 30.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E20/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"5fe7aa0cffd8bd0b09dd577f4205d435-3\"",
+          "upstream_size_bytes": 22390732,
+          "last_modified": "Fri, 19 Jun 2026 13:57:03 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "2643d9c316f7f1abde6e0e17378c9b3ea1d568d3d78714288ba9075616129c28"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E30",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        29.999867733870307,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        29.999867733870307,
+        -20.070339740855175,
+        40.00000330821723,
+        -9.99986607976169
+      ],
+      "global_col0": 111319,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 30.0,
+        "ymin": -20.0,
+        "xmax": 40.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E30/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"364a0bf309be7b301cc876954d93d96b\"",
+          "upstream_size_bytes": 5543652,
+          "last_modified": "Fri, 19 Jun 2026 13:57:47 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "a6a2dc7faff2e85a081b678395b5475053530335495b67343d62a0b838cdeea1"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E40",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        39.999733813632,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        39.999733813632,
+        -20.070339740855175,
+        50.00013888256416,
+        -9.99986607976169
+      ],
+      "global_col0": 148425,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 40.0,
+        "ymin": -20.0,
+        "xmax": 50.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E40/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"dec67c85351a0787cf5c7f231e259c30-7\"",
+          "upstream_size_bytes": 51167378,
+          "last_modified": "Fri, 19 Jun 2026 13:57:24 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "198fcc096903fb49bbb33134c1bfffe93429b46ed58c60aa12587ae1d5899404"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_E50",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        49.999869387978926,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        49.999869387978926,
+        -20.070339740855175,
+        60.00000496232585,
+        -9.99986607976169
+      ],
+      "global_col0": 185532,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": 50.0,
+        "ymin": -20.0,
+        "xmax": 60.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_E50/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"3bbc26a2cf81bb32993d8d0702063151\"",
+          "upstream_size_bytes": 3059964,
+          "last_modified": "Fri, 19 Jun 2026 13:54:42 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "9449350fb343522a42d02451309e6fb1c57451e5a8af8ec232bf22267c007318"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_W40",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -40.00000330821723,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -40.00000330821723,
+        -20.070339740855175,
+        -29.999867733870303,
+        -9.99986607976169
+      ],
+      "global_col0": -148426,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": -40.0,
+        "ymin": -20.0,
+        "xmax": -30.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_W40/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"ea0d573a252439d5d4467704cedbd0f0-3\"",
+          "upstream_size_bytes": 24647685,
+          "last_modified": "Fri, 19 Jun 2026 13:49:39 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "e4fe35b1c99428e14fe410e62a9461c4bbf0bc824aae4b3be6226051aa8e3a48"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_W50",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -50.00013888256416,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -50.00013888256416,
+        -20.070339740855175,
+        -39.999733813632,
+        -9.99986607976169
+      ],
+      "global_col0": -185533,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": -50.0,
+        "ymin": -20.0,
+        "xmax": -40.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_W50/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"3e6b23ed956790fb6781629d3e0dbcd2-8\"",
+          "upstream_size_bytes": 60232235,
+          "last_modified": "Fri, 19 Jun 2026 13:53:50 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "31081a160cf276b4faeb356dc7a8b36ff8e9bec0493e6f9af904385c0528d0af"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_W60",
+      "width": 37107,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -60.000004962325846,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -60.000004962325846,
+        -20.070339740855175,
+        -49.99986938797892,
+        -9.99986607976169
+      ],
+      "global_col0": -222639,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": -60.0,
+        "ymin": -20.0,
+        "xmax": -50.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_W60/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"d06ec256a6f3cbbbd04efe6137787f33-20\"",
+          "upstream_size_bytes": 161872752,
+          "last_modified": "Fri, 19 Jun 2026 13:55:27 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "5156bb1d4293bfebceddc14bcdd4cb12143ac561eb40c6ef1f487dbfa62534c1"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_W70",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -70.00014053667277,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -70.00014053667277,
+        -20.070339740855175,
+        -59.999735467740614,
+        -9.99986607976169
+      ],
+      "global_col0": -259746,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": -70.0,
+        "ymin": -20.0,
+        "xmax": -60.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_W70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"3d267bff2aca138a84d52dd834a16d62-23\"",
+          "upstream_size_bytes": 186735462,
+          "last_modified": "Fri, 19 Jun 2026 13:56:20 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "e3433509a1f9f1dde6218b1bd2b7eda10438f111a9f085a2687dd8469548f0f9"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S10_W80",
+      "width": 37108,
+      "height": 37368,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -80.0002761110197,
+        0.0,
+        -0.00026949458523585647,
+        -9.99986607976169,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -80.0002761110197,
+        -20.070339740855175,
+        -69.99987104208753,
+        -9.99986607976169
+      ],
+      "global_col0": -296853,
+      "global_row0": 37106,
+      "nominal_index_bbox": {
+        "xmin": -80.0,
+        "ymin": -20.0,
+        "xmax": -70.0,
+        "ymax": -10.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S10_W80/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"1ec5cbd18c4799018d020995c613a5be-3\"",
+          "upstream_size_bytes": 21358150,
+          "last_modified": "Fri, 19 Jun 2026 13:55:29 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "9e54963d450b0e574afe1bfffc714fd581ec685504bc8e355726039e69270d2a"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_E140",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        139.99974208417507,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        139.99974208417507,
+        -30.094729827873326,
+        150.00014715310724,
+        -19.99973215952338
+      ],
+      "global_col0": 519490,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": 140.0,
+        "ymin": -30.0,
+        "xmax": 150.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_E140/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"74c2d04d9f1cfa7ece452ab297f763ae\"",
+          "upstream_size_bytes": 2050153,
+          "last_modified": "Fri, 19 Jun 2026 13:57:22 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "9efaa86d627466178db23bb6596e869b95e1dc78a6ca4630071aab05a70229ce"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_E150",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        149.999877658522,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        149.999877658522,
+        -30.094729827873326,
+        160.00001323286892,
+        -19.99973215952338
+      ],
+      "global_col0": 556597,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": 150.0,
+        "ymin": -30.0,
+        "xmax": 160.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_E150/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"14f4ffac3ac6bd3aa62b782110b63059\"",
+          "upstream_size_bytes": 1251529,
+          "last_modified": "Fri, 19 Jun 2026 13:53:18 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "8187486c29d2f31b66efe61e7cf065770bf0a4b54c0dce43d17a2dae9ad8e708"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_E160",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        159.99974373828368,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        159.99974373828368,
+        -30.094729827873326,
+        170.00014880721585,
+        -19.99973215952338
+      ],
+      "global_col0": 593703,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": 160.0,
+        "ymin": -30.0,
+        "xmax": 170.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_E160/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"0cb8cb7e37b2f6bb6c696662fb8408cd\"",
+          "upstream_size_bytes": 2215299,
+          "last_modified": "Fri, 19 Jun 2026 13:57:35 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "783a2ea30fd4e2035b88023bed864c7f91bbdddbe2bc637b952e4e938b290db4"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_E40",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        39.999733813632,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        39.999733813632,
+        -30.094729827873326,
+        50.00013888256416,
+        -19.99973215952338
+      ],
+      "global_col0": 148425,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": 40.0,
+        "ymin": -30.0,
+        "xmax": 50.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_E40/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"37c253f9b0f2ea66a8c1b85d43dac6b7-3\"",
+          "upstream_size_bytes": 22699581,
+          "last_modified": "Fri, 19 Jun 2026 14:00:42 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "4ee8cbf0782eef17ed109715ae5bf59b0db1650260b8e1675b37289bd348cc25"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_E50",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        49.999869387978926,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        49.999869387978926,
+        -30.094729827873326,
+        60.00000496232585,
+        -19.99973215952338
+      ],
+      "global_col0": 185532,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": 50.0,
+        "ymin": -30.0,
+        "xmax": 60.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_E50/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"a33a19ab36be1aecab0d833209ba7896\"",
+          "upstream_size_bytes": 1196680,
+          "last_modified": "Fri, 19 Jun 2026 13:59:55 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "3efd3ed54efbc5a7f8b251cff5d4f38ba93cc60d2075c27e8292a25fba9cfc75"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_W50",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -50.00013888256416,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -50.00013888256416,
+        -30.094729827873326,
+        -39.999733813632,
+        -19.99973215952338
+      ],
+      "global_col0": -185533,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": -50.0,
+        "ymin": -30.0,
+        "xmax": -40.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_W50/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"95c7865ce06b3145509d98e90c9489bc-8\"",
+          "upstream_size_bytes": 66846614,
+          "last_modified": "Fri, 19 Jun 2026 14:00:05 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "ae8d44e7c1ffcac71766432504e5fb5a4a884bccc1c9eb8c1350c146372f0a59"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_W60",
+      "width": 37107,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -60.000004962325846,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -60.000004962325846,
+        -30.094729827873326,
+        -49.99986938797892,
+        -19.99973215952338
+      ],
+      "global_col0": -222639,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": -60.0,
+        "ymin": -30.0,
+        "xmax": -50.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_W60/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"01d00d6d7fa1977527596265bd4e2b6d-14\"",
+          "upstream_size_bytes": 116438707,
+          "last_modified": "Fri, 19 Jun 2026 13:56:14 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "95ee8015918037d4e21f1da210b762dee5723e0704c3f1d292b7e6d565b61e26"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S20_W70",
+      "width": 37108,
+      "height": 37459,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -70.00014053667277,
+        0.0,
+        -0.00026949458523585647,
+        -19.99973215952338,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -70.00014053667277,
+        -30.094729827873326,
+        -59.999735467740614,
+        -19.99973215952338
+      ],
+      "global_col0": -259746,
+      "global_row0": 74212,
+      "nominal_index_bbox": {
+        "xmin": -70.0,
+        "ymin": -30.0,
+        "xmax": -60.0,
+        "ymax": -20.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S20_W70/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"63bd24db74c8af2b6b99846d7910e3e0-2\"",
+          "upstream_size_bytes": 9351740,
+          "last_modified": "Fri, 19 Jun 2026 13:52:15 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "8789ab64886ce54a272491883c2c9ce1e0b46b5115a38aebd0d7b2336b82170e"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S30_E140",
+      "width": 37108,
+      "height": 37507,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        139.99974208417507,
+        0.0,
+        -0.00026949458523585647,
+        -29.999867733870307,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        139.99974208417507,
+        -40.10780114231157,
+        150.00014715310724,
+        -29.999867733870307
+      ],
+      "global_col0": 519490,
+      "global_row0": 111319,
+      "nominal_index_bbox": {
+        "xmin": 140.0,
+        "ymin": -40.0,
+        "xmax": 150.0,
+        "ymax": -30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S30_E140/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"3a1b93086d4e5232825dc314fcfc27ae\"",
+          "upstream_size_bytes": 365526,
+          "last_modified": "Fri, 19 Jun 2026 14:02:02 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "29c1263201e573f5356c829bde8e77731dde929835415e5049290e67b22e38d2"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S30_E150",
+      "width": 37107,
+      "height": 37507,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        149.999877658522,
+        0.0,
+        -0.00026949458523585647,
+        -29.999867733870307,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        149.999877658522,
+        -40.10780114231157,
+        160.00001323286892,
+        -29.999867733870307
+      ],
+      "global_col0": 556597,
+      "global_row0": 111319,
+      "nominal_index_bbox": {
+        "xmin": 150.0,
+        "ymin": -40.0,
+        "xmax": 160.0,
+        "ymax": -30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S30_E150/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"4677cde458c81fc4c860ceece8c58493\"",
+          "upstream_size_bytes": 365526,
+          "last_modified": "Fri, 19 Jun 2026 14:01:16 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "a493638f8421cfee0f40285c2c5ad0749e6f454c35e57927709e7a2a78d0dfa5"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    },
+    {
+      "tile_id": "S30_W60",
+      "width": 37107,
+      "height": 37507,
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        -60.000004962325846,
+        0.0,
+        -0.00026949458523585647,
+        -29.999867733870307,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "bounds": [
+        -60.000004962325846,
+        -40.10780114231157,
+        -49.99986938797892,
+        -29.999867733870307
+      ],
+      "global_col0": -222639,
+      "global_row0": 111319,
+      "nominal_index_bbox": {
+        "xmin": -60.0,
+        "ymin": -40.0,
+        "xmax": -50.0,
+        "ymax": -30.0
+      },
+      "dtype": "uint16",
+      "nodata": null,
+      "block_shapes": [
+        [
+          512,
+          512
+        ]
+      ],
+      "source_reads": [
+        {
+          "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+          "version": "v1_2025",
+          "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/S30_W60/DeforestationYear.tif",
+          "generation": null,
+          "etag": "\"dc3d5751b519e4e4de12f9e580be7b21-2\"",
+          "upstream_size_bytes": 9559967,
+          "last_modified": "Fri, 19 Jun 2026 14:01:34 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "1c4f2dbfc888d631dd61efaeb3f773ba512b5742ba711e9d9eae66d2f532910a"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 65536,
+          "requests": 2
+        }
+      ]
+    }
+  ],
+  "excluded": [],
+  "limitations": [
+    "Native metadata checked, not empirical ground-truth validation.",
+    "Nominal STAC boxes are not used as the native raster footprint.",
+    "No EUDR verdict or sovereignty inference."
+  ]
+}

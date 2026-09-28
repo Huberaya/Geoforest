@@ -1,0 +1,7 @@
+{
+  "method": "GET",
+  "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W10/DeforestationYear.tif",
+  "purpose": "Negative conditional-request probe, not a data acquisition",
+  "status": 412,
+  "headers": {}
+}

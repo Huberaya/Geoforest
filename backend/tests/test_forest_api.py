@@ -226,3 +226,49 @@ def test_worker_failure_does_not_persist_favorable_result(
     monkeypatch.setattr(routes, "isolated_analysis", fail)
     assert client.post(url, json=args()).status_code == 503
     assert client.get(url + "?revision=1").json()["total"] == 0
+
+
+def test_tmf_dispatch_replay_and_source_bound_request(client, workspace, monkeypatch):
+    _, _, path = workspace
+    _, _, url = prepare(client, path)
+    seen = []
+
+    def analyze(g, *, source_id):
+        seen.append(source_id)
+
+        def fetch(tile, row, col, h, w, *, budget):
+            return np.full(
+                (h, w),
+                1 if tile.layer == "AnnualChange_2020" else 2025,
+                dtype=np.uint8 if tile.layer == "AnnualChange_2020" else np.uint16,
+            ), {"source_reads": [{"generation": None, "etag": "synthetic"}]}
+
+        return analyze_geometry(g, source_id=source_id, fetch=fetch)
+
+    monkeypatch.setattr(routes, "isolated_analysis", analyze)
+    body = args() | {"source_id": "tmf-2025-epoch"}
+    r = client.post(url, json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["result"]["source_id"] == "tmf-2025-epoch"
+    assert seen == ["tmf-2025-epoch"]
+    assert client.post(url, json=body).json()["replayed"]
+    assert (
+        client.post(url, json=body | {"source_id": "gfc-2025-v1.13"}).status_code == 409
+    )
+    assert (
+        client.post(
+            url, json=body | {"source_id": "https://127.0.0.1/private"}
+        ).status_code
+        == 422
+    )
+    assert seen == ["tmf-2025-epoch"]
+
+
+def test_mismatched_worker_source_never_saved(client, workspace, monkeypatch):
+    _, _, path = workspace
+    _, _, url = prepare(client, path)
+    gfc_worker = routes.isolated_analysis
+    monkeypatch.setattr(routes, "isolated_analysis", lambda g, source_id: gfc_worker(g))
+    r = client.post(url, json=args() | {"source_id": "tmf-2025-epoch"})
+    assert r.status_code == 503
+    assert client.get(url + "?revision=1").json()["total"] == 0

@@ -7,6 +7,7 @@ type Observation = {
   revision: number;
   created_at: string;
   result: {
+    source_id?: string;
     status: string;
     signal_status: string;
     spatial_coverage: string;
@@ -47,6 +48,7 @@ export function ForestAnalyses({
   const [items, setItems] = useState<Observation[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [sourceId, setSourceId] = useState("gfc-2025-v1.13");
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -96,6 +98,7 @@ export function ForestAnalyses({
         revision,
         request_id: requestId.current,
         allow_public_tile_requests: true,
+        source_id: sourceId,
       });
       if (!alive.current) return;
       requestId.current = null;
@@ -140,13 +143,17 @@ export function ForestAnalyses({
         <span className="badge">Automatique · indicatif</span>
       </h3>
       <p>
-        Hansen GFC v1.13 · données jusqu’en 2025 · pixels de l’ordre de 30 m. Ni
-        conversion agricole démontrée, ni état forestier 2020, ni conformité
-        EUDR. La période 2026 n’est pas couverte. Un point n’observe pas toute
-        une parcelle.
+        Hansen GFC v1.13 et JRC TMF v2025 · données jusqu’en 2025 · pixels de
+        l’ordre de 30 m. Ni conversion agricole démontrée, ni état forestier
+        2020, ni conformité EUDR. La période 2026 n’est pas couverte. Un point
+        n’observe pas toute une parcelle.
       </p>
       <p className="muted">
-        Le second connecteur JRC TMF n’est pas encore qualifié ni activé.
+        JRC TMF est distribué par le miroir tiers Epoch / Source Cooperative. Il
+        décrit les premiers événements de perturbation des forêts tropicales
+        humides, pas toutes les récidives. Les deux sources sont analysées
+        séparément et utilisent Landsat : leur concordance ne constitue pas deux
+        preuves indépendantes.
       </p>
       {loaded && !enabled && (
         <p>
@@ -156,6 +163,27 @@ export function ForestAnalyses({
       )}
       {writable && enabled && (
         <>
+          <label>
+            Source à analyser
+            <select
+              value={sourceId}
+              disabled={busy}
+              onChange={(e) => {
+                setSourceId(e.target.value);
+                requestId.current = null;
+                setConsent(false);
+                setError("");
+                setNotice("");
+              }}
+            >
+              <option value="gfc-2025-v1.13">
+                Hansen GFC — perte de couvert arboré
+              </option>
+              <option value="tmf-2025-epoch">
+                JRC TMF — premiers événements tropicaux (miroir Epoch)
+              </option>
+            </select>
+          </label>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
             <input
               type="checkbox"
@@ -203,13 +231,19 @@ export function ForestAnalyses({
         <article key={item.id} className="panel">
           <strong>{status[item.result.status] ?? item.result.status}</strong>
           <p>
-            {signals[item.result.signal_status] ?? item.result.signal_status}
+            {item.result.source_id === "tmf-2025-epoch" &&
+            item.result.signal_status !== "NOT_ASSESSABLE"
+              ? item.result.signal_status === "SIGNAL_OBSERVED"
+                ? "Premier événement TMF de déforestation ou dégradation après 2020 — à examiner"
+                : "Aucun premier événement postérieur à 2020 dans les pixels TMF interprétables — récidives non exclues"
+              : (signals[item.result.signal_status] ??
+                item.result.signal_status)}
           </p>
           <p>
             {new Date(item.created_at).toLocaleString("fr-FR")} · Révision{" "}
             {item.revision}
           </p>
-          {item.result.spatial_coverage === "POINT_SAMPLE_ONLY" && (
+          {item.result.spatial_coverage.startsWith("POINT_SAMPLE") && (
             <p>
               Échantillon ponctuel uniquement, sans surface parcellaire déduite.
             </p>
@@ -222,25 +256,41 @@ export function ForestAnalyses({
               extérieure à la parcelle.
             </p>
           )}
-          <p>
-            Source: Hansen/UMD/Google/USGS/NASA ·{" "}
-            <a
-              href="https://glad.earthengine.app/view/global-forest-change"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GFC
-            </a>{" "}
-            ·{" "}
-            <a
-              href="https://creativecommons.org/licenses/by/4.0/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              CC BY 4.0
-            </a>
-            . Extraits et intersections sans rééchantillonnage.
-          </p>
+          {item.result.source_id === "tmf-2025-epoch" ? (
+            <p>
+              Source: EC JRC ·{" "}
+              <a
+                href="https://forobs.jrc.ec.europa.eu/TMF/resources/tutorial/gee"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                JRC TMF — utilisation sans restriction, attribution
+              </a>{" "}
+              · Reconditionnement COG : Epoch / Source Cooperative. Ni
+              approbation de l’Union européenne, ni certification EUDR. Extraits
+              natifs sans rééchantillonnage dans GeoForest.
+            </p>
+          ) : (
+            <p>
+              Source: Hansen/UMD/Google/USGS/NASA ·{" "}
+              <a
+                href="https://glad.earthengine.app/view/global-forest-change"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                GFC
+              </a>{" "}
+              ·{" "}
+              <a
+                href="https://creativecommons.org/licenses/by/4.0/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                CC BY 4.0
+              </a>
+              . Extraits et intersections sans rééchantillonnage.
+            </p>
+          )}
           <details>
             <summary>Méthode et limites</summary>
             <p>

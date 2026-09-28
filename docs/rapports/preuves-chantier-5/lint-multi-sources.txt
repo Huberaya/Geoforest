@@ -1,0 +1,4 @@
+
+> geoforest-trace@0.6.0 lint
+> eslint .
+

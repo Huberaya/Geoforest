@@ -1,0 +1,8 @@
+{
+  "source_url": "https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=DeforestationYear&lat=N10&lon=W10",
+  "bytes": 114721845,
+  "sha256": "bb71d2508e957a68a3a61617e5d2c9ae3ba3a8bfb34ccf8b6ed57fa02febad1e",
+  "purpose": "One complete primary public tile for independent mirror qualification; not an application job or worldwide copy",
+  "elapsed_seconds": 156.3,
+  "content_disposition": "file; filename=\"JRC_TMF_DeforestationYear_INT_1982_2025_v1_AFR_ID52_N10_W10.tif\""
+}

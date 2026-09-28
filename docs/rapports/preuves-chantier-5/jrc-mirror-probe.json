@@ -1,0 +1,28 @@
+[
+  {
+    "method": "HEAD",
+    "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W10/DeforestationYear.tif",
+    "status": 200,
+    "headers": {
+      "content-type": "image/tiff",
+      "content-length": "143670370",
+      "accept-ranges": "bytes",
+      "etag": "\"788a0a8ad9b932a7cd5527e4f592a33c-18\"",
+      "last-modified": "Fri, 19 Jun 2026 13:27:09 GMT"
+    }
+  },
+  {
+    "method": "GET",
+    "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W10/DeforestationYear.tif",
+    "status": 206,
+    "headers": {
+      "content-type": "image/tiff",
+      "content-length": "16",
+      "content-range": "bytes 0-15/143670370",
+      "accept-ranges": "bytes",
+      "etag": "\"788a0a8ad9b932a7cd5527e4f592a33c-18\"",
+      "last-modified": "Fri, 19 Jun 2026 13:27:09 GMT"
+    },
+    "first_bytes_hex": "49492a00c00000004744414c5f535452"
+  }
+]

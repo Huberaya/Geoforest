@@ -79,6 +79,30 @@ class GFCTile:
         return BASE + f"Hansen_GFC-2025-v1.13_{self.layer}_{self.tile_id}.tif"
 
 
+@dataclass(frozen=True)
+class TMFMirrorTile:
+    """Candidate mirror; no admission implied by this transport descriptor."""
+
+    layer: str
+    tile_id: str
+
+    def __post_init__(self):
+        if self.layer not in {
+            "DeforestationYear",
+            "DegradationYear",
+            "AnnualChange_2020",
+        }:
+            raise ValueError("UNSUPPORTED_TMF_LAYER")
+        if not isinstance(self.tile_id, str) or not re.fullmatch(
+            r"[NS](?:0|[1-8]0)_[EW](?:0|[1-9]0|1[0-8]0)", self.tile_id
+        ):
+            raise ValueError("UNSUPPORTED_TMF_TILE")
+
+    @property
+    def url(self):
+        return f"https://data.source.coop/epoch/jrc-tmf/v1_2025/{self.tile_id}/{self.layer}.tif"
+
+
 class RangeReader(io.RawIOBase):
     """Seekable, per-read-session bounded LRU. No cross-tenant result cache.
 
@@ -89,8 +113,8 @@ class RangeReader(io.RawIOBase):
 
     def __init__(self, tile: GFCTile, *, transport=None, budget=None):
         super().__init__()
-        if type(tile) is not GFCTile:
-            raise ValueError("GFC_TILE_REQUIRED")
+        if type(tile) not in (GFCTile, TMFMirrorTile):
+            raise ValueError("REGISTERED_PUBLIC_TILE_REQUIRED")
         self.tile = tile
         self.budget = budget
         self.position = 0
@@ -126,11 +150,18 @@ class RangeReader(io.RawIOBase):
                 self.size = int(size)
                 if not 8 <= self.size <= MAX_FILE_BYTES:
                     raise SourceReadError("SOURCE_SIZE_LIMIT")
-                if not re.fullmatch(r"[0-9]{1,30}", generation):
+                if type(tile) is GFCTile and not re.fullmatch(
+                    r"[0-9]{1,30}", generation
+                ):
                     raise SourceReadError("SOURCE_GENERATION_REQUIRED")
-                if not re.fullmatch(r'"[0-9a-fA-F]{32}"', etag):
+                pattern = (
+                    r'"[0-9a-fA-F]{32}"'
+                    if type(tile) is GFCTile
+                    else r'"[0-9a-fA-F]{32}(?:-[1-9][0-9]{0,5})?"'
+                )
+                if not re.fullmatch(pattern, etag):
                     raise SourceReadError("SOURCE_ETAG_REQUIRED")
-                self.generation = generation
+                self.generation = generation if type(tile) is GFCTile else None
                 self.etag = etag
                 self.last_modified = h.get("last-modified")
             self._budget()
@@ -187,7 +218,9 @@ class RangeReader(io.RawIOBase):
             with self.client.stream(
                 "GET",
                 self.tile.url,
-                params={"generation": self.generation},
+                params={"generation": self.generation}
+                if self.generation is not None
+                else None,
                 headers={
                     "Range": f"bytes={start}-{end}",
                     "If-Match": self.etag,
@@ -197,9 +230,9 @@ class RangeReader(io.RawIOBase):
                 if response.status_code != 206:
                     raise SourceReadError("SOURCE_RANGE_REJECTED")
                 h = response.headers
-                if (
-                    h.get("etag") != self.etag
-                    or h.get("x-goog-generation") != self.generation
+                if h.get("etag") != self.etag or (
+                    self.generation is not None
+                    and h.get("x-goog-generation") != self.generation
                 ):
                     raise SourceReadError("SOURCE_VERSION_CHANGED")
                 if h.get("content-encoding", "identity") != "identity":
@@ -262,8 +295,10 @@ class RangeReader(io.RawIOBase):
 
     def provenance(self):
         return {
-            "dataset": "Hansen GFC",
-            "version": "2025-v1.13",
+            "dataset": "Hansen GFC"
+            if type(self.tile) is GFCTile
+            else "EC JRC TMF via Epoch / Source Cooperative",
+            "version": "2025-v1.13" if type(self.tile) is GFCTile else "v1_2025",
             "url": self.tile.url,
             "generation": self.generation,
             "etag": self.etag,

@@ -14,14 +14,23 @@ from app.forest.observations import LIMITATIONS, summarize_gfc
 from app.forest.raster import read_gfc_window
 
 
-def analyze_geometry(geometry, *, fetch=read_gfc_window):
+def analyze_geometry(geometry, *, fetch=None, source_id="gfc-2025-v1.13"):
+    if source_id not in {"gfc-2025-v1.13", "tmf-2025-epoch"}:
+        raise ValueError("SOURCE_NOT_ADMITTED")
+    is_tmf = source_id == "tmf-2025-epoch"
+    if is_tmf:
+        from app.forest import tmf
+    fetch = fetch or (tmf.read_window if is_tmf else read_gfc_window)
+    planner = tmf.plan if is_tmf else plan_geometry
+    layer_names = tmf.LAYERS if is_tmf else ("lossyear", "datamask")
     digest = hashlib.sha256(
         json.dumps(
             geometry, sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode()
     ).hexdigest()
     result = {
-        "method_version": "gfc-parcel-grid-v1",
+        "method_version": "tmf-parcel-grid-v1" if is_tmf else "gfc-parcel-grid-v1",
+        "source_id": source_id,
         "geometry_sha256": digest,
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "geos_version": shapely.geos_version_string,
@@ -35,7 +44,7 @@ def analyze_geometry(geometry, *, fetch=read_gfc_window):
         "deforested_area_ha": None,
         "data_period_end_year": 2025,
         "temporal_gap_after": "2025-12-31",
-        "limitations": list(LIMITATIONS),
+        "limitations": list(tmf.LIMITATIONS if is_tmf else LIMITATIONS),
         "windows": [],
         "errors": [],
         "sources": [
@@ -48,10 +57,14 @@ def analyze_geometry(geometry, *, fetch=read_gfc_window):
             }
         ],
     }
+    if is_tmf:
+        result["sources"] = [dict(tmf.SOURCE)]
     try:
-        windows, extent = plan_geometry(geometry)
+        windows, extent = planner(geometry)
     except PlanLimit as exc:
         return result | {"status": "BUDGET_EXCEEDED", "errors": [str(exc)]}
+    except SourceReadError as exc:
+        return result | {"status": "SOURCE_UNAVAILABLE", "errors": [str(exc)]}
     result["planned_windows"] = len(windows)
     result["spatial_coverage"] = extent
     if not windows:
@@ -62,7 +75,7 @@ def analyze_geometry(geometry, *, fetch=read_gfc_window):
         layers = {}
         evidence = []
         try:
-            for layer in ("lossyear", "datamask"):
+            for layer in layer_names:
                 data, meta = fetch(
                     window.tile(layer),
                     window.row,
@@ -87,12 +100,16 @@ def analyze_geometry(geometry, *, fetch=read_gfc_window):
                         ).decode()
                     }
                 )
-            summary = summarize_gfc(
-                layers["lossyear"], layers["datamask"], window.selection
-            )
+            if is_tmf:
+                summary, signal_pixels = tmf.summarize(layers, window.selection)
+            else:
+                summary = summarize_gfc(
+                    layers["lossyear"], layers["datamask"], window.selection
+                )
+                signal_pixels = layers["lossyear"] >= 21
             summary["boundary_selected_pixels"] = int(np.count_nonzero(window.boundary))
             summary["boundary_post_2020_signal_pixels"] = int(
-                np.count_nonzero(window.boundary & (layers["lossyear"] >= 21))
+                np.count_nonzero(window.boundary & signal_pixels)
             )
             result["windows"].append(
                 {
@@ -124,12 +141,22 @@ def analyze_geometry(geometry, *, fetch=read_gfc_window):
         "requests": budget.requests,
     }
     positive = any(w["summary"]["post_2020_signal_pixels"] for w in result["windows"])
-    land = sum(w["summary"]["historical_land_mask_pixels"] for w in result["windows"])
-    missing = sum(
-        w["summary"]["historical_no_data_mask_pixels"]
-        + w["summary"]["historical_water_mask_pixels"]
-        for w in result["windows"]
-    )
+    if is_tmf:
+        land = sum(
+            w["summary"]["baseline_tmf_forest_pixels"] for w in result["windows"]
+        )
+        missing = sum(
+            w["summary"]["non_baseline_tmf_forest_pixels"] for w in result["windows"]
+        )
+    else:
+        land = sum(
+            w["summary"]["historical_land_mask_pixels"] for w in result["windows"]
+        )
+        missing = sum(
+            w["summary"]["historical_no_data_mask_pixels"]
+            + w["summary"]["historical_water_mask_pixels"]
+            for w in result["windows"]
+        )
     complete = completed == len(windows) and extent in (
         "FULL_GRID_EXTENT",
         "POINT_SAMPLE_ONLY",
@@ -144,7 +171,11 @@ def analyze_geometry(geometry, *, fetch=read_gfc_window):
         if complete and land and not missing
         else "NOT_ASSESSABLE"
     )
-    result["historical_mask_has_gaps_or_water"] = bool(missing)
+    result[
+        "baseline_has_non_interpretable_pixels"
+        if is_tmf
+        else "historical_mask_has_gaps_or_water"
+    ] = bool(missing)
     result["entire_parcel_assessed"] = (
         False  # Cartographic pixels never certify a whole parcel.
     )

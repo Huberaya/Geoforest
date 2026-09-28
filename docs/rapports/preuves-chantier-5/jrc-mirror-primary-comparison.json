@@ -1,0 +1,196 @@
+{
+  "tile": "N10_W10",
+  "layer": "DeforestationYear",
+  "primary_sha256": "bb71d2508e957a68a3a61617e5d2c9ae3ba3a8bfb34ccf8b6ed57fa02febad1e",
+  "same_crs_grid_dimensions": true,
+  "comparisons": [
+    {
+      "row": 0,
+      "col": 0,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "159f8f57269ad2f7ba44ae793be6c9474981e7007dd0a3ded197d9c3c55f801a",
+      "max_year": 2018
+    },
+    {
+      "row": 1000,
+      "col": 1000,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "e1110d5b62751a3ac2af17d45d480c3e094796cca068c16096efc45dbe40f6d0",
+      "max_year": 2008
+    },
+    {
+      "row": 16837,
+      "col": 16698,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "e320986fea6af6fe74ed9e7f3b13ed4ac59c7e1d25d93e8f794613af21b6157f",
+      "max_year": 2025
+    },
+    {
+      "row": 18000,
+      "col": 18000,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "6b34c2e24f1f40a5170e72705a2cd5627551e426091e2fcae87a0e3fd0f103c0",
+      "max_year": 2025
+    },
+    {
+      "row": 20000,
+      "col": 15000,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+      "max_year": 0
+    },
+    {
+      "row": 10000,
+      "col": 25000,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "eb2f75751ed1f6ceb283da0c65678de15ff4f0be6899602fe9dc7b3dfaa6fab5",
+      "max_year": 2024
+    },
+    {
+      "row": 30000,
+      "col": 30000,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+      "max_year": 0
+    },
+    {
+      "row": 37182,
+      "col": 37044,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+      "max_year": 0
+    },
+    {
+      "row": 25000,
+      "col": 10000,
+      "height": 64,
+      "width": 64,
+      "equal_pixels": 4096,
+      "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+      "max_year": 0
+    }
+  ],
+  "mirror_reads": [
+    {
+      "dataset": "EC JRC TMF via Epoch / Source Cooperative",
+      "version": "v1_2025",
+      "url": "https://data.source.coop/epoch/jrc-tmf/v1_2025/N10_W10/DeforestationYear.tif",
+      "generation": null,
+      "etag": "\"788a0a8ad9b932a7cd5527e4f592a33c-18\"",
+      "upstream_size_bytes": 143670370,
+      "last_modified": "Fri, 19 Jun 2026 13:27:09 GMT",
+      "range_sha256": [
+        {
+          "offset": 0,
+          "length": 65536,
+          "sha256": "6b145a9d1252d312cb71d2e02afb9959c977c3876cd91bcf1f4e8695166aaae4"
+        },
+        {
+          "offset": 40108032,
+          "length": 65536,
+          "sha256": "27aae3cc9e1dc641d609ff38d2a043a0e542a091f576aa2979075af492613755"
+        },
+        {
+          "offset": 40173568,
+          "length": 65536,
+          "sha256": "b2ff1697edce1774bb98960e334cd8088c1fdca1d20974d652a2edb916d11a75"
+        },
+        {
+          "offset": 40304640,
+          "length": 65536,
+          "sha256": "216e75182baa4d792c637fa2d149975dd8d43a32a57b1f04eb378d490b2b876e"
+        },
+        {
+          "offset": 40370176,
+          "length": 65536,
+          "sha256": "6da4c92b1b3d894237ad9d3eaf1f6e8dbb6b7a139457a628156540ce72a79c9a"
+        },
+        {
+          "offset": 40501248,
+          "length": 65536,
+          "sha256": "98ded5d9ea7cf3d6e538fb8ce4928bc55b460db9dbdff15c3d5c1648e7e2c858"
+        },
+        {
+          "offset": 40566784,
+          "length": 65536,
+          "sha256": "7882945b5b8c3b968057baeda3d45b21e8bd2358f59abefb80df41104eb860ea"
+        },
+        {
+          "offset": 123600896,
+          "length": 65536,
+          "sha256": "bdb0eee194b272bb5a174b75d207c4c9156b47e3a221e1226daadd7ee4b0c73e"
+        },
+        {
+          "offset": 123666432,
+          "length": 65536,
+          "sha256": "cc4095619a406a83016141b38d8da5f15d68b9a199cbb5b98ae380bf38ff6758"
+        },
+        {
+          "offset": 128188416,
+          "length": 65536,
+          "sha256": "93eed543aeedc929b3ffb39c80d547ef9ea9f6a5564103844af90ff6e4381137"
+        },
+        {
+          "offset": 128253952,
+          "length": 65536,
+          "sha256": "23ae9b385c11793658d142850ea42325f4c036e8b01d6df1781a2bf78db57ca5"
+        },
+        {
+          "offset": 128319488,
+          "length": 65536,
+          "sha256": "cc518b89a55c165557e69014ac29770ce172a6dbdbed508a7c18c916c184f4fa"
+        },
+        {
+          "offset": 136904704,
+          "length": 65536,
+          "sha256": "97799c53f9273b68ff7c05e7d7bd8ed36ed8e8212c1d2166f8db719dce017d73"
+        },
+        {
+          "offset": 136970240,
+          "length": 65536,
+          "sha256": "790184561f0cd7d6b69632f2b3a9947e19af60e6c7c98286a1440b0363ceaadb"
+        },
+        {
+          "offset": 143196160,
+          "length": 65536,
+          "sha256": "b8a17596c8fcb68f42c78a06292e8cfcc15e87daa53456816da1ed6aee51fca4"
+        },
+        {
+          "offset": 65077248,
+          "length": 65536,
+          "sha256": "744a27bbf3114279e04fd699d849ad2263e2a9acd156a98f16e6950d1dd31248"
+        },
+        {
+          "offset": 143589376,
+          "length": 65536,
+          "sha256": "6dc88f9dfc9cee8572b6b6ec0e869fa1e89bca60e72d90625cf74b6126750524"
+        },
+        {
+          "offset": 143654912,
+          "length": 15458,
+          "sha256": "78c7e637f1cd375361ead825dce373edaf27ca0d9e607ef021e300e797d0799d"
+        }
+      ],
+      "whole_upstream_sha256": null,
+      "reserved_transfer_bytes": 1129570,
+      "requests": 19
+    }
+  ],
+  "limitations": "Sample comparison only; not validation of every tile or ground truth; no EUDR conclusion."
+}

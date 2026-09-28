@@ -3560,6 +3560,15 @@
           "allow_public_tile_requests": {
             "type": "boolean",
             "title": "Allow Public Tile Requests"
+          },
+          "source_id": {
+            "type": "string",
+            "enum": [
+              "gfc-2025-v1.13",
+              "tmf-2025-epoch"
+            ],
+            "title": "Source Id",
+            "default": "gfc-2025-v1.13"
           }
         },
         "additionalProperties": false,

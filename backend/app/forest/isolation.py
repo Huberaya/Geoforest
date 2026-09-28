@@ -14,8 +14,12 @@ from app.forest.download import SourceReadError
 MAX_OUTPUT = 8 * 1024**2
 
 
-def isolated_analysis(geometry, *, timeout=100):
-    data = json.dumps(geometry, allow_nan=False, separators=(",", ":")).encode()
+def isolated_analysis(geometry, *, source_id="gfc-2025-v1.13", timeout=100):
+    data = json.dumps(
+        {"geometry": geometry, "source_id": source_id},
+        allow_nan=False,
+        separators=(",", ":"),
+    ).encode()
     if len(data) > 1024 * 1024:
         raise ValueError("WORK_INPUT_LIMIT")
     backend = Path(__file__).resolve().parents[2]

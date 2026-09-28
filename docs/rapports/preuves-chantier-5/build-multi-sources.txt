@@ -1,0 +1,33 @@
+
+> geoforest-trace@0.6.0 build
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+- Environments: .env
+✓ Running next.config.ts took 574ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.4s
+  Running TypeScript ...
+  Finished TypeScript in 6.7s ...
+  Collecting page data using 1 worker ...
+  Generating static pages using 1 worker (0/4) ...
+  Generating static pages using 1 worker (1/4) 
+  Generating static pages using 1 worker (2/4) 
+  Generating static pages using 1 worker (3/4) 
+✓ Generating static pages using 1 worker (4/4) in 260ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+└ ○ /portail
+
+
+○  (Static)  prerendered as static content
+
+
+> geoforest-trace@0.6.0 postbuild
+> node scripts/postbuild.mjs
+
+Standalone ready; dotenv files removed from artifact.

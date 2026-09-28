@@ -131,7 +131,7 @@ Préfixe `O=/api/v1/organizations/{org}`. Les calculs sont indicatifs et restent
 
 | Méthode | Route sous O | Description |
 |---|---|---|
-| GET | `/forest/sources` | Activation serveur, source GFC, candidat JRC non qualifié |
+| GET | `/forest/sources` | Activation serveur, sources GFC et JRC TMF via Epoch |
 | POST | `/plots/{plot}/forest-analyses` | `{revision,request_id,allow_public_tile_requests:true}` ; types stricts ; source/géométrie déterminées côté serveur |
 | GET | `/plots/{plot}/forest-analyses?revision=1&page=1` | Historique paginé 20, sans les gros blocs de preuves |
 | GET | `/plots/{plot}/forest-analyses/{analysis}` | Preuves complètes privées, octets comprimés, masques, versions/empreintes |
@@ -143,3 +143,9 @@ Activation explicite `FOREST_ANALYSIS_ENABLED=true`, sinon nouveau calcul 503. L
 Une analyse prend au maximum environ 100 secondes de worker ; pas de file asynchrone durable promise. 409 pour une même requête déjà active ou une clé réutilisée avec une autre entrée, 429 si organisation/capacité occupée, 503 pour échec du worker. Le lecteur peut également enregistrer un résultat explicitement `SOURCE_UNAVAILABLE`, `PARTIAL`, `NOT_COVERED` ou `BUDGET_EXCEEDED` : HTTP 200 ne signifie jamais « conforme ». Conserver le même request_id après un problème de transport ; créer un nouvel UUID pour une nouvelle observation explicite.
 
 Le résultat valide la même empreinte géométrique que le snapshot autorisé. Le détail JSON peut atteindre 8 Mio ; les listes omettent `windows`. Les masques binaires packbits et tableaux de pixels zlib/base64 utilisent les dimensions/dtypes/grilles de leurs métadonnées ; ils ne représentent pas une image RGB interprétée comme donnée analytique.
+
+### Choix de source forestière (chantier 5)
+
+Le POST accepte `source_id`: `gfc-2025-v1.13` (valeur par défaut, rétrocompatible) ou `tmf-2025-epoch`. Toute autre valeur, y compris une URL, est refusée (422). La source entre dans l’empreinte d’idempotence : réutiliser `request_id` avec une autre source renvoie 409. Le résultat contient `source_id` ; les historiques GFC anciens sans ce champ restent lisibles.
+
+TMF utilise `tmf-parcel-grid-v1`, trois couches natives et des années entières uint16, pas les codes uint8 GFC. `baseline_tmf_forest_pixels`, `non_baseline_tmf_forest_pixels`, `baseline_tmf_class_counts`, compteurs séparés des années de déforestation/dégradation sont documentés dans les résumés des fenêtres. Pas de champ de masque historique GFC détourné pour TMF. `PARTIAL_OVERLAPPING_SOURCE_GRIDS` et `POINT_SAMPLE_OVERLAPPING_SOURCE_GRIDS` indiquent une ambiguïté de chevauchement ; pas de conclusion négative complète. Le signal reste toujours distinct d’une décision EUDR.
