@@ -132,3 +132,7 @@ Migration **0004** requise pour l’application 0.5.0. Dans le détail d’une p
 Natural Earth 1:10 millions, snapshot épinglé, **246 codes ISO de pays et territoires**, exceptions AQ/EG/UM explicites. Donnée cartographique indicative, pas précision parcellaire ou frontière juridiquement actuelle. Pas de réparation silencieuse des données invalides ni de déduction de souveraineté. Aucune source distante appelée pendant l’analyse.
 
 Voir `docs/rapports/04-chantier-4.md`, `docs/reglementation/04-sources-geographiques.md`, `backend/reference/naturalearth/NOTICE.md` et le guide utilisateur. Les six E2E créent quatre organisations par suite : base synthétique dédiée et quota à surveiller, sans modifier les limites de l’application.
+
+## Chantier 5 — en développement, non exposé
+
+GO reçu ; accès aux rasters publics à la demande choisi, sans abonnement payant. Premier noyau de lecture bornée/qualification GFC et extraits réels testés ; aucune analyse forestière accessible dans l’API/UI à ce stade. Voir `docs/rapports/05-chantier-5-avancement.md`. Application et schéma restent 0.5.0 / 0004.

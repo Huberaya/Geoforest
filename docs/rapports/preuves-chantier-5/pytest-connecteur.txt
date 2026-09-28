@@ -1,0 +1,16 @@
+................................................................         [100%]
+=============================== warnings summary ===============================
+tests/forest_unit/test_raster.py::test_native_window_real_decoder_synthetic_data
+tests/forest_unit/test_raster.py::test_raster_rejection[kw0-UNKNOWN_RASTER_CLASS]
+tests/forest_unit/test_raster.py::test_zero_loss_is_not_nodata
+  /home/user/Geoforest/.venv/lib/python3.13/site-packages/rasterio/windows.py:360: PendingDeprecationWarning: Use `@` matmul instead of `*` mul operator for matrix multiplication
+    x, y = transform * (window.col_off or 0.0, window.row_off or 0.0)
+
+tests/forest_unit/test_raster.py::test_native_window_real_decoder_synthetic_data
+tests/forest_unit/test_raster.py::test_raster_rejection[kw0-UNKNOWN_RASTER_CLASS]
+tests/forest_unit/test_raster.py::test_zero_loss_is_not_nodata
+  /home/user/Geoforest/.venv/lib/python3.13/site-packages/rasterio/windows.py:361: PendingDeprecationWarning: Use `@` matmul instead of `*` mul operator for matrix multiplication
+    return Affine.translation(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+64 passed, 6 warnings in 0.33s

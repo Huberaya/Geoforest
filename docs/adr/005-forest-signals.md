@@ -2,7 +2,7 @@
 
 28 septembre 2026 — GO du propriétaire reçu après livraison locale du chantier 4.
 
-**Statut : cadrage et vérification préalable ; choix d’exploitation des rasters à confirmer. Chantier non livré.**
+**Statut : accès à la demande choisi explicitement par le propriétaire ; premier noyau de lecture/qualification implémenté. Chantier non livré.**
 
 Branche `chantier-5/forest-signals`, créée depuis `425e29d`. Aucune modification de production, aucun push ni chantier 6 autorisé. Application 0.5.0 / schéma 0004 inchangés à ce stade.
 
@@ -12,15 +12,15 @@ Ajouter des observations forestières sourcées aux révisions de parcelles, san
 
 Vérification documentaire préalable consignée dans `docs/reglementation/05-signaux-forestiers.md`. Premier candidat : GFC v1.13 ; deuxième : JRC TMF sous réserve de qualification distincte, notamment des classes/version/licence complète. Deux adaptateurs ne signifient pas deux sources déjà activées.
 
-## Décision d’exploitation nécessaire
+## Décision d’exploitation reçue
 
 Les rasters sont beaucoup plus volumineux que les contours pays : la seule tuile GFC testée annonce environ 127 Mo pour la perte, 15 Mo pour le masque, 390 Mo pour le couvert 2000. Ces mesures ne sont pas des budgets mondiaux.
 
-Option recommandée à qualifier : **lecture serveur à la demande avec cache borné**, sources publiques autorisées, identifiants de versions/générations fixés et conservation des extraits/preuves. Les requêtes de fichiers/blocs ne transmettent pas le polygone ni le nom du fournisseur, mais le serveur distant peut déduire une zone approximative des tuiles/blocs demandés. La capacité effective de lecture partielle et les volumes doivent être testés avant activation. Pas de service payant ou Earth Engine sans autorisation distincte.
+**Option choisie : lecture serveur à la demande avec cache borné**, sources publiques autorisées, identifiants de versions/générations fixés et conservation des extraits/preuves. Les requêtes de fichiers/blocs ne transmettent pas le polygone ni le nom du fournisseur, mais le serveur distant peut déduire une zone approximative des tuiles/blocs demandés. La capacité effective de lecture partielle et les volumes doivent être testés avant activation. Pas de service payant ou Earth Engine sans autorisation distincte.
 
 Alternative : **sources préchargées et calcul hors ligne** ; confidentialité réseau plus forte à l’analyse, au prix d’une emprise initiale limitée et d’un stockage à provisionner. Une source non installée ne doit pas être présentée comme couvrant la parcelle. Ne pas annoncer le monde entier disponible parce que le produit amont est mondial.
 
-Aucun choix n’est présumé à partir du choix de contours mondiaux au chantier 4, qui ne portait pas sur les coûts ni les flux d’observation raster.
+Le choix a été demandé séparément de celui des contours mondiaux du chantier 4 : le propriétaire a sélectionné « À la demande — recommandé ». Les limites de confidentialité ci-dessus ont été présentées avant ce choix. Aucun abonnement ou prestataire payant autorisé.
 
 ## Plan d’implémentation ordonné
 
@@ -55,3 +55,9 @@ Aucun choix n’est présumé à partir du choix de contours mondiaux au chantie
 Au moins une source **réellement qualifiée et utilisable** dans un périmètre affiché ; aucune source simulée présentée comme opérationnelle. Une deuxième source doit avoir sa propre qualification ou rester explicitement inactive. Tests de confidentialité, panne/timeout, changement d’ETag/génération, données malformées, débordement de budget, trou raster, classe inconnue, point/petite parcelle/frontière de pixel, révisions historiques, isolation tenant/fournisseur et restauration.
 
 Bilan FAIT/NON FAIT/PROBLÈMES/RISQUES avant validation finale du propriétaire. **Pas de chantier 6 sans nouveau GO.**
+
+## Premier incrément exécuté
+
+Lecture réelle de trois fenêtres 64×64 dans GFC v1.13 via requêtes partielles épinglées par génération/ETag ; environ 2,81 Mio réservés au total pour cette fenêtre. Géotransformation réelle 0,00025° ; fichiers organisés en bandes d’une ligne de 40 000 pixels, **pas COG supposé**. Adaptateur dédié avec contrôle CRS/grille/classes et budgets, cache LRU de blocs publics en mémoire par session. Synthèse de signaux sans verdict. 64 tests ciblés réussis ; détails dans `docs/rapports/05-chantier-5-avancement.md`.
+
+**Non intégré à l’API/UI**, pas de migration 0005 ni de traitement de parcelle réelle. Isolation du décodeur natif en processus, limites globales multi-fenêtres/multi-sources, intersection géométrique et cache persistant restent à traiter avant exposition.

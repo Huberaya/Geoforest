@@ -1,0 +1,448 @@
+{
+  "executed_at": "2026-09-28T14:56:51.813162+00:00",
+  "purpose": "Public real raster extracts for a fictional study window, not a customer's parcel",
+  "production_admitted": false,
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "Source: Hansen/UMD/Google/USGS/NASA",
+  "modifications": "64x64 native-grid crops, re-encoded as lossless GeoTIFF; no resampling or class changes",
+  "layers": [
+    {
+      "method": "gfc-native-window-v1-qualification",
+      "tile_id": "10N_010W",
+      "layer": "lossyear",
+      "row": 18000,
+      "col": 18000,
+      "height": 64,
+      "width": 64,
+      "transform": [
+        0.00025,
+        0.0,
+        -5.5,
+        0.0,
+        -0.00025,
+        5.5,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "crs": "EPSG:4326",
+      "dtype": "uint8",
+      "native_block_shapes": [
+        [
+          1,
+          40000
+        ]
+      ],
+      "pixel_bytes_sha256": "b732edd7a2146d0535c5f98327d4345e3767be0cf2b7dbaf5564a6ff6bf94e88",
+      "source_reads": [
+        {
+          "dataset": "Hansen GFC",
+          "version": "2025-v1.13",
+          "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_lossyear_10N_010W.tif",
+          "generation": "1773684869931215",
+          "etag": "\"1d4f46b44c2c3362871e9aa4feaff54e\"",
+          "upstream_size_bytes": 127404260,
+          "last_modified": "Mon, 16 Mar 2026 18:14:30 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "d05589f10209241a65613f061189e80684041cf93a1b0557b743ac7c55c8e4cb"
+            },
+            {
+              "offset": 262144,
+              "length": 65536,
+              "sha256": "30e8d9aa95d20c90fed22c8a448587236ecb2f30242637406e902bc58d3b9533"
+            },
+            {
+              "offset": 65536,
+              "length": 65536,
+              "sha256": "9c0179fdee03b3c43d92aa106a09cce6dc3e899dd2d37f9a8b0f645c3f0e34b2"
+            },
+            {
+              "offset": 196608,
+              "length": 65536,
+              "sha256": "c91fd9ff6531cbac78bb8a29ddba50b3dd90b75578e7416c52b001870f657303"
+            },
+            {
+              "offset": 103677952,
+              "length": 65536,
+              "sha256": "9437e4504f3d69ae40bf1fcd008e4609e890361ac27a58250a5efe7b83088f14"
+            },
+            {
+              "offset": 103743488,
+              "length": 65536,
+              "sha256": "3af9adb2e86a54db2e582066fe9693562f9fcc59b7549a5a31cbc9342967e13d"
+            },
+            {
+              "offset": 103809024,
+              "length": 65536,
+              "sha256": "e63b322da6c02808e87be1eb42415984b5b84f2901d5aa96b0944cb9448aa9a1"
+            },
+            {
+              "offset": 103874560,
+              "length": 65536,
+              "sha256": "f14eba455ded76858ca5bf0093f310f1e949304885dc8d4ea69dcd0f67133eb6"
+            },
+            {
+              "offset": 103940096,
+              "length": 65536,
+              "sha256": "7a69048d25ef195720686ff762cd8daf8e4d8762fcdc307bd38f9bc9d128293b"
+            },
+            {
+              "offset": 104005632,
+              "length": 65536,
+              "sha256": "49a861b0997c153d01896fbcee057a999ff9d978370db38f0cc9108b53ca453f"
+            },
+            {
+              "offset": 104071168,
+              "length": 65536,
+              "sha256": "3b8f2f70f8dc6e18c98bb6c5dd3285d8816e6081bb03593974c34855f51aaf53"
+            },
+            {
+              "offset": 104136704,
+              "length": 65536,
+              "sha256": "e47785e1111d0842b20f91000d9208be8cd4838406ea14f13994680a0fd0fb6b"
+            },
+            {
+              "offset": 104202240,
+              "length": 65536,
+              "sha256": "b466ce82d14aa9473d55421056b5cc4111e3ee740f79ec073e272b8cf827ad49"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 851968,
+          "requests": 14
+        }
+      ],
+      "rasterio_version": "1.5.1",
+      "gdal_version": "3.12.4",
+      "regulatory_status": "NOT_ASSESSED",
+      "human_review_required": true,
+      "class_histogram": {
+        "0": 3751,
+        "2": 3,
+        "3": 5,
+        "6": 2,
+        "7": 2,
+        "9": 3,
+        "10": 3,
+        "11": 11,
+        "12": 2,
+        "13": 21,
+        "14": 64,
+        "15": 2,
+        "16": 5,
+        "17": 15,
+        "18": 140,
+        "19": 9,
+        "22": 3,
+        "23": 26,
+        "24": 7,
+        "25": 22
+      },
+      "extract_file": "lossyear.tif",
+      "extract_file_sha256": "9702ac7efeb535e102f869b158c3d70e57eaa891f58cb340f8fa14967717ca97"
+    },
+    {
+      "method": "gfc-native-window-v1-qualification",
+      "tile_id": "10N_010W",
+      "layer": "datamask",
+      "row": 18000,
+      "col": 18000,
+      "height": 64,
+      "width": 64,
+      "transform": [
+        0.00025,
+        0.0,
+        -5.5,
+        0.0,
+        -0.00025,
+        5.5,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "crs": "EPSG:4326",
+      "dtype": "uint8",
+      "native_block_shapes": [
+        [
+          1,
+          40000
+        ]
+      ],
+      "pixel_bytes_sha256": "3431383721510cf1c211de027cf958c183e16db5fabb6b230eb284c85e196aa9",
+      "source_reads": [
+        {
+          "dataset": "Hansen GFC",
+          "version": "2025-v1.13",
+          "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_datamask_10N_010W.tif",
+          "generation": "1773950881347702",
+          "etag": "\"a3fda0f6af1ca1e17ed7ef9aa256c1cc\"",
+          "upstream_size_bytes": 15293782,
+          "last_modified": "Thu, 19 Mar 2026 20:08:01 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "f16cef1baef2929ca23acec3afbb6f5008dca097dac244d1653d9a0cb3b0e1da"
+            },
+            {
+              "offset": 262144,
+              "length": 65536,
+              "sha256": "ee33f1fa35b5ed39dfe3b1c4256bfd2c76e58d316adfd749a4d0c695264e06ab"
+            },
+            {
+              "offset": 65536,
+              "length": 65536,
+              "sha256": "8c89a56d9492c2bf96105b31309b1f6b24576da20a99476b9af05ff89502401c"
+            },
+            {
+              "offset": 196608,
+              "length": 65536,
+              "sha256": "22bf0764d8daa04aa83cd9a4c7c27dc160752eaaef65c87b6182c739e559fc14"
+            },
+            {
+              "offset": 7077888,
+              "length": 65536,
+              "sha256": "8afc2d7d581d1222c6e06a68b124e54a56582fb662c6951444be488c336b9b21"
+            },
+            {
+              "offset": 7143424,
+              "length": 65536,
+              "sha256": "5da7a1c65fed12876d14a6f8ea1406041dc53260b1282778753cada92fe171a8"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 393216,
+          "requests": 7
+        }
+      ],
+      "rasterio_version": "1.5.1",
+      "gdal_version": "3.12.4",
+      "regulatory_status": "NOT_ASSESSED",
+      "human_review_required": true,
+      "class_histogram": {
+        "1": 4096
+      },
+      "extract_file": "datamask.tif",
+      "extract_file_sha256": "91417ec1a2a801fbb508e57cb4ec376720eeca81697ddb8a46f899cfb3a2e3df"
+    },
+    {
+      "method": "gfc-native-window-v1-qualification",
+      "tile_id": "10N_010W",
+      "layer": "treecover2000",
+      "row": 18000,
+      "col": 18000,
+      "height": 64,
+      "width": 64,
+      "transform": [
+        0.00025,
+        0.0,
+        -5.5,
+        0.0,
+        -0.00025,
+        5.5,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "crs": "EPSG:4326",
+      "dtype": "uint8",
+      "native_block_shapes": [
+        [
+          1,
+          40000
+        ]
+      ],
+      "pixel_bytes_sha256": "4c5e93ab4b7f4d62d2167d7b16fa8b07c5977e1bd57cf21e8ab631283841fb6e",
+      "source_reads": [
+        {
+          "dataset": "Hansen GFC",
+          "version": "2025-v1.13",
+          "url": "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2025-v1.13/Hansen_GFC-2025-v1.13_treecover2000_10N_010W.tif",
+          "generation": "1773950876290283",
+          "etag": "\"4bcbbe31c868416fee195d902347da2f\"",
+          "upstream_size_bytes": 390143175,
+          "last_modified": "Thu, 19 Mar 2026 20:07:56 GMT",
+          "range_sha256": [
+            {
+              "offset": 0,
+              "length": 65536,
+              "sha256": "f36f18fbc66d1b749c3430deb74e69faabc5b1b72c45caa096afe8936411bbe8"
+            },
+            {
+              "offset": 262144,
+              "length": 65536,
+              "sha256": "f633dbbcf3926d6ae2ff6ecc7d0f61e9449a275b2bcfdad89cec7d0bbf1a0c55"
+            },
+            {
+              "offset": 65536,
+              "length": 65536,
+              "sha256": "c2587bd2ac3601bfa3f96c88514f82d6b483733ab7720b8a03a11eec46d7ab61"
+            },
+            {
+              "offset": 196608,
+              "length": 65536,
+              "sha256": "b5835aa04322739f0e58d45067afc9d1faf20534607537b373ce335a72c62221"
+            },
+            {
+              "offset": 334036992,
+              "length": 65536,
+              "sha256": "a3f425d42841f28056f5bd2bf333ecb988cd2a7f88eb81b1dbe3579f0e88920a"
+            },
+            {
+              "offset": 334102528,
+              "length": 65536,
+              "sha256": "c37f9ee2f1897c12133b276b6560c58f640a680387eb36ffbfdf03832fe33a59"
+            },
+            {
+              "offset": 334168064,
+              "length": 65536,
+              "sha256": "08a0438c33f7efe0b42d115aa9747961d81328b5caa121cedf43907756509a30"
+            },
+            {
+              "offset": 334233600,
+              "length": 65536,
+              "sha256": "f8e43ff868ea783b480273ec7808e39a249af71dfc52eb93ddbf7133cb113752"
+            },
+            {
+              "offset": 334299136,
+              "length": 65536,
+              "sha256": "2f55bef9f86e52dbd7d950dd268ff2de0bb00dab251ebcab1ed46006698f07dd"
+            },
+            {
+              "offset": 334364672,
+              "length": 65536,
+              "sha256": "ee52c85fc76fd706808eb4da56fe2edb5a08e10bd480192f965b99f5622fae82"
+            },
+            {
+              "offset": 334430208,
+              "length": 65536,
+              "sha256": "414c9a6b17557222e1fd6adf8fb5c90f62b9ea9369695df40b4c1df34c5567ae"
+            },
+            {
+              "offset": 334495744,
+              "length": 65536,
+              "sha256": "caaa304db815c06d1c4e67ef3c9b0b16a4be52143a251a79296ea066eb3719b9"
+            },
+            {
+              "offset": 334561280,
+              "length": 65536,
+              "sha256": "7f4b6f09a9138c89676535a65f542073427b647ebccbc7118663623ff081935d"
+            },
+            {
+              "offset": 334626816,
+              "length": 65536,
+              "sha256": "7c2ab9012c9ba300aebd1cf3483d18ef845916a04eb57fa5bd740eaa865f8cfd"
+            },
+            {
+              "offset": 334692352,
+              "length": 65536,
+              "sha256": "ab05cca9694b84cf5c3b39d83ef60e33f7b4e5f07fa875b716fa7a83a89beb69"
+            },
+            {
+              "offset": 334757888,
+              "length": 65536,
+              "sha256": "b004d2348f65c88bfc2885baa45d15724cee1941476e56833343b90f2d9d689f"
+            },
+            {
+              "offset": 334823424,
+              "length": 65536,
+              "sha256": "6413a55d1ae6e8b61b3c78451eb1f98eed3dd747c5ebc412ae22f7f55ff69f3d"
+            },
+            {
+              "offset": 334888960,
+              "length": 65536,
+              "sha256": "dcf7eeaf402dd50d4d44ba66a4131826eda425cb7468acb77a3525990059727b"
+            },
+            {
+              "offset": 334954496,
+              "length": 65536,
+              "sha256": "900a228cee9b45158e42818a01a4b1c8b552c5e0bdf6fdb490effa4cc04276e3"
+            },
+            {
+              "offset": 335020032,
+              "length": 65536,
+              "sha256": "2a97bbb74fb6c2d17fe465132a51aa5adceae4ca29966851e33cacd62a13dec3"
+            },
+            {
+              "offset": 335085568,
+              "length": 65536,
+              "sha256": "9475d31e224f05ef9be125c1989eb72214b939a12e8536b15edafb00b641185a"
+            },
+            {
+              "offset": 335151104,
+              "length": 65536,
+              "sha256": "ccfeaa5f1da95568a2be3aea553d0ff5c6e1259ced34eafb75d2e7430ca9e6aa"
+            },
+            {
+              "offset": 335216640,
+              "length": 65536,
+              "sha256": "6d77060180001425e2cbfa17ecc2a6ffd61794774868bd5bd3d2c7d83bad5a06"
+            },
+            {
+              "offset": 335282176,
+              "length": 65536,
+              "sha256": "1dcb6628cb46e5ff51763ba12062649846b4ee677f36ea48ca0fa79f915ca20d"
+            },
+            {
+              "offset": 335347712,
+              "length": 65536,
+              "sha256": "8763e26cff89bfdc1176c1c9734532e6223a5b0e7c41385646a2e0f6e057394f"
+            },
+            {
+              "offset": 335413248,
+              "length": 65536,
+              "sha256": "876c61f49c15a0adc0287b16de269ae14600001046c377e9f7c01b4f684cdc27"
+            }
+          ],
+          "whole_upstream_sha256": null,
+          "reserved_transfer_bytes": 1703936,
+          "requests": 27
+        }
+      ],
+      "rasterio_version": "1.5.1",
+      "gdal_version": "3.12.4",
+      "regulatory_status": "NOT_ASSESSED",
+      "human_review_required": true,
+      "class_histogram": {
+        "12": 2,
+        "13": 1,
+        "16": 4,
+        "20": 23,
+        "22": 13,
+        "24": 3,
+        "27": 13,
+        "28": 44,
+        "29": 185,
+        "31": 18,
+        "32": 90,
+        "33": 216,
+        "36": 14,
+        "37": 204,
+        "39": 192,
+        "40": 665,
+        "41": 386,
+        "42": 2,
+        "43": 91,
+        "44": 299,
+        "45": 215,
+        "46": 4,
+        "47": 366,
+        "48": 128,
+        "49": 315,
+        "51": 146,
+        "52": 211,
+        "53": 5,
+        "54": 43,
+        "55": 192,
+        "56": 5,
+        "60": 1
+      },
+      "extract_file": "treecover2000.tif",
+      "extract_file_sha256": "87405155e2dbfe63e8f3a2977b4ffbc9dd599f062f3fc27cb42ce64104020b59"
+    }
+  ]
+}

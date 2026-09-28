@@ -64,3 +64,15 @@ La classification repose notamment sur la durée des perturbations (>900 jours) 
 3. Conserver preuve extraite, empreinte, identifiant amont, méthode, paramètres et versions logicielles. Une empreinte d’extrait n’est pas une empreinte du fichier amont complet.
 4. Fixer une stratégie réseau/stockage autorisée et bornée ; pas d’URL fournie librement par le client, pas de redirection non contrôlée, pas de fuite de géométrie ou d’identifiant client à un prestataire.
 5. Qualification sur extraits publics réels et géométries de recette inventées ; tests synthétiques séparés et identifiés. Aucun faux résultat satellite présenté comme réel.
+
+## Complément : qualification partielle effectivement exécutée
+
+Après choix explicite de l’accès à la demande, `scripts/qualify-forest.py` a lu trois extraits 64×64 à la même fenêtre arbitraire (ligne/colonne 18 000) dans la tuile `10N_010W`. Aucune exploitation ou personne identifiée. Les pixels proviennent réellement du fournisseur ; les tests synthétiques sont distincts.
+
+Constats : 40 000×40 000 pixels par fichier, EPSG:4326, grille **0,00025°**, bandes natives de **1×40 000** pixels, absence de tag nodata sur les trois fichiers lus. La grille observée ne doit donc pas être remplacée par les formulations nominales « 1 arc-second » / « 30.92 mètres » des pages produit. Aucune hypothèse COG, aucun rééchantillonnage. Le couvert 2000 n’est conservé qu’en contexte, jamais utilisé pour filtrer silencieusement la perte postérieure.
+
+Les accès réellement partiels ont réservé respectivement 851 968, 393 216 et 1 703 936 octets (perte, masque, couvert), soit 2 949 120 octets, pour cette seule fenêtre. Les générations/ETags, plages lues/empreintes, pixels extraits/empreintes, grille, versions Rasterio/GDAL et histogrammes sont conservés sous `backend/reference/forest/gfc-2025-qualification/`. Une empreinte d’extrait ou d’une plage n’est pas celle du fichier mondial ou d’une tuile entière.
+
+Le lecteur générique `rasterio.open(file_like)` a d’abord tenté un téléchargement complet : le budget l’a correctement refusé. Il a été remplacé par un **opener virtuel contrôlé**, refusant fichiers auxiliaires et chemins libres. Les lectures réussies suivantes utilisent ce mécanisme.
+
+Cette qualification limitée ne valide ni toutes les tuiles mondiales, ni l’ensemble de la chaîne d’analyse parcellaire, ni l’absence de biais. Aucun connecteur n’est encore activé dans l’application ; la source TMF reste candidate.

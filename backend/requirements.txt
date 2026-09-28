@@ -12,3 +12,5 @@ pytest==9.0.3
 pycountry==24.6.1
 
 defusedxml==0.7.1
+
+rasterio==1.5.1
