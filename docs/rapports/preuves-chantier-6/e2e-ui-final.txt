@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/documents.spec.ts:3:5 › Coffre réel, revue, légalité, risque, actions et portail mobile (27.8s)
+
+  1 passed (29.1s)

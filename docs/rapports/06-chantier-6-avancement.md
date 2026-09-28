@@ -1,5 +1,7 @@
 # Chantier 6 — premier incrément : stockage privé et antivirus
 
+> Historique du premier incrément. Voir le [bilan final du chantier 6](06-chantier-6.md) pour l’état livré.
+
 28 septembre 2026 · branche `chantier-6/documents-legality-risk`
 
 **CHANTIER EN COURS, NON CLÔTURÉ.** Le choix utilisateur est un coffre privé auto-hébergé, avec documents fictifs pour la recette. Aucun GO7. Application et schéma restent 0.6.0 / 0005 : cet incrément n’ajoute pas encore de dépôt accessible dans l’interface ou l’API.

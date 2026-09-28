@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     admin_acr: str = ""
     max_body_bytes: int = 65536
     forest_analysis_enabled: bool = False
+    documents_enabled: bool = False
+    document_storage_root: str = "/var/lib/geoforest/documents"
+    clamav_executable: str = "/usr/local/bin/clamscan"
+    clamav_database: str = "/var/lib/clamav"
+    clamav_library_path: str = ""
+    document_quota_bytes: int = 512 * 1024 * 1024
 
     @model_validator(mode="after")
     def secure_config(self):

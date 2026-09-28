@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-09-28T22:42:10.222104+00:00",
+  "schema": "0006",
+  "fresh_migration": "0001 through 0006 then no-op second upgrade",
+  "sql_sha256": "43b7ee9e77d9e9f40dec4e4d0a06aed1755c8a8f7b493076bd4a56f472f65317",
+  "runtime_superuser": false,
+  "runtime_bypassrls": false,
+  "quota_guard_null_context_fail_closed": true,
+  "full_suite_passed": 683
+}

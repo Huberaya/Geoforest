@@ -1,0 +1,93 @@
+{
+  "checked_at": "2026-09-28T22:35:35.790654+00:00",
+  "offline_writers_stopped": true,
+  "dump_sha256": "ba1dd0b14dfcc51726c501a40723cbbd3ead0760628a2ea5daf6d142733ab9fa",
+  "tables": {
+    "documents": {
+      "rows": 8,
+      "identical": true,
+      "sha256": "1077bacfb2cb25d8bc690c0aa55ada3957442b3a493e67f0803a7bd671c9f47f"
+    },
+    "document_versions": {
+      "rows": 12,
+      "identical": true,
+      "sha256": "d9194da6c8eb1651236c8787625d943ad3b9c72a3061b8f60f6733356449319d"
+    },
+    "document_reviews": {
+      "rows": 6,
+      "identical": true,
+      "sha256": "9487cc8efb164a6359e4072f301ffc8b92dfb76ce56f19c0114fc7efec911be4"
+    },
+    "legality_assessments": {
+      "rows": 5,
+      "identical": true,
+      "sha256": "5098d06efb77d85e59ca2fe8e46b2318cdec169667966ea2236bd92050472ba1"
+    },
+    "risk_assessments": {
+      "rows": 5,
+      "identical": true,
+      "sha256": "b27c671cc14b71fb1c29f2018f1713251824b5194cb6d3ad2e9ad9baf1458e68"
+    },
+    "compliance_tasks": {
+      "rows": 4,
+      "identical": true,
+      "sha256": "4605187a0874477b42e8482717db424e39aa0a3e8b0c18fc73b28c55041a16c2"
+    },
+    "notification_outbox": {
+      "rows": 8,
+      "identical": true,
+      "sha256": "da2b3f30bf41105c10017e907662cf88279714cf9d6e9c209a4c305b50cbe2a8"
+    },
+    "forest_analyses": {
+      "rows": 11,
+      "identical": true,
+      "sha256": "0f4012e943931e6cb430cdcb38edc6a74e2b29c46d7ed622de33a3293ad59a16"
+    },
+    "plot_geolocations": {
+      "rows": 26,
+      "identical": true,
+      "sha256": "503cd72099961f44c1fddf86f91293e97dbc1e3fb4fd3aa8cffb6367094b519b"
+    },
+    "lots": {
+      "rows": 14,
+      "identical": true,
+      "sha256": "57a4feed078b46410e1703f41c8b11fdb8579f24d7c89a2fed593137f68a623e"
+    }
+  },
+  "migration_0005_preservation": {
+    "forest_analyses": {
+      "original_rows": 5,
+      "all_preserved": true,
+      "sha256": "1f6d463cb4f4615553c008c6d628c4f352169b253b786fd7283241ae65c50cf5"
+    },
+    "plot_geolocations": {
+      "original_rows": 11,
+      "all_preserved": true,
+      "sha256": "bef87de55d28f90bec0f7cc1bd6d5877c9b0c5c7c20c35cf0b5f045970e08d06"
+    },
+    "country_checks": {
+      "original_rows": 2,
+      "all_preserved": true,
+      "sha256": "7520b7f29cc414fed31466a966cbf36ec03392bae4120b3eabe3d5f0baaf6bdc"
+    },
+    "lots": {
+      "original_rows": 2,
+      "all_preserved": true,
+      "sha256": "2679e795ec1c18926799ad9d82e8f7bc7b8041009ad77ed9d69a84709452c92b"
+    }
+  },
+  "vault": {
+    "referenced": 12,
+    "verified": 12,
+    "missing": [],
+    "invalid": [],
+    "orphans_retained": []
+  },
+  "restored_sessions_revoked": true,
+  "restored_api": {
+    "authenticated_download_sha256_matches": true,
+    "anonymous_download_status": 401,
+    "temporary_test_session_revoked": true
+  },
+  "restored_invitations_revoked": true
+}

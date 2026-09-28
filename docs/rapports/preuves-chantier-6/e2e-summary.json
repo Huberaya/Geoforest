@@ -1,0 +1,47 @@
+{
+  "pacing": "61 seconds between browser scenarios; production limiter unchanged",
+  "results": [
+    {
+      "spec": "country-checks.spec.ts",
+      "filter": null,
+      "exit_code": 0
+    },
+    {
+      "spec": "documents.spec.ts",
+      "filter": null,
+      "exit_code": 0
+    },
+    {
+      "spec": "forest-analyses.spec.ts",
+      "filter": null,
+      "exit_code": 0
+    },
+    {
+      "spec": "foundation.spec.ts",
+      "filter": "Connexion publique",
+      "exit_code": 0
+    },
+    {
+      "spec": "foundation.spec.ts",
+      "filter": "OIDC r\u00e9el",
+      "exit_code": 0
+    },
+    {
+      "spec": "plots.spec.ts",
+      "filter": "Parcelles :",
+      "exit_code": 0
+    },
+    {
+      "spec": "plots.spec.ts",
+      "filter": "Saisie avanc\u00e9e",
+      "exit_code": 0
+    },
+    {
+      "spec": "supply.spec.ts",
+      "filter": null,
+      "exit_code": 0
+    }
+  ],
+  "passed": 8,
+  "total": 8
+}

@@ -1,4 +1,5 @@
 "use client";
+import { DocumentsWorkspace } from "@/components/documents/DocumentsWorkspace";
 import Link from "next/link";
 import { PortalPlots } from "@/components/plots/PortalPlots";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -710,6 +711,14 @@ export default function Portal() {
             key={me.supplier_name + me.csrf_token}
             csrf={me.csrf_token}
             catalogue={catalogue}
+          />
+        )}
+        {me && (
+          <DocumentsWorkspace
+            key={me.supplier_name + me.csrf_token}
+            csrf={me.csrf_token}
+            writable
+            portal
           />
         )}
         <footer className="portal-footer">

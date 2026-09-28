@@ -40,3 +40,9 @@ Le guide de la Commission du 13 juillet 2026 est un document d’orientation, pa
 ## Premier incrément exécuté
 
 Adaptateur local privé, versions de blobs sans écrasement, empreintes vérifiées ; scanner ClamAV 1.4.6 borné et qualifié avec signatures officielles, EICAR, timeout et bases malformées. 30 tests ciblés et 112 tests unitaires forestiers réussis. Métadonnées métier, migration 0006, API, UI, légalité/risque et tâches restent à construire. Détails : `../rapports/06-chantier-6-avancement.md`.
+
+## Livraison du périmètre de recette
+
+Le premier incrément ci-dessus est historique. Migration 0006, API staff/portail, interfaces, huit domaines de légalité, quatorze critères de risque, preuves versionnées et actions correctives sont désormais implémentés. Regroupement du métier dans `backend/app/documents/compliance.py` plutôt que trois sous-packages vides. Le quota global utilise une fonction contrôlée et refuse explicitement les contextes NULL ; conformité en snapshot REPEATABLE READ, réservation en READ COMMITTED après verrou de quota. Aucune fonction de déclaration du chantier 7 n’a été ajoutée.
+
+Voir [bilan final](../rapports/06-chantier-6.md), [guide utilisateur](../guide-documents-legalite-risque.md) et [exploitation](../exploitation-documents.md). Recette locale qualifiée, pas de GO de production : OCR, SMTP, sandbox OS, chiffrement/hébergement UE et exploitation à grande échelle restent non qualifiés.

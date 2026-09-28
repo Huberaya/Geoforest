@@ -3,6 +3,9 @@ from uuid import UUID
 from app.auth import router as auth_router
 from app.config import settings
 from app.database import transaction
+from app.documents.compliance import router as compliance_router
+from app.documents.routes import portal as documents_portal
+from app.documents.routes import router as documents_router
 from app.events import event
 from app.forest.routes import router as forest_router
 from app.geospatial.routes import router as geospatial_router
@@ -22,7 +25,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 app = FastAPI(
     title="GeoForest Trace — socle sécurisé",
-    version="0.6.0",
+    version="0.7.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -40,6 +43,9 @@ app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=settings().allowed_hosts.split(",")
 )
 app.include_router(auth_router)
+app.include_router(documents_router)
+app.include_router(documents_portal)
+app.include_router(compliance_router)
 app.include_router(geospatial_router)
 app.include_router(forest_router)
 app.include_router(plots_router)
@@ -80,7 +86,7 @@ def readiness():
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
         postgis = conn.execute(text("SELECT postgis_version()")).scalar_one()
-    if version != "0005" or not postgis:
+    if version != "0006" or not postgis:
         raise HTTPException(503, "Schéma de données incompatible avec cette version")
     return {"status": "ok", "migration": version, "postgis": bool(postgis)}
 

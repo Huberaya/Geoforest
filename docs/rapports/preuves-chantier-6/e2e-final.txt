@@ -1,0 +1,48 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/country-checks.spec.ts:2:5 › Cohérence pays : résultat sourcé, historique immuable et pays non couvert (3.8s)
+
+  1 passed (4.6s)
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/documents.spec.ts:3:5 › Coffre réel, revue, légalité, risque, actions et portail mobile (26.9s)
+
+  1 passed (27.9s)
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/forest-analyses.spec.ts:3:5 › Observations forestières : vraie source, preuves et historique par révision (13.1s)
+
+  1 passed (14.1s)
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/foundation.spec.ts:5:5 › Connexion publique responsive sans indicateurs réglementaires fictifs (463ms)
+
+  1 passed (1.3s)
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/foundation.spec.ts:28:5 › OIDC réel : connexion, organisation, paramètres, journal, déconnexion (2.2s)
+
+  1 passed (3.1s)
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/plots.spec.ts:26:5 › Parcelles : OIDC réel, GPS simulé, dessin, versions de lot, import et revue fournisseur (11.6s)
+
+  1 passed (12.5s)
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/plots.spec.ts:356:5 › Saisie avancée : brouillon géométrique corrompu, coordonnées négatives et changement de méthode (1.7s)
+
+  1 passed (2.6s)
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/supply.spec.ts:4:5 › Collecte réelle : CSV, fournisseur, produit, lot, portail mobile et revue humaine (8.1s)
+
+  1 passed (9.0s)

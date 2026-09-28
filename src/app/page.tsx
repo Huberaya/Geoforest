@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { DocumentsWorkspace } from "@/components/documents/DocumentsWorkspace";
+import { ComplianceWorkspace } from "@/components/documents/ComplianceWorkspace";
 import { PlotsWorkspace } from "@/components/plots/PlotsWorkspace";
 import { SupplyWorkspace } from "@/components/supply/SupplyWorkspace";
 import { useEffect, useState, type FormEvent } from "react";
@@ -456,10 +458,14 @@ export default function Home() {
             ["file", "Produits", "products"],
             ["grid", "Lots", "lots"],
             ["map", "Parcelles", "plots"],
+            ["file", "Documents", "documents"],
+            ["shield", "Légalité & risque", "compliance"],
           ].map(([icon, label, id]) => (
             <button
               key={id}
-              disabled={!org}
+              disabled={
+                !org || (id === "compliance" && org.role === "Supplier")
+              }
               className={view === id ? "active" : ""}
               onClick={() => setView(id)}
             >
@@ -542,7 +548,14 @@ export default function Home() {
           </span>
         </header>
         <main id="main" className="main">
-          {!["suppliers", "products", "lots", "plots"].includes(view) && (
+          {![
+            "suppliers",
+            "products",
+            "lots",
+            "plots",
+            "documents",
+            "compliance",
+          ].includes(view) && (
             <div className="page-heading">
               <div>
                 <span className="eyebrow">VOTRE ESPACE GEOFOREST</span>
@@ -565,6 +578,26 @@ export default function Home() {
             </div>
           )}
           {feedback}
+          {org && view === "documents" && (
+            <DocumentsWorkspace
+              key={org.id}
+              org={org.id}
+              csrf={me.csrf_token}
+              writable={Boolean(
+                admin ||
+                ["Compliance Manager", "Procurement"].includes(org.role),
+              )}
+              reviewer={Boolean(canAudit)}
+            />
+          )}
+          {org && view === "compliance" && org.role !== "Supplier" && (
+            <ComplianceWorkspace
+              key={org.id}
+              org={org.id}
+              csrf={me.csrf_token}
+              reviewer={Boolean(canAudit)}
+            />
+          )}
           {org && view === "plots" && (
             <PlotsWorkspace
               key={org.id}
@@ -938,7 +971,7 @@ export default function Home() {
         </main>
         <footer className="main-footer">
           <span>© GeoForest Trace</span>
-          <span>Chantier 03 · Parcelles & géolocalisation</span>
+          <span>Chantier 06 · Documents, légalité & risque</span>
         </footer>
       </div>
     </div>

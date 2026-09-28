@@ -13,8 +13,15 @@ def engine():
 
 
 @contextmanager
-def transaction(user_id=None, organization_id=None, portal_session=None):
-    with engine().begin() as conn:
+def transaction(
+    user_id=None, organization_id=None, portal_session=None, *, isolation_level=None
+):
+    target = (
+        engine().execution_options(isolation_level=isolation_level)
+        if isolation_level
+        else engine()
+    )
+    with target.begin() as conn:
         # LOCAL scope prevents identity leakage when a pooled connection is reused.
         conn.execute(
             text(

@@ -1,8 +1,8 @@
-# GeoForest Trace — chantiers 1 à 4 · v0.5.0
+# GeoForest Trace — chantiers 1 à 6 · v0.7.0
 
 Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OIDC, organisations, fournisseurs, produits, lots, parcelles versionnées et portail sécurisé.
 
-**Le produit ne réalise actuellement aucune analyse EUDR ni soumission réglementaire.** L'ancien prototype non qualifié est conservé dans `archive/prototype`, exclu des builds/images/exécutions. Aucune donnée historique n'est requalifiée ou supprimée.
+**Observations forestières indicatives et évaluations humaines documentées : aucune certification automatique ni soumission réglementaire.** L'ancien prototype non qualifié est conservé dans `archive/prototype`, exclu des builds/images/exécutions. Aucune donnée historique n'est requalifiée ou supprimée.
 
 ## Livré
 - Connexion Authorization Code + PKCE avec fournisseur OIDC ; Keycloak de développement fourni.
@@ -19,7 +19,10 @@ Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OI
 - Carte privée Leaflet, points/contours, coordonnées et GPS à la demande, sans fond externe.
 - Import GeoJSON/KML avec aperçu, confirmation, source privée et transaction/replay ; contrôles PostGIS sans verdict réglementaire.
 - Parcelles versionnées, archives, liens de lots vers une révision précise ; propositions fournisseur avec correction et adoption humaine.
-- Interface desktop/mobile ; documents de légalité, analyses de déforestation/risque et déclarations restent indisponibles.
+- Observations GFC/JRC TMF indicatives, sources et limites explicites, lectures publiques bornées à la demande.
+- Coffre documentaire privé versionné, antivirus réel et contrôle de format, revue humaine et portail mobile.
+- Légalité par lot, risque motivé, empreintes de contexte et actions correctives.
+- OCR et emails non activés ; diligence/export et déclarations restent à venir (GO7 requis).
 
 ## Démarrage local avec Docker Compose
 
@@ -138,3 +141,12 @@ Voir `docs/rapports/04-chantier-4.md`, `docs/reglementation/04-sources-geographi
 Application **0.6.0 / migration 0005**. GFC à la demande intégré au détail parcellaire, résultats immuables et preuves JSON privées. Activation explicite `FOREST_ANALYSIS_ENABLED=true` et confirmation des lectures publiques dans l’interface ; désactivé par défaut. Pas de conformité EUDR automatique.
 
 604 tests backend et 7 parcours navigateur réussis, sans skip ; GFC et JRC TMF via miroir Epoch qualifié, sources séparées et preuves natives. Migration 0005 et restauration GFC vérifiées localement ; schéma inchangé pour TMF. Voir `docs/rapports/05-chantier-5-integration.md` et `05b-qualification-miroir-tmf.md`. Aucun verdict EUDR ni observation 2026. Aucun chantier 6 sans GO.
+
+## Chantier 6 — périmètre et preuves
+
+- [Bilan et réserves de lancement](docs/rapports/06-chantier-6.md)
+- [Guide utilisateur](docs/guide-documents-legalite-risque.md)
+- [Exploitation du coffre et restauration](docs/exploitation-documents.md)
+- [Base réglementaire et limites](docs/reglementation/06-documents-legalite-risque.md)
+
+La recette native utilise uniquement des pièces fictives. Le dépôt est désactivé par défaut ; le Compose de base n’installe pas l’antivirus qualifié et ne suffit pas à activer le coffre. Production, OCR, SMTP et sandbox OS sont à qualifier, sans prestataire payant engagé.
