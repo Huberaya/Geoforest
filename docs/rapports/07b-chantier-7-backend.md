@@ -1,5 +1,6 @@
 # Chantier 7 — deuxième incrément : stockage et API
 
+> Historique : chantier 7 désormais clôturé pour le MVP interne. Voir le [bilan final](07d-chantier-7-cloture.md). Les réserves ci-dessous décrivent l’état de cet incrément, pas le bilan courant.
 > État actuel : voir le [troisième incrément interface/exports](07c-chantier-7-interface-exports.md). Les résultats ci-dessous sont historiques.
 29 septembre 2026 · branche `chantier-7/due-diligence-exports`.
 

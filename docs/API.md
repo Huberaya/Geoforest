@@ -150,9 +150,9 @@ Le POST accepte `source_id`: `gfc-2025-v1.13` (valeur par défaut, rétrocompati
 
 TMF utilise `tmf-parcel-grid-v1`, trois couches natives et des années entières uint16, pas les codes uint8 GFC. `baseline_tmf_forest_pixels`, `non_baseline_tmf_forest_pixels`, `baseline_tmf_class_counts`, compteurs séparés des années de déforestation/dégradation sont documentés dans les résumés des fenêtres. Pas de champ de masque historique GFC détourné pour TMF. `PARTIAL_OVERLAPPING_SOURCE_GRIDS` et `POINT_SAMPLE_OVERLAPPING_SOURCE_GRIDS` indiquent une ambiguïté de chevauchement ; pas de conclusion négative complète. Le signal reste toujours distinct d’une décision EUDR.
 
-## Diligence — chantier 7 en cours (backend 0.8.0-dev)
+## Diligence — chantier 7, MVP interne clôturé (backend 0.8.0)
 
-Schéma 0007 et `DILIGENCE_ENABLED=true` nécessaires. Flag désactivé par défaut ; interface et PDF/CSV intégrés, recette finale encore en cours. Documentation des contrats dans `openapi.json`, synthèse dans [le rapport interface/exports](rapports/07c-chantier-7-interface-exports.md).
+Schéma 0007 et `DILIGENCE_ENABLED=true` nécessaires. Flag désactivé par défaut ; interface et PDF/CSV intégrés, recette finale effectuée. Documentation des contrats dans `openapi.json`, synthèse dans [le bilan final](rapports/07d-chantier-7-cloture.md).
 
 Préfixe `O/diligence` : POST `/revisions`, GET liste paginée, GET `/{dossier}/revisions/{revision}`, POST `/{dossier}/revisions/{revision}/decisions`, GET `/{dossier}/revisions/{revision}/export.{kind}` (`json`, `csv`, `pdf`).
 

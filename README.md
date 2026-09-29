@@ -1,4 +1,4 @@
-# GeoForest Trace — chantiers 1 à 6 · v0.7.0
+# GeoForest Trace — chantiers 1 à 7 · v0.8.0
 
 Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OIDC, organisations, fournisseurs, produits, lots, parcelles versionnées et portail sécurisé.
 
@@ -22,7 +22,9 @@ Socle SaaS et collecte initiale : Next.js → FastAPI → PostgreSQL/PostGIS, OI
 - Observations GFC/JRC TMF indicatives, sources et limites explicites, lectures publiques bornées à la demande.
 - Coffre documentaire privé versionné, antivirus réel et contrôle de format, revue humaine et portail mobile.
 - Légalité par lot, risque motivé, empreintes de contexte et actions correctives.
-- OCR et emails non activés ; diligence/export et déclarations restent à venir (GO7 requis).
+- Dossiers de diligence internes, snapshots immuables, revue humaine, historique et exports privés PDF/JSON/CSV.
+- Préparation assistée pour les démarches officielles, sans connecteur TRACES qualifié ni soumission.
+- OCR et emails non activés ; suivi structuré des références externes et parcours réglementaires non ordinaires restent pour une prochaine version.
 
 ## Démarrage local avec Docker Compose
 
@@ -150,3 +152,11 @@ Application **0.6.0 / migration 0005**. GFC à la demande intégré au détail p
 - [Base réglementaire et limites](docs/reglementation/06-documents-legalite-risque.md)
 
 La recette native utilise uniquement des pièces fictives. Le dépôt est désactivé par défaut ; le Compose de base n’installe pas l’antivirus qualifié et ne suffit pas à activer le coffre. Production, OCR, SMTP et sandbox OS sont à qualifier, sans prestataire payant engagé.
+
+## Chantier 7 — clôture du MVP interne
+
+Le chantier 7 est clôturé localement pour la préparation/revue et les exports internes ; cela ne vaut ni autorisation de production ni conformité réglementaire certifiée. Voir le [bilan final](docs/rapports/07d-chantier-7-cloture.md), le [guide utilisateur](docs/guide-diligence.md) et la [recette reproductible](docs/recette-diligence.md).
+
+Migration **0007** requise ; activation explicite `DILIGENCE_ENABLED=true`, défaut `false`. Les fonctionnalités documentaires requièrent leur propre activation et un coffre/antivirus qualifiés. Seul le régime d’opérateur ordinaire est validable dans ce MVP ; les autres régimes restent à qualifier, sans en déduire une interdiction légale.
+
+**Préparé/validé en interne n’est pas déclaré aux autorités.** Le chantier 8 attend son GO ; les réserves d’exploitation/hébergement et les fonctionnalités différées restent décrites dans les rapports.

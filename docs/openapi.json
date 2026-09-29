@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "GeoForest Trace — socle sécurisé",
-    "version": "0.8.0-dev"
+    "version": "0.8.0"
   },
   "paths": {
     "/api/auth/login": {

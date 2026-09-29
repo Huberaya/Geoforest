@@ -1,5 +1,6 @@
 # Chantier 7 — interface et exports intégrés
 
+> Historique : chantier 7 désormais clôturé pour le MVP interne. Voir le [bilan final](07d-chantier-7-cloture.md). Les réserves ci-dessous décrivent l’état de cet incrément, pas le bilan courant.
 29 septembre 2026 · branche `chantier-7/due-diligence-exports` · troisième incrément.
 
 **Statut : incrément fonctionnel livré localement ; chantier 7 encore À FINALISER. Aucun GO8, aucun déploiement de production ni push GitHub.**

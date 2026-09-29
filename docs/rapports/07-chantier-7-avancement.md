@@ -1,5 +1,6 @@
 # Chantier 7 — premier incrément
 
+> Historique : chantier 7 désormais clôturé pour le MVP interne. Voir le [bilan final](07d-chantier-7-cloture.md). Les réserves ci-dessous décrivent l’état de cet incrément, pas le bilan courant.
 > Historique du premier incrément. Voir le [deuxième incrément backend](07b-chantier-7-backend.md) pour l’état actuel.
 
 29 septembre 2026 · branche `chantier-7/due-diligence-exports`.

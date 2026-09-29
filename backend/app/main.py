@@ -26,7 +26,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 app = FastAPI(
     title="GeoForest Trace — socle sécurisé",
-    version="0.8.0-dev",
+    version="0.8.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,

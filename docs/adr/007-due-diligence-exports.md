@@ -1,6 +1,6 @@
 # ADR 007 — Dossiers de diligence, validation interne et exports
 
-Statut : accepté pour implémentation après GO7 ; chantier EN COURS, non clôturé.
+Statut : implémenté et clôturé pour le MVP interne après GO7. Aucun GO8.
 Date : 29 septembre 2026. Branche : `chantier-7/due-diligence-exports`.
 
 ## Objectif
@@ -46,3 +46,11 @@ Voir [rapport backend](../rapports/07b-chantier-7-backend.md) : 802 tests backen
 ## Troisième incrément
 
 Interface, export PDF/CSV HTTP, contrôle SHA-256 navigateur et guide assisté intégrés. Voir [rapport 07c](../rapports/07c-chantier-7-interface-exports.md) : 815 tests backend et 4 parcours navigateur réels sur sessions synthétiques. Chantier encore à finaliser ; recette positive OIDC et bornes PDF approfondies restent ouvertes. Suivi externe structuré non implémenté. Aucun GO8.
+
+## Clôture — périmètre livré
+
+Préparation assistée, snapshots, revue humaine et exports internes qualifiés par la recette locale. Version 0.8.0, schéma 0007, flag désactivé par défaut. Huit nouveaux tests de limites PDF ; correction du code d’erreur de dépassement de pages (ReportLab reconstruit les exceptions). Régression 823 tests, deux parcours positifs/sécurité OIDC et restauration avec quinze exports vérifiés.
+
+Le suivi manuel structuré d’une référence externe, envisagé comme **éventuel**, n’entre pas dans cette livraison : il est explicitement classé prochaine version. La saisie assistée repose sur le guide et les exports, pas sur une imitation du système officiel. Aucun numéro de vérification officiel n’est demandé/storé en champ dédié. Le connecteur officiel nécessite contrat et accès qualifiés ; il n’est ni implémenté ni déclaré inexistant. Ce périmètre applique le mode assisté prévu lorsque l’intégration n’est pas qualifiée, sans déclarer le SaaS complet prêt pour la production.
+
+Voir [clôture et réserves](../rapports/07d-chantier-7-cloture.md). Les sections d’incréments précédentes restent historiques.

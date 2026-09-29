@@ -1,6 +1,6 @@
 # Préparer et revoir un dossier de diligence
 
-Version 0.8.0-dev — préparation **assistée**, décisions **manuelles**. Aucun envoi officiel.
+Version 0.8.0 — préparation **assistée**, décisions **manuelles**. Aucun envoi officiel.
 
 ## Prérequis
 

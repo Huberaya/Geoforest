@@ -12,6 +12,12 @@ from xml.sax.saxutils import escape
 from app.diligence.core import PreparationError
 
 
+class PDFPageLimit(PreparationError):
+    """ReportLab reconstructs/annotates exceptions; retain the stable code by type."""
+
+    code = "PDF_PAGE_BUDGET"
+
+
 def render(data):
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_LEFT
@@ -243,7 +249,7 @@ def render(data):
 
     def footer(canvas, doc):
         if doc.page > 60:
-            raise PreparationError("PDF_PAGE_BUDGET")
+            raise PDFPageLimit("PDF_PAGE_BUDGET")
         canvas.saveState()
         canvas.setFont("GFT", 7)
         canvas.setFillColor(colors.HexColor("#566960"))
@@ -286,7 +292,7 @@ if __name__ == "__main__":
     try:
         main()
     except PreparationError as exc:
-        sys.stderr.write(str(exc))
+        sys.stderr.write(exc.code if isinstance(exc, PDFPageLimit) else str(exc))
         sys.exit(2)
     except Exception:
         sys.stderr.write("PDF_GENERATION_FAILED")

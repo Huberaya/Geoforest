@@ -1,0 +1,149 @@
+{
+  "checked_at": "2026-09-29T09:55:37.898452+00:00",
+  "isolated_restore": true,
+  "source_writers_stopped": true,
+  "tables": {
+    "diligence_dossiers": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "d2c9a3555eb88c07b0445a500c307e3fdd79f87c4d9cffaadda2fd42b72a7928"
+    },
+    "diligence_revisions": {
+      "rows": 5,
+      "identical": true,
+      "sha256": "38b77d891670e5d3d4ec89cbc3044a9f15fc4cf3bc582577c14ac15a53d1f464"
+    },
+    "diligence_decisions": {
+      "rows": 10,
+      "identical": true,
+      "sha256": "024ca31daf625c847bcc0f1cca915e63d5c2b1944925ec74f12388083f531042"
+    },
+    "document_versions": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "747af4d9636f7f08d5ad756e98c9283b678000f7625fe9c87209d666fc11aa8b"
+    },
+    "document_reviews": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "5b7254d5da146e1d47cfb8e2989fbde852b399c2522d11a8f3f96685e174e320"
+    },
+    "legality_assessments": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "00d0e783614270bf4bf98f2638999ea9dd412e9c60f657ae93403c8e56e0adbd"
+    },
+    "risk_assessments": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "aa57fdd22a0e4ca55e4dae3ee70529e11b449b9e2e2e3271468e25ae75135b89"
+    }
+  },
+  "exports": [
+    {
+      "revision": 1,
+      "format": "json",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 1,
+      "format": "csv",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 1,
+      "format": "pdf",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 2,
+      "format": "json",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 2,
+      "format": "csv",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 2,
+      "format": "pdf",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 3,
+      "format": "json",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 3,
+      "format": "csv",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 3,
+      "format": "pdf",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 4,
+      "format": "json",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 4,
+      "format": "csv",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 4,
+      "format": "pdf",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 5,
+      "format": "json",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 5,
+      "format": "csv",
+      "status": 200,
+      "integrity_verified": true
+    },
+    {
+      "revision": 5,
+      "format": "pdf",
+      "status": 200,
+      "integrity_verified": true
+    }
+  ],
+  "anonymous_exports": {
+    "json": 401,
+    "csv": 401,
+    "pdf": 401
+  },
+  "restored_sessions_and_invitations_revoked": true,
+  "temporary_session_revoked": true,
+  "source_sessions_revoked_after_comparison": true,
+  "vault": {
+    "referenced": 1,
+    "verified": 1,
+    "missing": [],
+    "invalid": []
+  },
+  "dump_sha256": "71448d1fc12d57c5047c5b4bcb91fc61b3cf3c1eff633dca4c0a266d411ddf90"
+}
