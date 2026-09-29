@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     max_body_bytes: int = 65536
     forest_analysis_enabled: bool = False
     documents_enabled: bool = False
+    diligence_enabled: bool = False
     document_storage_root: str = "/var/lib/geoforest/documents"
     clamav_executable: str = "/usr/local/bin/clamscan"
     clamav_database: str = "/var/lib/clamav"

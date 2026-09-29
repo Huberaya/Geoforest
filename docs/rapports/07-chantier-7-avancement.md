@@ -1,5 +1,7 @@
 # Chantier 7 — premier incrément
 
+> Historique du premier incrément. Voir le [deuxième incrément backend](07b-chantier-7-backend.md) pour l’état actuel.
+
 29 septembre 2026 · branche `chantier-7/due-diligence-exports`.
 
 **EN COURS — chantier non clôturé.** Le GO7 est reçu ; aucun nouvel accord n’est nécessaire pour poursuivre ce périmètre. Aucun GO8.

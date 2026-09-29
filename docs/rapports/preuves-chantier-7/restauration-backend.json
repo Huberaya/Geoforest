@@ -1,0 +1,57 @@
+{
+  "checked_at": "2026-09-29T05:55:11.406512+00:00",
+  "isolated_restore": true,
+  "source_writers_stopped": true,
+  "restored_sessions_and_invitations_revoked": true,
+  "tables": {
+    "diligence_dossiers": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "019120f04c68d7bdfc21ca328adc734cf08eafc9b02b6ff22297ab1b731d2af1"
+    },
+    "diligence_revisions": {
+      "rows": 2,
+      "identical": true,
+      "sha256": "1e1e2643792616ed2672b5e7679f7df634b015a6f497c9fbf19fe364b41ced70"
+    },
+    "diligence_decisions": {
+      "rows": 2,
+      "identical": true,
+      "sha256": "0a1dc010c19dfc43fee4a0aa87c1afbdc926c078a67da68a14549c2b630d57e1"
+    },
+    "document_versions": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "bc8d84517022e4c78a8b75e051b5df4be3b4096fdb322a849cd1eeb816cc3541"
+    },
+    "document_reviews": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "5f432bdf249b9156574fd71a0b0fb69c0fcfa8e875aea6f44e8f68aa1f8ebd5e"
+    },
+    "legality_assessments": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "cb00ba357c24c39a992cdd621986374472af3f6c86c053bc579186ae83727505"
+    },
+    "risk_assessments": {
+      "rows": 1,
+      "identical": true,
+      "sha256": "b4f812337d7aaeb2a67ef022d9c641325a028b85c111e56240682e1d5e624445"
+    }
+  },
+  "api": {
+    "authenticated_export": 200,
+    "snapshot_sha256_matches": true,
+    "sources_match_restored_data_and_blob": true,
+    "anonymous_export": 401,
+    "temporary_session_revoked": true
+  },
+  "vault": {
+    "referenced": 1,
+    "verified": 1,
+    "missing": [],
+    "invalid": []
+  },
+  "dump_sha256": "23cd76ff9f1a8ce8c92caf3dd59e95f66ed37e069d78305146147cd1bd7bac67"
+}

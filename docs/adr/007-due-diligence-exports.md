@@ -34,3 +34,11 @@ Une attestation humaine ne prouve pas la véracité des sources saisies. Les don
 ## État de ce premier incrément
 
 Cadrage, noyau pur et aperçus internes JSON/CSV implémentés avec 97 tests unitaires ; migration/API/UI/PDF et recette finale non livrés à ce stade. Le schéma actif demeure 0006 et la version de l’application demeure 0.7.0 jusqu’à intégration testée. Aucun GO8.
+
+## Deuxième incrément — intégré derrière feature flag
+
+Migration 0007, résolution des faits sous RLS, révisions immuables, décisions versionnées et export JSON HTTP audité sont implémentés. API désactivée par défaut (`DILIGENCE_ENABLED=false`), backend 0.8.0-dev, schéma attendu 0007. Les écritures utilisent SERIALIZABLE ; les lectures REPEATABLE READ. Session et appartenance sont verrouillées pendant l’opération ; l’expiration est revérifiée avant commit. Le verrou d’appartenance est acquis par une fonction privilégiée restreinte au membre/contexte courants, sans élargir les droits UPDATE des lecteurs.
+
+Contrôles physiques des preuves, 80 Mio distincts/résolution, 20 lots/révision et 500 révisions/organisation. Géométries budgétées avant chargement. États validés historiques conservés mais non présentés comme validation courante après remplacement/retrait ou changement de contexte. Exports JSON internes avec décisions et géolocalisations, pas pièces binaires ni blocs raster embarqués.
+
+Voir [rapport backend](../rapports/07b-chantier-7-backend.md) : 802 tests backend, migration neuve/peuplée et restauration isolée. Interface, PDF, CSV HTTP, suivi manuel externe et recette navigateur restent à faire. Aucun GO8.

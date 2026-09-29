@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "GeoForest Trace — socle sécurisé",
-    "version": "0.7.0"
+    "version": "0.8.0-dev"
   },
   "paths": {
     "/api/auth/login": {
@@ -909,6 +909,285 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{org}/diligence/revisions": {
+      "post": {
+        "summary": "Prepare",
+        "operationId": "prepare_api_v1_organizations__org__diligence_revisions_post",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Org"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Prepare"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{org}/diligence": {
+      "get": {
+        "summary": "List Dossiers",
+        "operationId": "list_dossiers_api_v1_organizations__org__diligence_get",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Org"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{org}/diligence/{dossier}/revisions/{revision}": {
+      "get": {
+        "summary": "Detail",
+        "operationId": "detail_api_v1_organizations__org__diligence__dossier__revisions__revision__get",
+        "parameters": [
+          {
+            "name": "dossier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dossier"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Org"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{org}/diligence/{dossier}/revisions/{revision}/decisions": {
+      "post": {
+        "summary": "Decide",
+        "operationId": "decide_api_v1_organizations__org__diligence__dossier__revisions__revision__decisions_post",
+        "parameters": [
+          {
+            "name": "dossier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dossier"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Org"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decide"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{org}/diligence/{dossier}/revisions/{revision}/export.json": {
+      "get": {
+        "summary": "Export Json",
+        "operationId": "export_json_api_v1_organizations__org__diligence__dossier__revisions__revision__export_json_get",
+        "parameters": [
+          {
+            "name": "dossier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dossier"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Org"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4377,6 +4656,73 @@
         ],
         "title": "CsvInput"
       },
+      "Decide": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "SUBMIT_FOR_REVIEW",
+              "REQUEST_CHANGES",
+              "VALIDATE_INTERNALLY",
+              "WITHDRAW_INTERNALLY"
+            ],
+            "title": "Action"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 10,
+            "title": "Note"
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "title": "Acknowledged",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "version",
+          "action",
+          "note"
+        ],
+        "title": "Decide"
+      },
+      "Declaration": {
+        "properties": {
+          "preparation": {
+            "$ref": "#/components/schemas/Preparation"
+          },
+          "lots": {
+            "items": {
+              "$ref": "#/components/schemas/LotDeclaration"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Lots"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "preparation",
+          "lots"
+        ],
+        "title": "Declaration"
+      },
       "DeclaredProduct": {
         "properties": {
           "name": {
@@ -4725,6 +5071,66 @@
           "note"
         ],
         "title": "Legality"
+      },
+      "LotDeclaration": {
+        "properties": {
+          "lot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lot Id"
+          },
+          "scientific_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Scientific Names"
+          },
+          "scientific_names_complete_confirmed": {
+            "type": "boolean",
+            "title": "Scientific Names Complete Confirmed",
+            "default": false
+          },
+          "geolocation_complete_confirmed": {
+            "type": "boolean",
+            "title": "Geolocation Complete Confirmed",
+            "default": false
+          },
+          "additional_unit_reviewed": {
+            "type": "boolean",
+            "title": "Additional Unit Reviewed",
+            "default": false
+          },
+          "additional_unit_note": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Additional Unit Note",
+            "default": ""
+          },
+          "declared_net_mass_kg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Net Mass Kg"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "lot_id"
+        ],
+        "title": "LotDeclaration"
       },
       "LotInput": {
         "properties": {
@@ -5438,6 +5844,111 @@
         ],
         "title": "PlotUpdate"
       },
+      "Preparation": {
+        "properties": {
+          "operator_name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Operator Name",
+            "default": ""
+          },
+          "operator_address": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Operator Address",
+            "default": ""
+          },
+          "eori": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Eori",
+            "default": ""
+          },
+          "regime": {
+            "$ref": "#/components/schemas/Regime",
+            "default": "UNQUALIFIED"
+          },
+          "regime_reference": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Regime Reference",
+            "default": ""
+          },
+          "trade_flow": {
+            "$ref": "#/components/schemas/TradeFlow",
+            "default": "UNQUALIFIED"
+          },
+          "product_scope_confirmed": {
+            "type": "boolean",
+            "title": "Product Scope Confirmed",
+            "default": false
+          },
+          "product_scope_reference": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Product Scope Reference",
+            "default": ""
+          },
+          "supply_chain_complete_confirmed": {
+            "type": "boolean",
+            "title": "Supply Chain Complete Confirmed",
+            "default": false
+          },
+          "supply_chain_note": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Supply Chain Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Preparation"
+      },
+      "Prepare": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id"
+          },
+          "dossier_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dossier Id"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "default": 0
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 3,
+            "title": "Title"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/Declaration"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "title",
+          "declaration"
+        ],
+        "title": "Prepare"
+      },
       "ProductInput": {
         "properties": {
           "reference": {
@@ -5676,6 +6187,17 @@
           "payload"
         ],
         "title": "ProposalUpdate"
+      },
+      "Regime": {
+        "type": "string",
+        "enum": [
+          "UNQUALIFIED",
+          "ORDINARY_OPERATOR",
+          "MICRO_SMALL_PRIMARY",
+          "DOWNSTREAM_OPERATOR",
+          "TRADER"
+        ],
+        "title": "Regime"
       },
       "Review": {
         "properties": {
@@ -6071,6 +6593,16 @@
           "state"
         ],
         "title": "TaskUpdate"
+      },
+      "TradeFlow": {
+        "type": "string",
+        "enum": [
+          "UNQUALIFIED",
+          "DOMESTIC",
+          "IMPORT",
+          "EXPORT"
+        ],
+        "title": "TradeFlow"
       },
       "Upload": {
         "properties": {

@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-09-29T06:08:28.605429+00:00",
+  "schema": "0007",
+  "fresh_upgrade": "0001-0007",
+  "second_upgrade_noop": true,
+  "runtime_superuser": false,
+  "runtime_bypassrls": false,
+  "sql_sha256": "373b7490dc5e21a204b88dee7dd9e098aafc0936ecd1bb93bf1803874a14d64d",
+  "full_backend_tests": 802
+}

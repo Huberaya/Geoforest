@@ -119,11 +119,10 @@ def main():
         )
     e = create_engine(os.environ["MIGRATION_DATABASE_URL"])
     with e.connect() as c:
-        if (
-            c.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            != "0006"
-        ):
-            raise ValueError("SCHEMA_0006_REQUIRED")
+        if c.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one() not in {"0006", "0007"}:
+            raise ValueError("SCHEMA_0006_OR_0007_REQUIRED")
         rows = list(
             c.execute(
                 text(

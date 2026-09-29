@@ -1,0 +1,48 @@
+{
+  "checked_at": "2026-09-29T05:44:24.204062+00:00",
+  "from": "0006",
+  "to": "0007",
+  "second_upgrade_noop": true,
+  "tables_unchanged": {
+    "lots": {
+      "count": 14,
+      "sha256": "57a4feed078b46410e1703f41c8b11fdb8579f24d7c89a2fed593137f68a623e"
+    },
+    "plot_geolocations": {
+      "count": 26,
+      "sha256": "503cd72099961f44c1fddf86f91293e97dbc1e3fb4fd3aa8cffb6367094b519b"
+    },
+    "forest_analyses": {
+      "count": 11,
+      "sha256": "0f4012e943931e6cb430cdcb38edc6a74e2b29c46d7ed622de33a3293ad59a16"
+    },
+    "documents": {
+      "count": 8,
+      "sha256": "1077bacfb2cb25d8bc690c0aa55ada3957442b3a493e67f0803a7bd671c9f47f"
+    },
+    "document_versions": {
+      "count": 12,
+      "sha256": "d9194da6c8eb1651236c8787625d943ad3b9c72a3061b8f60f6733356449319d"
+    },
+    "document_reviews": {
+      "count": 6,
+      "sha256": "9487cc8efb164a6359e4072f301ffc8b92dfb76ce56f19c0114fc7efec911be4"
+    },
+    "legality_assessments": {
+      "count": 5,
+      "sha256": "5098d06efb77d85e59ca2fe8e46b2318cdec169667966ea2236bd92050472ba1"
+    },
+    "risk_assessments": {
+      "count": 5,
+      "sha256": "b27c671cc14b71fb1c29f2018f1713251824b5194cb6d3ad2e9ad9baf1458e68"
+    },
+    "compliance_tasks": {
+      "count": 4,
+      "sha256": "4605187a0874477b42e8482717db424e39aa0a3e8b0c18fc73b28c55041a16c2"
+    },
+    "notification_outbox": {
+      "count": 8,
+      "sha256": "da2b3f30bf41105c10017e907662cf88279714cf9d6e9c209a4c305b50cbe2a8"
+    }
+  }
+}
