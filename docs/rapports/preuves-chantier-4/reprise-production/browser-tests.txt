@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 tests/gis-browser/responsive.spec.ts:3:7 › catalogue failure/retry and indicative result at 360px (985ms)
+  ✓  2 tests/gis-browser/responsive.spec.ts:3:7 › catalogue failure/retry and indicative result at 390px (676ms)
+  ✓  3 tests/gis-browser/responsive.spec.ts:3:7 › catalogue failure/retry and indicative result at 1280px (631ms)
+
+  3 passed (4.3s)

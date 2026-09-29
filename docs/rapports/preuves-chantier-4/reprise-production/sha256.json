@@ -1,0 +1,17 @@
+{
+  "artifact-tests.txt": "2e2decd6cb8361867baeeb94db23f4c32387ed9bf5168558c2a6cda87b68a7c7",
+  "browser-tests.txt": "47db9e04fecbf2e5643a0d6fae6d65a6da8b1f27159a9939235475abe7457b7f",
+  "build-hosted-fixture.txt": "5640a8ef0fe3e54a262d7410e61928f1db4ef4dbc787b6c5f0b46c8b528deda1",
+  "build-local.txt": "01a9251b2ff86d95f13ce114bc9b6238c0c246d6869c02279ab880d3eca2c399",
+  "compiled-routing.json": "df7e2ea1138296d54de8432acb0d43d13267bd3d4d10d918d6636c7413e0627b",
+  "component-1280.png": "6cf7e65b8274216761440a626ff0b98ed7269215b4662ab6822f9b5c0b578a99",
+  "component-360.png": "23b98d0842781756e88b6aff6380dd61132e4a7dc397b7debe888df8b240c165",
+  "component-390.png": "03b645302f2031c257d1a344108e9700b9d92d03a20502a6a4c1df5a830e2f2e",
+  "format.txt": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+  "frontend-tests.txt": "4518f6bbc155f654b83ce0db3f5609692e6196d765cf9b6c3fc090496eb9e31e",
+  "lint.txt": "f7a2eb4c028d7b5b3145ad45f58e64ad7604bf5e7a0ada6fb5fcff680648c898",
+  "public-http.json": "03d1ca5413c246a1c9553e62567a53b270f23c7e1836261bef09519bb83fe671",
+  "reference-audit.json": "e1e98020c8f89d053f5ab207f787ea8f752cd1ec96674901c4e7e2e39fdaa324",
+  "ruff.txt": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a",
+  "typecheck.txt": "4e03677bdb7332cabbe8bc82ffd47ecad29d30e1476a4884d0762a81b278494f"
+}

@@ -1,0 +1,16 @@
+{
+  "scope": "repository_active_reference_files",
+  "status": "PASS",
+  "verified_country_count": 246,
+  "expected_country_count": 246,
+  "excluded": [
+    "AQ",
+    "EG",
+    "UM"
+  ],
+  "failures": [],
+  "postgis_topology_retested": false,
+  "vercel_bundle_verified": false,
+  "production_qualified": false,
+  "regulatory_status": "NOT_ASSESSED"
+}

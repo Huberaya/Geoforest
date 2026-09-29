@@ -1,18 +1,18 @@
 # Suivi des prochaines étapes
 
-Actualisé le 29 septembre 2026 après le rappel explicite du propriétaire concernant le chantier 4.
+Actualisé le 29 septembre 2026 après la reprise effective du chantier 4. Voir [audit et corrections 04b](rapports/04b-reprise-geospatial-production.md).
 
 | Ordre | Travail | État et critère de sortie |
 |---|---|---|
 | 1 | 08q — préparation exploitation documentaire | Évaluateur local et procédures livrés ; collecte, notifications, installation et rotation antivirus réelles non raccordées. Pas production. |
-| **2** | **Reprise du chantier 4 — moteur géospatial** | **Prochaine reprise fonctionnelle.** Audit des écarts entre code/recette locale, backend accessible et interface Vercel Production, puis plan de corrections et recette autorisée. Ne pas le repousser implicitement au profit d'autres sous-lots 8. |
+| **2** | **Reprise du chantier 4 — moteur géospatial** | **EN COURS — priorité active.** Audit public effectué : connexion 404 et API en erreur DNS privé. Corrections UI locales livrées. Prochaine action : accès Vercel actuel, raccordement backend/Production et recette cible ; pas de nouveau sous-lot 8 implicite. |
 | Gate distincte | Qualification/activation des infrastructures | Hôte, S3, alertes, sauvegardes, fournisseur et migration candidate exigent leurs qualifications et autorisations. Aucun achat ou déploiement déduit de ce suivi. |
 
 ## Chantier 4 : acquis et vérifications restantes
 
 Référence : [rapport final local](rapports/04-chantier-4.md), qui remplace les rapports d'avancement antérieurs (pilote Côte d'Ivoire seulement). Le moteur mondial indicatif est livré localement : 246 codes, versionnement et contrôle de cohérence pays. AQ/EG/UM sont des exceptions explicites. Natural Earth 1:10 millions n'est pas une précision de dix mètres, ni un référentiel cadastral.
 
-À vérifier au prochain lot, **sans déclarer aujourd'hui ces points validés** :
+Suivi des vérifications (le rapport 04b précise ce qui a été inspecté localement ; **aucune recette métier de production validée**) :
 
 1. Inventaire des routes/catalogues, de leur branche et de leur raccordement interface dans le code courant.
 2. Différences entre ce code, la version réellement publiée sur Vercel **Production** et l'accès au backend. Un build ou une Preview ne remplace pas cette vérification.

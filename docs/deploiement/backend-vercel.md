@@ -138,3 +138,7 @@ La Preview restera un outil de recette, pas la livraison finale. Les secrets tem
 - [Schéma de configuration Vercel](https://openapi.vercel.sh/vercel.json)
 - [Pooler Neon et verrous de session](https://neon.com/docs/connect/connection-pooling)
 - [Clerk production : configuration et recette](clerk-production.md)
+
+## Reprise du chantier 4 — constat public du 29 septembre 2026
+
+L'[audit 04b](../rapports/04b-reprise-geospatial-production.md) constate `/sign-in` en 404 et les chemins `/api/v1/me` / catalogue géospatial en erreur `DNS_HOSTNAME_RESOLVED_PRIVATE` sur le domaine public fourni. Le routage local compile correctement vers une cible HTTPS fictive ; aucune configuration distante n'a été corrigée ou publiée par cet audit. Priorité : inspecter le projet et le déploiement **Production** via un accès actuel, raccorder le backend public puis effectuer la recette authentifiée. Ne pas assimiler le build local au déploiement.

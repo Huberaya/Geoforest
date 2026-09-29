@@ -55,40 +55,77 @@ export function CountryChecks({
   revision: number;
   writable: boolean;
 }) {
-  const [items, setItems] = useState<Check[]>([]),
-    [total, setTotal] = useState(0),
-    [page, setPage] = useState(1),
-    [generation, setGeneration] = useState(0),
-    [margin, setMargin] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
-    [loaded, setLoaded] = useState(false);
-  const [catalogue, setCatalogue] = useState<{
+  type Catalogue = {
     coverage: string;
     covered_count: number;
     excluded: { country: string; reason: string }[];
+  };
+  type HistoryData = { items: Check[]; total: number };
+  const [page, setPage] = useState(1),
+    [generation, setGeneration] = useState(0),
+    [catalogueGeneration, setCatalogueGeneration] = useState(0),
+    [margin, setMargin] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  const [catalogueState, setCatalogueState] = useState<{
+    api: Api;
+    generation: number;
+    data: Catalogue | null;
+    error: string;
   } | null>(null);
+  const [historyState, setHistoryState] = useState<{
+    api: Api;
+    plot: string;
+    revision: number;
+    page: number;
+    generation: number;
+    data: HistoryData | null;
+    error: string;
+  } | null>(null);
+  // Never label an old response as the current scope/page while a request is pending.
+  const currentCatalogue =
+    catalogueState?.api === api &&
+    catalogueState.generation === catalogueGeneration
+      ? catalogueState
+      : null;
+  const catalogue = currentCatalogue?.data;
+  const catalogueError = currentCatalogue?.error;
+  const currentHistory =
+    historyState?.api === api &&
+    historyState.plot === plot &&
+    historyState.revision === revision &&
+    historyState.page === page &&
+    historyState.generation === generation
+      ? historyState
+      : null;
+  const items = currentHistory?.data?.items ?? [];
+  const total = currentHistory?.data?.total ?? 0;
+  const loaded = currentHistory?.data != null;
+  const historyError = currentHistory?.error;
   useEffect(() => {
     const c = new AbortController();
+    const scope = { api, generation: catalogueGeneration };
     api("/geospatial/sources", "GET", undefined, c.signal)
-      .then((r) =>
-        setCatalogue(
-          r as {
-            coverage: string;
-            covered_count: number;
-            excluded: { country: string; reason: string }[];
-          },
-        ),
-      )
-      .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
+      .then((r) => {
+        if (!c.signal.aborted)
+          setCatalogueState({ ...scope, data: r as Catalogue, error: "" });
+      })
+      .catch(() => {
+        if (!c.signal.aborted)
+          setCatalogueState({
+            ...scope,
+            data: null,
+            error:
+              "Catalogue indisponible. Aucun résultat favorable ne peut en être déduit.",
+          });
       });
     return () => c.abort();
-  }, [api]);
+  }, [api, catalogueGeneration]);
   const request = useRef<string | null>(null);
   useEffect(() => {
     const c = new AbortController();
+    const scope = { api, plot, revision, page, generation };
     api(
       `/plots/${plot}/country-checks?revision=${revision}&page=${page}`,
       "GET",
@@ -96,13 +133,17 @@ export function CountryChecks({
       c.signal,
     )
       .then((r) => {
-        const d = r as { items: Check[]; total: number };
-        setItems(d.items);
-        setTotal(d.total);
-        setLoaded(true);
+        if (!c.signal.aborted)
+          setHistoryState({ ...scope, data: r as HistoryData, error: "" });
       })
-      .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
+      .catch(() => {
+        if (!c.signal.aborted)
+          setHistoryState({
+            ...scope,
+            data: null,
+            error:
+              "Historique indisponible. Les comparaisons enregistrées n’ont pas été supprimées.",
+          });
       });
     return () => c.abort();
   }, [api, plot, revision, page, generation]);
@@ -152,8 +193,26 @@ export function CountryChecks({
           ? catalogue.coverage === "UNAVAILABLE"
             ? "Catalogue indisponible. Aucun résultat favorable ne peut en être déduit."
             : `${catalogue.covered_count} codes ISO (pays et territoires) admis. Non couverts : ${catalogue.excluded.map((e) => e.country).join(", ")}.`
-          : "Chargement de la couverture…"}
+          : catalogueError
+            ? null
+            : "Chargement de la couverture…"}
       </p>
+      {(catalogueError || catalogue?.coverage === "UNAVAILABLE") && (
+        <div>
+          {catalogueError && (
+            <p role="alert" className="message error">
+              {catalogueError}
+            </p>
+          )}
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => setCatalogueGeneration((v) => v + 1)}
+          >
+            Réessayer le catalogue
+          </button>
+        </div>
+      )}
       <p className="caption">
         Exceptions : AQ (Antarctique), région polaire non prise en charge ; EG
         (Égypte), géométrie source invalide ; UM (îles mineures éloignées des
@@ -207,7 +266,23 @@ export function CountryChecks({
           </button>
         </fieldset>
       )}
-      {!loaded && !error && <p>Chargement de l’historique…</p>}
+      {historyError && (
+        <div>
+          <p role="alert" className="message error">
+            {historyError}
+          </p>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => setGeneration((v) => v + 1)}
+          >
+            Réessayer l’historique
+          </button>
+        </div>
+      )}
+      {!loaded && !historyError && (
+        <p role="status">Chargement de l’historique…</p>
+      )}
       {loaded && total === 0 && (
         <p>Aucune comparaison enregistrée pour cette révision.</p>
       )}
@@ -300,7 +375,9 @@ export function CountryChecks({
       ))}
       <div className="row-actions">
         <span>
-          {total} contrôle(s) · page {page}
+          {loaded
+            ? `${total} contrôle(s) · page ${page}`
+            : `Page ${page} · historique non chargé`}
         </span>
         <button
           type="button"
@@ -313,7 +390,7 @@ export function CountryChecks({
         <button
           type="button"
           className="text-button"
-          disabled={page * 20 >= total || busy}
+          disabled={!loaded || page * 20 >= total || busy}
           onClick={() => setPage((v) => v + 1)}
         >
           Contrôles suivants

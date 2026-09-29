@@ -1,0 +1,37 @@
+{
+  "observed_at_utc": "2026-09-29T20:22:45.987722+00:00",
+  "origin": "https://geoforest-eabr.vercel.app",
+  "method": "anonymous GET, no cookies, no credentials, no writes",
+  "vercel_project_configuration_verified": false,
+  "observations": [
+    {
+      "path": "/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "body_sha256": "94dae2fcc1780c3f4ffefc49413e40b9e46c992ce044f72cab5a64f003727d8b",
+      "private_dns_error": false,
+      "public_text_excerpt": "GeoForest Trace — Espace de travail Ouverture de votre espace sécurisé…"
+    },
+    {
+      "path": "/sign-in",
+      "http_status": 404,
+      "content_type": "text/html; charset=utf-8",
+      "body_sha256": "c0f8f44908fbe270ec03fc210feb382b4720e38a935f65a4f9e12d05c6df7d1d",
+      "private_dns_error": false
+    },
+    {
+      "path": "/api/v1/me",
+      "http_status": 404,
+      "content_type": "text/plain; charset=utf-8",
+      "body_sha256": "934affc64b9f9885c7bfcb40912124c37279f2ddf4fdf72b79c5e826f3e5d589",
+      "private_dns_error": true
+    },
+    {
+      "path": "/api/v1/organizations/00000000-0000-4000-8000-000000000001/geospatial/sources",
+      "http_status": 404,
+      "content_type": "text/plain; charset=utf-8",
+      "body_sha256": "26071f416a3e42f6b255d20a0c8e26d16d3a57279acc4663fdf16854bb3d5500",
+      "private_dns_error": true
+    }
+  ]
+}
