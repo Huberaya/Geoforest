@@ -1,5 +1,8 @@
 # Supervision du worker documentaire — profil candidat
 
+> **Actualisation 08p — 29 septembre 2026.** Le worker utilise désormais `SandboxScanner` et `sandbox_format` par défaut, sans fallback. La composition sous systemd a passé une recette locale PG/S3 émulé/ClamAV réel, y compris arrêts et reprises. Les passages ci-dessous décrivant les adaptateurs « non activés » ou l'ancien profil sont historiques (08n/08o). Voir [rapport 08p](../rapports/08p-worker-sandbox-supervise.md) pour les concessions du profil et les limites. L'API n'a pas été modifiée ; aucun déploiement ou GO production.
+
+
 29 septembre 2026 · chantier 08n · **préparation et essais système locaux sur programmes synthétiques**.
 
 Aucun worker métier, timer permanent, antivirus réel ou service cloud n'a été activé. Ce profil ne lève ni les blocages stockage du [lot 08m](qualification-stockage-ue.md), ni l'interdiction de migration cloud du candidat SQL 0008.

@@ -1,0 +1,9 @@
+{
+  "mode": "worker",
+  "namespace_denied": false,
+  "deadline": "270s",
+  "exit_code": 0,
+  "stdout": "{\"job\": true, \"accepted\": true}\n",
+  "stderr": "Running as unit: geoforest-integration-78996598db7740f1b2408a6f05dea89b.service; invocation ID: 33aca82272944803bc3d4ac63d4f634b\nFinished with result: success\nMain processes terminated with: code=exited, status=0/SUCCESS\nService runtime: 8.979s\nCPU time consumed: 8.886s\nMemory peak: 1G\n",
+  "production_authorized": false
+}

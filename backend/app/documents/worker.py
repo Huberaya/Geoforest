@@ -10,10 +10,9 @@ import time
 from pathlib import Path
 
 import certifi
-from app.documents.format_validation import validate_format_from_store
 from app.documents.s3_config import ObjectStorageSettings
 from app.documents.s3_store import S3Store
-from app.documents.scanner import Scanner
+from app.documents.sandbox_processing import SandboxScanner, sandbox_format
 from pydantic import Field, model_validator
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -90,7 +89,7 @@ def verify_worker_role(engine):
             raise RuntimeError("Worker role is not least-privilege")
 
 
-def execute_job(storage, scanner, job, *, format_validator=validate_format_from_store):
+def execute_job(storage, scanner, job, *, format_validator=sandbox_format):
     blob = None
     try:
         chunks = storage.staged_chunks(
@@ -180,7 +179,7 @@ def main():
     try:
         cfg = WorkerSettings()
         engine = worker_engine(cfg)
-        scanner = Scanner(
+        scanner = SandboxScanner(
             Path(cfg.clamav_executable),
             Path(cfg.clamav_database),
             library_path=Path(cfg.clamav_library_path)

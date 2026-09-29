@@ -1,0 +1,9 @@
+{
+  "mode": "probe",
+  "namespace_denied": true,
+  "deadline": "270s",
+  "exit_code": 1,
+  "stdout": "{\"error\": null, \"returncode\": 1, \"output\": \"\"}\n",
+  "stderr": "Running as unit: geoforest-integration-b2a128927d254fed9933541876e9853c.service; invocation ID: aa821810d1e941d38aff537901b6a98a\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 429ms\nCPU time consumed: 411ms\nMemory peak: 42.6M\n",
+  "production_authorized": false
+}

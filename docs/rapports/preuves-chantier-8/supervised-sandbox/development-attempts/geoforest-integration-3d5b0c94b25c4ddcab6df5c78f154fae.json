@@ -1,0 +1,9 @@
+{
+  "mode": "probe",
+  "namespace_denied": true,
+  "deadline": "270s",
+  "exit_code": 1,
+  "stdout": "{\"error\": null, \"returncode\": 1, \"output\": \"\"}\n",
+  "stderr": "Running as unit: geoforest-integration-3d5b0c94b25c4ddcab6df5c78f154fae.service; invocation ID: 8fc8948667b843eab3985767c291548b\nbwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. See <https://deb.li/bubblewrap> or <file:///usr/share/doc/bubblewrap/README.Debian.gz>.\n\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 460ms\nCPU time consumed: 437ms\nMemory peak: 42.7M\n",
+  "production_authorized": false
+}

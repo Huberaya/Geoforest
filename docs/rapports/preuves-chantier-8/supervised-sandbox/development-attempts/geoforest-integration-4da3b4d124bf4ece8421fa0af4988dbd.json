@@ -1,0 +1,9 @@
+{
+  "mode": "probe",
+  "namespace_denied": false,
+  "deadline": "270s",
+  "exit_code": 1,
+  "stdout": "{\"error\": null, \"returncode\": 1, \"output\": \"\"}\n",
+  "stderr": "Running as unit: geoforest-integration-4da3b4d124bf4ece8421fa0af4988dbd.service; invocation ID: e3b6f886a12e4f1d8230faf577a0df6d\nbwrap: Can't mount proc on /proc: Operation not permitted\n\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 433ms\nCPU time consumed: 410ms\nMemory peak: 43.2M\n",
+  "production_authorized": false
+}

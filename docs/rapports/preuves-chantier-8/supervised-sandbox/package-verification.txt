@@ -1,0 +1,12 @@
+[GNUPG:] NEWSIG
+gpg: Signature made Fri Aug  7 14:41:45 2026 UTC
+gpg:                using RSA key 707F0DB480836771
+[GNUPG:] KEY_CONSIDERED 5BADCA2665EF59DCF8A23D8B707F0DB480836771 0
+[GNUPG:] SIG_ID f/nfxhIi73NeTdWTIX3AeNDP3rI 2026-08-07 1786113705
+[GNUPG:] GOODSIG 707F0DB480836771 Talos (Talos, Cisco Systems Inc.) <research@sourcefire.com>
+gpg: Good signature from "Talos (Talos, Cisco Systems Inc.) <research@sourcefire.com>" [unknown]
+[GNUPG:] VALIDSIG 5BADCA2665EF59DCF8A23D8B707F0DB480836771 2026-08-07 1786113705 0 4 0 1 2 00 5BADCA2665EF59DCF8A23D8B707F0DB480836771
+[GNUPG:] TRUST_UNDEFINED 0 pgp
+gpg: WARNING: This key is not certified with a trusted signature!
+gpg:          There is no indication that the signature belongs to the owner.
+Primary key fingerprint: 5BAD CA26 65EF 59DC F8A2  3D8B 707F 0DB4 8083 6771

@@ -1,0 +1,9 @@
+{
+  "mode": "probe",
+  "namespace_denied": false,
+  "deadline": "270s",
+  "exit_code": 1,
+  "stdout": "{\"error\": null, \"returncode\": 1, \"output\": \"\"}\n",
+  "stderr": "Running as unit: geoforest-integration-1a5b9d77e17d4feeb8614209415b8ef2.service; invocation ID: 70bcc404c2e644f1be46f1fd5835b517\nbwrap: Can't open source /usr: Function not implemented\n\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 446ms\nCPU time consumed: 429ms\nMemory peak: 43.2M\n",
+  "production_authorized": false
+}

@@ -1,5 +1,8 @@
 # Scanner et parseur en sandbox — qualification locale
 
+> **Actualisation 08p — 29 septembre 2026.** Le worker utilise désormais `SandboxScanner` et `sandbox_format` par défaut, sans fallback. La composition sous systemd a passé une recette locale PG/S3 émulé/ClamAV réel, y compris arrêts et reprises. Les passages ci-dessous décrivant les adaptateurs « non activés » ou l'ancien profil sont historiques (08n/08o). Voir [rapport 08p](../rapports/08p-worker-sandbox-supervise.md) pour les concessions du profil et les limites. L'API n'a pas été modifiée ; aucun déploiement ou GO production.
+
+
 29 septembre 2026 · lot 08o · **adaptateurs candidats éprouvés localement, non activés dans le worker ou l'API**.
 
 ## 1. Résultat et frontière de confiance

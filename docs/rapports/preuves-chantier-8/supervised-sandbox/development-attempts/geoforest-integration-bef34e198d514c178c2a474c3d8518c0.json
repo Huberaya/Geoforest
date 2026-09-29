@@ -1,0 +1,9 @@
+{
+  "mode": "probe",
+  "namespace_denied": false,
+  "deadline": "270s",
+  "exit_code": 1,
+  "stdout": "{\"error\": null, \"returncode\": 1, \"output\": \"\"}\n",
+  "stderr": "Running as unit: geoforest-integration-bef34e198d514c178c2a474c3d8518c0.service; invocation ID: df93c6d90ef0421cbdc6d51518141dde\n170 113 0:41 / /proc rw,nosuid,nodev,noexec,relatime shared:126 - proc proc rw\n119 170 0:28 / /proc/sys/fs/binfmt_misc rw,nosuid,relatime shared:127 master:13 - autofs systemd-1 rw,fd=36,pgrp=1,timeout=0,minproto=5,maxproto=5,direct\n120 170 0:41 /sys/kernel/domainname /proc/sys/kernel/domainname ro,nosuid,nodev,noexec,relatime shared:128 - proc proc rw\n173 170 0:41 /sys/kernel/hostname /proc/sys/kernel/hostname ro,nosuid,nodev,noexec,relatime shared:129 - proc proc rw\nbwrap: Can't mount proc on /proc: Operation not permitted\n\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 460ms\nCPU time consumed: 430ms\nMemory peak: 43M\n",
+  "production_authorized": false
+}

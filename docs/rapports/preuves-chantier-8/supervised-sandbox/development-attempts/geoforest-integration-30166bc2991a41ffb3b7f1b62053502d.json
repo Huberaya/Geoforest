@@ -1,0 +1,9 @@
+{
+  "mode": "probe",
+  "namespace_denied": false,
+  "deadline": "270s",
+  "exit_code": 0,
+  "stdout": "{\"error\": null, \"returncode\": 0, \"output\": \"{\\\"boundary\\\": \\\"PASS\\\", \\\"private_pid\\\": true, \\\"private_network\\\": true, \\\"parent_secret_absent\\\": true, \\\"temporary_bytes\\\": 134217728}\\n\"}\n",
+  "stderr": "Running as unit: geoforest-integration-30166bc2991a41ffb3b7f1b62053502d.service; invocation ID: 4e3507e0c1a74a0ca3354c81b9660b12\nFinished with result: success\nMain processes terminated with: code=exited, status=0/SUCCESS\nService runtime: 507ms\nCPU time consumed: 463ms\nMemory peak: 48.7M\n",
+  "production_authorized": false
+}

@@ -1,0 +1,9 @@
+{
+  "mode": "probe",
+  "namespace_denied": false,
+  "deadline": "270s",
+  "exit_code": 1,
+  "stdout": "{\"error\": null, \"returncode\": 1, \"output\": \"\"}\n",
+  "stderr": "Running as unit: geoforest-integration-619b8782ea6047dc935e3b72b18699e3.service; invocation ID: df97a643d7bd4096ac203511a58e34a5\nbwrap: loopback: Failed to create NETLINK_ROUTE socket: Address family not supported by protocol\n\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 451ms\nCPU time consumed: 439ms\nMemory peak: 43M\n",
+  "production_authorized": false
+}

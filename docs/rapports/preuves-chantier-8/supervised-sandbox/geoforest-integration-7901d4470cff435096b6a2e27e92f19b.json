@@ -1,0 +1,9 @@
+{
+  "mode": "worker",
+  "namespace_denied": false,
+  "deadline": "270s",
+  "exit_code": 1,
+  "stdout": "{\"error\": \"WORKER_UNAVAILABLE\"}\n",
+  "stderr": "Running as unit: geoforest-integration-7901d4470cff435096b6a2e27e92f19b.service; invocation ID: a9f3a3508d0f40c480f92e219d31014e\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 690ms\nCPU time consumed: 660ms\nMemory peak: 64M\n",
+  "production_authorized": false
+}

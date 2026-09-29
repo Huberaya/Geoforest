@@ -1,4 +1,4 @@
-"""Candidate adapters; never wired to production automatically."""
+"""Isolated worker adapters. No unsandboxed fallback; deployment is separate."""
 
 import hashlib
 import json

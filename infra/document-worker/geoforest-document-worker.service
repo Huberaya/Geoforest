@@ -31,18 +31,21 @@ PrivateDevices=yes
 TemporaryFileSystem=/tmp:rw,nosuid,nodev,noexec,size=256M,mode=1777 /var/tmp:rw,nosuid,nodev,noexec,size=32M,mode=1777
 ReadOnlyPaths=/var/lib/clamav /opt/clamav
 InaccessiblePaths=-/etc/geoforest/document-worker.env -/opt/geoforest/.env
-ProtectKernelTunables=yes
+# 08p composition concessions: see docs/deploiement/supervision-worker-documentaire.md.
+# /proc overlays prevent nested proc mount; NNP/caps=0/nonroot remain mandatory.
+ProtectKernelTunables=no
 ProtectKernelModules=yes
-ProtectKernelLogs=yes
+ProtectKernelLogs=no
 ProtectControlGroups=yes
 ProtectClock=yes
-ProtectHostname=yes
+ProtectHostname=no
 ProtectProc=invisible
-RestrictSUIDSGID=yes
+# yes filters openat2 needed by bubblewrap 0.12; no does not disable NNP.
+RestrictSUIDSGID=no
 RestrictRealtime=yes
-RestrictNamespaces=yes
+RestrictNamespaces=user mnt pid net ipc uts cgroup
 LockPersonality=yes
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 IPAddressDeny=any
 IPAddressAllow=localhost
 MemoryMax=3G

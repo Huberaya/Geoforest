@@ -1,0 +1,9 @@
+{
+  "mode": "hang-after-object",
+  "namespace_denied": false,
+  "deadline": "4s",
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "Running as unit: geoforest-integration-3f1d8a7408e843e4a60369e12e425377.service; invocation ID: d193eb7daae744f095c245d0b3d73b79\nFinished with result: timeout\nMain processes terminated with: code=killed, status=9/KILL\nService runtime: 6.448s\nCPU time consumed: 548ms\nMemory peak: 64.8M\n",
+  "production_authorized": false
+}
