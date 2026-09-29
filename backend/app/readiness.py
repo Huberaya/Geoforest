@@ -80,3 +80,12 @@ def verify_runtime_database(conn):
         )
     ):
         raise UnsafeRuntimeDatabase("Database isolation configuration is not ready")
+
+
+def verify_ready_connection(conn):
+    verify_runtime_database(conn)
+    version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    postgis = conn.execute(text("SELECT postgis_version()")).scalar_one()
+    if version != "0007" or not postgis:
+        raise UnsafeRuntimeDatabase("Database schema is not ready")
+    return {"status": "ok", "migration": version, "postgis": bool(postgis)}

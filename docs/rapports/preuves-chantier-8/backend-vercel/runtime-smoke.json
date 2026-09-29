@@ -1,0 +1,41 @@
+{
+  "scope": "OFFLINE LOCAL ONLY — NOT VERCEL RUNTIME VALIDATION",
+  "source_commit": "75d6b3ad1a804e3ce7f0ff7f1a2ee202853907ca",
+  "python": "3.13.14",
+  "platform": "Linux",
+  "architecture": "x86_64",
+  "native_versions": {
+    "numpy": "2.5.3",
+    "rasterio": "1.5.1",
+    "gdal": "3.12.4",
+    "shapely": "2.1.2"
+  },
+  "checks": {
+    "asgi_app_import": "PASS",
+    "local_liveness_without_database": "PASS",
+    "api_fails_closed_when_database_access_is_blocked": "PASS",
+    "numpy_rasterio_gdal_memory_roundtrip": "PASS",
+    "shapely_native_geometry": "PASS",
+    "reportlab_bundled_font": "PASS",
+    "pypdf_roundtrip": "PASS",
+    "clerk_development_local_test_control": "PASS",
+    "clerk_development_production_guard": "PASS",
+    "clerk_development_remote_database_guard": "PASS"
+  },
+  "passed": 10,
+  "database_access": "none; guarded",
+  "remote_credentials_used": false,
+  "cloud_deployment_performed": false,
+  "not_tested": [
+    "Vercel bundle/build and runtime",
+    "production lifespan/readiness",
+    "real Clerk authentication",
+    "Neon/RLS/pooling under concurrency",
+    "ClamAV",
+    "isolated production workers",
+    "persistent storage",
+    "streamed responses through deployed proxy",
+    "full regression suite"
+  ],
+  "source_scope": "Working tree for chantier 2 on recorded base commit; not yet committed at execution"
+}

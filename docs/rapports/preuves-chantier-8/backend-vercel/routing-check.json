@@ -1,0 +1,6 @@
+{
+  "compiled_api_target": "https://api.geoforest.example/api/:path*",
+  "localhost_in_compiled_rewrites": false,
+  "missing_hosted_api_build_rejected": true,
+  "error": "API_INTERNAL_URL is required for hosted deployments; localhost fallback is prohibited"
+}

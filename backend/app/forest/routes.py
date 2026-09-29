@@ -7,7 +7,7 @@ from typing import Literal
 from uuid import UUID
 
 from app.config import settings
-from app.database import engine, transaction
+from app.database import session_lock_engine, transaction
 from app.events import event
 from app.forest.download import SourceReadError
 from app.forest.isolation import isolated_analysis
@@ -37,7 +37,7 @@ def work_slot(org, request_id):
     No queue is advertised. A busy request gets 409/429 and can be retried.
     Crash/disconnect releases PG session locks; immutable successful requests replay.
     """
-    with engine().connect() as conn:
+    with session_lock_engine().connect() as conn:
         held = []
 
         def take(key):

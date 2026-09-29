@@ -185,3 +185,10 @@ L’interface du commit `7a2da36` a été publiée sur GitHub et en **Preview Ve
 Le mode `clerk_production` est implémenté et testé localement, distinct du mode développement. Il ajoute la vérification serveur de l’identité et des sessions live, la MFA administrateur et un parcours de renforcement. **Il n’est pas activé sur le site public** : domaine personnalisé, configuration Clerk réelle et backend Vercel restent à raccorder.
 
 Voir le [bilan et les tests](docs/rapports/08g-clerk-production.md), le [guide de configuration/recette](docs/deploiement/clerk-production.md) et l’[audit backend Vercel](docs/rapports/08f-audit-backend-vercel.md). Aucun contournement du mode développement, aucune fusion de comptes par email et aucune modification Neon dans cette livraison.
+
+
+### Préparation du backend Vercel
+
+Le profil API Vercel est préparé : racine `backend`, Python 3.13, dépendances runtime épinglées, connexions bornées et contrôles de disponibilité indépendants du lifespan ASGI. Le routage hébergé exige désormais une vraie URL HTTPS d’API au lieu de revenir vers localhost.
+
+**Aucun backend cloud n’est encore déployé.** Le domaine et Clerk live restent différés ; coffre, workers forêt et diligence sont refusés dans le profil Vercel tant qu’ils ne sont pas qualifiés. Voir le [bilan du chantier 2](docs/rapports/08h-backend-vercel.md) et le [guide backend Vercel](docs/deploiement/backend-vercel.md).

@@ -18,6 +18,7 @@ jobs:
         env:
           APP_ENV: production
           AUTH_PROVIDER: clerk_production
+          API_INTERNAL_URL: https://api.geoforest.example
           PUBLIC_ORIGIN: https://app.geoforest.example
           CLERK_ISSUER: https://clerk.geoforest.example
           CLERK_SECRET_KEY: ""

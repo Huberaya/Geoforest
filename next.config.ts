@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 import { authProvider } from "./src/auth-provider";
+import { backendRewrites } from "./src/backend-routing";
+const apiRoutes = backendRewrites();
 const clerk = authProvider() !== "oidc";
 const issuer = clerk ? process.env.CLERK_ISSUER! : "";
 const nextConfig: NextConfig = {
@@ -7,20 +9,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   allowedDevOrigins: ["*.e2b.app"],
   async rewrites() {
-    return [
-      {
-        source: "/identity/realms/:path*",
-        destination: `${process.env.KEYCLOAK_INTERNAL_URL || "http://127.0.0.1:8080"}/identity/realms/:path*`,
-      },
-      {
-        source: "/identity/resources/:path*",
-        destination: `${process.env.KEYCLOAK_INTERNAL_URL || "http://127.0.0.1:8080"}/identity/resources/:path*`,
-      },
-      {
-        source: "/api/:path*",
-        destination: `${process.env.API_INTERNAL_URL || "http://127.0.0.1:8000"}/api/:path*`,
-      },
-    ];
+    return apiRoutes;
   },
   async headers() {
     return [

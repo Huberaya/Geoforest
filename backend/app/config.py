@@ -13,6 +13,15 @@ class Settings(BaseSettings):
     )
     app_env: str = "development"
     database_url: str = Field(repr=False)
+    vercel: bool = False
+    database_connection_mode: Literal["direct", "transaction_pool"] = "direct"
+    database_pool_size: int = Field(default=5, ge=1, le=10)
+    database_max_overflow: int = Field(default=5, ge=0, le=5)
+    database_pool_timeout: int = Field(default=5, ge=1, le=30)
+    database_connect_timeout: int = Field(default=5, ge=1, le=15)
+    database_statement_timeout_ms: int = Field(default=15000, ge=1000, le=60000)
+    database_lock_timeout_ms: int = Field(default=3000, ge=100, le=10000)
+    database_pool_recycle: int = Field(default=300, ge=30, le=600)
     public_origin: str = "http://localhost:3000"
     allowed_hosts: str = "localhost,127.0.0.1,backend,testserver"
     oidc_issuer: str = "http://localhost:8080/realms/geoforest"
@@ -154,6 +163,37 @@ class Settings(BaseSettings):
             if not valid_db:
                 raise ValueError(
                     "Production DB requires a runtime role, PostgreSQL psycopg, explicit host/database and TLS verify-full with sslrootcert"
+                )
+        db = make_url(self.database_url)
+        neon_pooler = bool(
+            db.host and db.host.endswith(".neon.tech") and "-pooler." in db.host
+        )
+        if neon_pooler and self.database_connection_mode != "transaction_pool":
+            raise ValueError(
+                "Neon pooler requires explicit DATABASE_CONNECTION_MODE=transaction_pool"
+            )
+        if self.database_connection_mode == "transaction_pool" and (
+            self.forest_analysis_enabled or self.documents_enabled
+        ):
+            raise ValueError(
+                "Session advisory locks require direct connections; workers cannot use transaction pooling"
+            )
+        if self.vercel:
+            if self.app_env != "production":
+                raise ValueError(
+                    "Vercel backend requires APP_ENV=production; no development identity on hosted databases"
+                )
+            if self.database_pool_size > 2 or self.database_max_overflow != 0:
+                raise ValueError(
+                    "Vercel core requires DATABASE_POOL_SIZE<=2 and DATABASE_MAX_OVERFLOW=0"
+                )
+            if (
+                self.documents_enabled
+                or self.forest_analysis_enabled
+                or self.diligence_enabled
+            ):
+                raise ValueError(
+                    "Vercel core profile excludes unqualified vault, forest workers and diligence exports"
                 )
         return self
 

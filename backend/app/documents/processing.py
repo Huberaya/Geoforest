@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from app.config import settings
-from app.database import engine
+from app.database import session_lock_engine
 from app.documents.scanner import Scanner
 from app.documents.storage import Blob, LocalStore
 from fastapi import HTTPException
@@ -41,7 +41,7 @@ def capacity(required):
 
 @contextmanager
 def scan_slot():
-    with engine().connect() as conn:
+    with session_lock_engine().connect() as conn:
         acquired = conn.execute(
             text(
                 "SELECT pg_try_advisory_lock(hashtextextended('documents-global-scan',0))"

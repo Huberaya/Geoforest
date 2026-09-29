@@ -1,0 +1,7 @@
+{
+  "schema_url": "https://openapi.vercel.sh/vercel.json",
+  "schema_sha256": "98bee979570e42315a1ac1df514b0d30d60f87aa4e20ec566194983123d6ac5f",
+  "configuration": "backend/vercel.json",
+  "result": "valid",
+  "not_a_cloud_build": true
+}

@@ -16,7 +16,8 @@ from app.middleware import RequestBoundary
 from app.plots.portal import router as plot_portal_router
 from app.plots.routes import router as plots_router
 from app.portal.routes import router as portal_router
-from app.readiness import UnsafeRuntimeDatabase, verify_runtime_database
+from app.readiness import UnsafeRuntimeDatabase, verify_ready_connection
+from app.runtime_gate import RuntimeReadinessGate
 from app.schemas import MemberInput, OrganizationCreate, OrganizationUpdate
 from app.security import authorize, mfa_satisfied, require_identity, require_mfa
 from app.supply.routes import router as supply_router
@@ -34,13 +35,7 @@ async def lifespan(app):
         # Fail closed before accepting traffic; orchestration also probes readiness.
         try:
             with transaction() as conn:
-                verify_runtime_database(conn)
-                version = conn.execute(
-                    text("SELECT version_num FROM alembic_version")
-                ).scalar_one()
-                postgis = conn.execute(text("SELECT postgis_version()")).scalar_one()
-            if version != "0007" or not postgis:
-                raise UnsafeRuntimeDatabase("Database schema is not ready")
+                verify_ready_connection(conn)
         except (SQLAlchemyError, UnsafeRuntimeDatabase):
             raise RuntimeError(
                 "Production database checks failed; consult the deployment runbook"
@@ -65,6 +60,7 @@ app.add_middleware(
     same_site="lax",
     https_only=settings().secure_cookie,
 )
+app.add_middleware(RuntimeReadinessGate)
 app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=settings().allowed_hosts.split(",")
 )
@@ -111,18 +107,9 @@ def liveness():
 def readiness():
     with transaction() as conn:
         try:
-            verify_runtime_database(conn)
+            return verify_ready_connection(conn)
         except UnsafeRuntimeDatabase:
-            raise HTTPException(
-                503, "Configuration d’isolation des données non prête"
-            ) from None
-        version = conn.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
-        postgis = conn.execute(text("SELECT postgis_version()")).scalar_one()
-    if version != "0007" or not postgis:
-        raise HTTPException(503, "Schéma de données incompatible avec cette version")
-    return {"status": "ok", "migration": version, "postgis": bool(postgis)}
+            raise HTTPException(503, "Configuration de données non prête") from None
 
 
 @app.get("/api/v1/me")
