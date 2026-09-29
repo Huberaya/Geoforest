@@ -284,7 +284,7 @@ export default function Home() {
   }
   async function logout() {
     await run(async () => {
-      if (authSession.provider === "clerk_development") {
+      if (authSession.provider !== "oidc") {
         await authSession.logout();
         return;
       }
@@ -640,7 +640,18 @@ export default function Home() {
           {!me.admin_mfa_satisfied && (
             <div className="message warning">
               Une authentification renforcée est requise pour administrer cet
-              espace. <a href="/api/auth/login">Renforcer ma connexion</a>
+              espace.{" "}
+              <a
+                href={
+                  authSession.provider === "clerk_production"
+                    ? "#clerk-security"
+                    : "/api/auth/login"
+                }
+              >
+                {authSession.provider === "clerk_production"
+                  ? "Vérifier mon identité"
+                  : "Renforcer ma connexion"}
+              </a>
             </div>
           )}
           {view === "overview" && (

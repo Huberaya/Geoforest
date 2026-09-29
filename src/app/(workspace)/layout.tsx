@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { authProvider } from "@/auth-provider";
 
 export default function WorkspaceLayout({ children }: { children: ReactNode }) {
-  if (authProvider() !== "clerk_development") return children;
+  if (authProvider() === "oidc") return children;
   return (
     <ClerkProvider
       localization={frFR}

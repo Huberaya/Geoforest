@@ -1,0 +1,10 @@
+
+> geoforest-trace@0.8.0 lint
+> eslint .
+
+
+> geoforest-trace@0.8.0 typecheck
+> tsc --noEmit
+
+All checks passed!
+found 0 vulnerabilities

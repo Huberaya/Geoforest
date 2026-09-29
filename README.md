@@ -177,4 +177,11 @@ Le raccordement **Clerk développement est maintenant disponible en mode opt-in 
 
 L'accueil `/` propose **Créer un compte** (`/sign-up`) et **Se connecter** (`/sign-in`). L'application est maintenant sous `/espace`. Les formulaires Clerk n'attendent pas une session métier pour s'afficher ; le serveur conserve tous ses contrôles d'accès.
 
-Ce bloc est **préparé localement, non déployé** sur le site Vercel existant. Voir le [rapport et les tests](docs/rapports/08e-accueil-public-comptes-vercel.md) et la [procédure de publication](docs/deploiement/vercel-accueil-comptes.md). Ne pas configurer l'API distante avec une URL localhost ni relâcher les garde-fous Neon/Clerk développement.
+L’interface du commit `7a2da36` a été publiée sur GitHub et en **Preview Vercel**, mais pas sur le domaine Production. Voir le [rapport et les tests](docs/rapports/08e-accueil-public-comptes-vercel.md) et la [procédure de publication](docs/deploiement/vercel-accueil-comptes.md). Ne pas configurer l'API distante avec une URL localhost ni relâcher les garde-fous Neon/Clerk développement.
+
+
+### Authentification Clerk production — préparation du lancement
+
+Le mode `clerk_production` est implémenté et testé localement, distinct du mode développement. Il ajoute la vérification serveur de l’identité et des sessions live, la MFA administrateur et un parcours de renforcement. **Il n’est pas activé sur le site public** : domaine personnalisé, configuration Clerk réelle et backend Vercel restent à raccorder.
+
+Voir le [bilan et les tests](docs/rapports/08g-clerk-production.md), le [guide de configuration/recette](docs/deploiement/clerk-production.md) et l’[audit backend Vercel](docs/rapports/08f-audit-backend-vercel.md). Aucun contournement du mode développement, aucune fusion de comptes par email et aucune modification Neon dans cette livraison.

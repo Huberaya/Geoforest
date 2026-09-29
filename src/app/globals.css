@@ -2610,3 +2610,12 @@ progress::-moz-progress-bar {
 @media(max-width:1200px) { .public-pillars,.public-disclaimer,.public-footer { margin-left:36px; margin-right:36px; } .public-hero { gap:35px; } }
 @media(max-width:760px) { .public-header { padding:20px; gap:16px; flex-wrap:wrap; } .public-brand { font-size:19px; } .public-header nav { gap:18px; } .public-header .public-cta { padding:11px 15px; gap:14px; } .public-hero { grid-template-columns:1fr; padding:40px 24px; gap:35px; } .public-intro h1 { font-size:52px; } .public-visual { max-width:480px; width:100%; margin:auto; padding-bottom:10px; } .public-evidence { margin-left:0; margin-right:12px; padding:18px; } .public-review { margin-left:32px; } .public-pillars { grid-template-columns:1fr; gap:28px; margin:10px 24px; padding:28px 0; } .public-disclaimer,.public-footer { margin-left:24px; margin-right:24px; } .public-footer { display:block; } .public-footer div { margin:18px 0; } .public-lead { font-size:15px; } }
 @media(max-width:400px) { .public-header nav { width:100%; justify-content:space-between; } .public-intro h1 { font-size:44px; } .public-actions { gap:12px; } }
+
+.clerk-security {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid #cbd8d0;
+  background: #f3f7f4;
+  font-size: .875rem;
+}
+.clerk-security p { margin: .25rem 0 .5rem; }
+.clerk-security > div { display: flex; flex-wrap: wrap; gap: .5rem; }

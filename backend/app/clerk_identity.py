@@ -1,4 +1,4 @@
-"""Development-only Clerk identity verifier, used by the opt-in short-session bridge.
+"""Clerk identity verification shared by isolated development and production modes.
 
 No DB writes, tenant provisioning, role mapping or persistent GeoForest session.
 An identity is valid only for the checked request; do not turn it into an
@@ -49,6 +49,49 @@ class ClerkDevelopmentConfig:
         _ = origin.port
 
 
+def production_origin(value: str) -> str:
+    """Canonical HTTPS DNS origin only; no development/shared Vercel domains.
+
+    DNS ownership and Clerk certificates must still be checked at deployment.
+    Standard Clerk custom domain only; satellite/proxy configurations are out of scope.
+    """
+    if not re.fullmatch(r"https://[a-z0-9]+(?:[a-z0-9.-]*[a-z0-9])?", value):
+        raise ValueError("Production Clerk requires a canonical HTTPS domain")
+    host = urlsplit(value).hostname
+    if (
+        not host
+        or "." not in host
+        or len(host) > 253
+        or any(
+            not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+            for label in host.split(".")
+        )
+        or host.replace(".", "").isdigit()
+        or host.endswith((".localhost", ".local", ".clerk.accounts.dev", ".vercel.app"))
+    ):
+        raise ValueError("Production Clerk requires an owned DNS domain")
+    return host
+
+
+@dataclass(frozen=True)
+class ClerkProductionConfig:
+    issuer: str
+    public_origin: str
+    secret_key: str = field(repr=False)
+
+    def __post_init__(self):
+        issuer_host = production_origin(self.issuer)
+        origin_host = production_origin(self.public_origin)
+        domain = issuer_host.removeprefix("clerk.")
+        if (
+            not issuer_host.startswith("clerk.")
+            or not (origin_host == domain or origin_host.endswith("." + domain))
+            or origin_host == issuer_host
+            or not re.fullmatch(r"sk_live_[A-Za-z0-9_-]+", self.secret_key)
+        ):
+            raise ValueError("Invalid Clerk production configuration")
+
+
 @dataclass(frozen=True)
 class ClerkIdentity:
     issuer: str
@@ -60,8 +103,12 @@ class ClerkIdentity:
     # No role, organization, acr or metadata imported from Clerk.
 
 
-class ClerkDevelopmentVerifier:
-    def __init__(self, config: ClerkDevelopmentConfig, client: httpx.Client):
+class ClerkVerifier:
+    def __init__(
+        self,
+        config: ClerkDevelopmentConfig | ClerkProductionConfig,
+        client: httpx.Client,
+    ):
         self.config = config
         self.client = client
         self._slots = BoundedSemaphore(4)
@@ -107,7 +154,7 @@ class ClerkDevelopmentVerifier:
             raise ValueError("Identity key cache busy")
         try:
             if self._jwks is None or time.monotonic() >= self._cache_until:
-                data = self._get("/.well-known/jwks.json", deadline=deadline)
+                data = self._fetch_keys(deadline)
                 if (
                     not isinstance(data.get("keys"), list)
                     or not 1 <= len(data["keys"]) <= 64
@@ -118,6 +165,14 @@ class ClerkDevelopmentVerifier:
             return self._jwks
         finally:
             self._cache_lock.release()
+
+    def _fetch_keys(self, deadline):
+        return self._get("/.well-known/jwks.json", deadline=deadline)
+
+    def _identity(self, claims, email, name, user):
+        return ClerkIdentity(
+            self.config.issuer, claims["sub"], claims["sid"], email, name, claims["exp"]
+        )
 
     def verify(self, token: str) -> ClerkIdentity:
         if not self._slots.acquire(blocking=False):
@@ -203,15 +258,63 @@ class ClerkDevelopmentVerifier:
                 raise ValueError("Invalid identity profile")
             if time.monotonic() > deadline or claims["exp"] <= int(time.time()) - 5:
                 raise ValueError("Token expired during verification")
-            return ClerkIdentity(
-                self.config.issuer,
-                claims["sub"],
-                claims["sid"],
-                email,
-                name,
-                claims["exp"],
-            )
+            return self._identity(claims, email, name, user)
         except Exception:
             raise ClerkAuthenticationError(
                 "Clerk identity could not be verified"
             ) from None
+
+
+class ClerkDevelopmentVerifier(ClerkVerifier):
+    """Retains the local-only configuration contract; no MFA asserted."""
+
+
+@dataclass(frozen=True)
+class ClerkProductionIdentity(ClerkIdentity):
+    mfa_expires_at: int
+    mfa_enrolled: bool
+
+
+class ClerkProductionVerifier(ClerkVerifier):
+    def _fetch_keys(self, deadline):
+        # Keys and online session/user checks belong to the same live instance.
+        # Never send the secret to the configurable Frontend API host.
+        return self._get("/jwks", authenticated=True, deadline=deadline)
+
+    def _identity(self, claims, email, name, user):
+        if user.get("banned") is not False or user.get("locked") is not False:
+            raise ValueError("Explicit active production profile required")
+        ages = claims.get("fva")
+        if (
+            not isinstance(ages, list)
+            or len(ages) != 2
+            or any(type(age) is not int or not -1 <= age <= 2147483647 for age in ages)
+        ):
+            raise ValueError("Valid factor verification ages required")
+        enrolled = user.get("two_factor_enabled") is True
+        until = 0
+        if enrolled and all(0 <= age < 10 for age in ages):
+            # fva is rounded to minutes: use the oldest possible verification.
+            # JWT issuance, not refresh wall-clock time, anchors the deadline.
+            until = max(0, claims["iat"] + (10 - max(ages) - 1) * 60 - 5)
+        return ClerkProductionIdentity(
+            self.config.issuer,
+            claims["sub"],
+            claims["sid"],
+            email,
+            name,
+            claims["exp"],
+            until,
+            enrolled,
+        )
+
+
+def production_marker(identity: ClerkProductionIdentity) -> str:
+    return f"clerk-production:{identity.session_id}:{identity.mfa_expires_at}"
+
+
+def parse_production_marker(value: str):
+    match = re.fullmatch(
+        r"clerk-production:(sess_[A-Za-z0-9]{1,128}):([0-9]{1,12})", value
+    )
+    return (match[1], int(match[2])) if match else None

@@ -9,6 +9,6 @@ export const metadata: Metadata = {
 };
 
 export default function SignInPage() {
-  if (authProvider() !== "clerk_development") redirect("/api/auth/login");
+  if (authProvider() === "oidc") redirect("/api/auth/login");
   return <AccountForm mode="sign-in" />;
 }

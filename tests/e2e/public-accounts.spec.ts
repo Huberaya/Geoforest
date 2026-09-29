@@ -21,7 +21,8 @@ test("Public home offers both account actions without backend or Clerk requests"
   page.on("request", (request) => {
     if (
       request.url().includes("/api/") ||
-      request.url().includes("clerk.accounts.dev")
+      request.url().includes("clerk.accounts.dev") ||
+      request.url().includes("clerk.geoforest.example")
     )
       privateRequests.push(request.url());
   });

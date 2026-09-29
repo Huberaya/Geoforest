@@ -47,7 +47,16 @@ def require_identity(request: Request):
             or row["acr"] != "clerk-development"
         ):
             raise HTTPException(401, "Fournisseur de session incompatible")
-    elif row["acr"] == "clerk-development":
+    elif settings().auth_provider == "clerk_production":
+        from app.clerk_identity import parse_production_marker
+
+        if row["issuer"] != settings().clerk_issuer or not parse_production_marker(
+            row["acr"]
+        ):
+            raise HTTPException(401, "Fournisseur de session incompatible")
+    elif row["acr"] == "clerk-development" or row["acr"].startswith(
+        "clerk-production:"
+    ):
         raise HTTPException(401, "Fournisseur de session incompatible")
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         if request.headers.get("origin") != settings().public_origin:
@@ -59,11 +68,23 @@ def require_identity(request: Request):
     return Identity(**{k: row[k] for k in Identity.__dataclass_fields__})
 
 
-def require_mfa(identity):
+def mfa_satisfied(identity):
+    if settings().auth_provider == "clerk_production":
+        from app.clerk_identity import parse_production_marker
+
+        proof = parse_production_marker(identity.acr)
+        return bool(proof and proof[1] > int(datetime.now(timezone.utc).timestamp()))
     expected = settings().admin_acr
-    if expected and identity.acr != expected:
+    return not expected or identity.acr == expected
+
+
+def require_mfa(identity):
+    if not mfa_satisfied(identity):
         raise HTTPException(
-            403, "Authentification renforcée requise pour une action administrateur"
+            403,
+            "Double authentification récente requise : utilisez Sécurité du compte puis Vérifier mon identité."
+            if settings().auth_provider == "clerk_production"
+            else "Authentification renforcée requise pour une action administrateur",
         )
 
 

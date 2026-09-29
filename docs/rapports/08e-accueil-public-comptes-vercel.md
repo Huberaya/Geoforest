@@ -1,5 +1,8 @@
 # Chantier 8 — accueil public, inscription et connexion
 
+> Mise à jour de statut au 29 septembre 2026 : après ce rapport initial, le commit `7a2da36` a bien été poussé sur GitHub et déployé en Preview Vercel READY, mais **pas en Production**. Les mentions « non publié » ci-dessous décrivent la situation au moment de sa rédaction. Voir ensuite l’[audit Vercel](08f-audit-backend-vercel.md) et le [chantier Clerk production](08g-clerk-production.md).
+
+
 29 septembre 2026 — **code préparé et testé localement ; non déployé sur Vercel**.
 
 ## Demande

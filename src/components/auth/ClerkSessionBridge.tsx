@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { ClerkSecurityControls } from "./ClerkSecurityControls";
 import { AuthSessionContext } from "./AuthSession";
 
 async function closeLocalSession() {
@@ -22,7 +23,13 @@ async function closeLocalSession() {
     throw new Error("Fermeture de la session locale impossible.");
 }
 
-export function ClerkSessionBridge({ children }: { children: ReactNode }) {
+export function ClerkSessionBridge({
+  children,
+  provider = "clerk_development",
+}: {
+  children: ReactNode;
+  provider?: "clerk_development" | "clerk_production";
+}) {
   const { isLoaded, isSignedIn, getToken, userId, sessionId } = useAuth();
   const clerk = useClerk();
   const router = useRouter();
@@ -36,6 +43,7 @@ export function ClerkSessionBridge({ children }: { children: ReactNode }) {
   const stopped = useRef(false);
   const pending = useRef<Promise<void> | null>(null);
   const lastCsrf = useRef("");
+  const lastAssurance = useRef<boolean | undefined>(undefined);
   const expiresAt = useRef(0);
 
   const logout = useCallback(async () => {
@@ -108,8 +116,16 @@ export function ClerkSessionBridge({ children }: { children: ReactNode }) {
             const data = await response.json();
             if (!disposed && !stopped.current) {
               expiresAt.current = data.expires_at;
-              if (lastCsrf.current !== data.csrf_token) {
+              const assurance =
+                provider === "clerk_production"
+                  ? data.admin_mfa_satisfied === true
+                  : undefined;
+              if (
+                lastCsrf.current !== data.csrf_token ||
+                lastAssurance.current !== assurance
+              ) {
                 lastCsrf.current = data.csrf_token;
+                lastAssurance.current = assurance;
                 setGeneration((value) => value + 1);
               }
             }
@@ -139,7 +155,16 @@ export function ClerkSessionBridge({ children }: { children: ReactNode }) {
       window.clearTimeout(sdkTimeout);
       document.removeEventListener("visibilitychange", visible);
     };
-  }, [isLoaded, isSignedIn, getToken, userId, sessionId, identityKey, retry]);
+  }, [
+    isLoaded,
+    isSignedIn,
+    getToken,
+    userId,
+    sessionId,
+    identityKey,
+    retry,
+    provider,
+  ]);
 
   const visibleStatus =
     status === "ready" && readyFor !== identityKey ? "loading" : status;
@@ -147,7 +172,10 @@ export function ClerkSessionBridge({ children }: { children: ReactNode }) {
     return (
       <main className="auth-shell">
         <section className="auth-card" aria-live="polite">
-          <span className="eyebrow">GEOFOREST TRACE · DÉVELOPPEMENT</span>
+          <span className="eyebrow">
+            GEOFOREST TRACE
+            {provider === "clerk_development" ? " · DÉVELOPPEMENT" : ""}
+          </span>
           <h1>
             {visibleStatus === "loading"
               ? "Vérification de votre connexion"
@@ -182,16 +210,24 @@ export function ClerkSessionBridge({ children }: { children: ReactNode }) {
               )}
             </>
           )}
-          <p className="muted">
-            Environnement de test local — aucune connexion à Neon Production.
-          </p>
+          {provider === "clerk_development" && (
+            <p className="muted">
+              Environnement de test local — aucune connexion à Neon Production.
+            </p>
+          )}
         </section>
       </main>
     );
   return (
-    <AuthSessionContext.Provider
-      value={{ provider: "clerk_development", generation, logout }}
-    >
+    <AuthSessionContext.Provider value={{ provider, generation, logout }}>
+      {provider === "clerk_production" && isSignedIn && (
+        <ClerkSecurityControls
+          onVerified={() => {
+            setStatus("loading");
+            setRetry((value) => value + 1);
+          }}
+        />
+      )}
       {children}
     </AuthSessionContext.Provider>
   );

@@ -58,7 +58,8 @@ class RequestBoundary:
                 "login"
                 if scope["path"] in {"/api/auth/login", "/api/portal/exchange"}
                 else "clerk"
-                if scope["path"] == "/api/auth/clerk/exchange"
+                if scope["path"]
+                in {"/api/auth/clerk/exchange", "/api/auth/clerk/assurance"}
                 else "api"
             )
             window = datetime.now(timezone.utc).replace(second=0, microsecond=0)

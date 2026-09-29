@@ -18,7 +18,7 @@ from app.plots.routes import router as plots_router
 from app.portal.routes import router as portal_router
 from app.readiness import UnsafeRuntimeDatabase, verify_runtime_database
 from app.schemas import MemberInput, OrganizationCreate, OrganizationUpdate
-from app.security import authorize, require_identity, require_mfa
+from app.security import authorize, mfa_satisfied, require_identity, require_mfa
 from app.supply.routes import router as supply_router
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -148,8 +148,7 @@ def me(identity=Depends(require_identity)):
         "organizations": orgs,
         "environment": settings().app_env,
         "admin_mfa_required": bool(settings().admin_acr),
-        "admin_mfa_satisfied": not settings().admin_acr
-        or identity.acr == settings().admin_acr,
+        "admin_mfa_satisfied": mfa_satisfied(identity),
     }
 
 

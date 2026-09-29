@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import { authProvider } from "./src/auth-provider";
-const clerk = authProvider() === "clerk_development";
+const clerk = authProvider() !== "oidc";
 const issuer = clerk ? process.env.CLERK_ISSUER! : "";
 const nextConfig: NextConfig = {
   output: "standalone",

@@ -1,0 +1,10 @@
+
+Running 5 tests using 1 worker
+
+  ✓  1 tests/e2e/clerk-production.spec.ts:10:5 › Production account CSP and outage screen remain safe and responsive (16.2s)
+  ✓  2 tests/e2e/clerk-production.spec.ts:27:5 › No business UI appears when production identity cannot be verified (15.7s)
+  ✓  3 tests/e2e/clerk-production.spec.ts:36:5 › Supplier portal remains independent of the production identity provider (260ms)
+  ✓  4 tests/e2e/public-accounts.spec.ts:17:5 › Public home offers both account actions without backend or Clerk requests (643ms)
+  ✓  5 tests/e2e/public-accounts.spec.ts:76:5 › Sign-up remains navigable when Clerk is unavailable and never exchanges a business session (15.7s)
+
+  5 passed (50.9s)

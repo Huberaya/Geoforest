@@ -7,6 +7,9 @@ export default function PrivateWorkspaceLayout({
 }: {
   children: ReactNode;
 }) {
-  if (authProvider() !== "clerk_development") return children;
-  return <ClerkSessionBridge>{children}</ClerkSessionBridge>;
+  const provider = authProvider();
+  if (provider === "oidc") return children;
+  return (
+    <ClerkSessionBridge provider={provider}>{children}</ClerkSessionBridge>
+  );
 }

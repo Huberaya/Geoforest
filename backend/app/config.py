@@ -12,17 +12,17 @@ class Settings(BaseSettings):
         env_file=".env", extra="ignore", hide_input_in_errors=True
     )
     app_env: str = "development"
-    database_url: str
+    database_url: str = Field(repr=False)
     public_origin: str = "http://localhost:3000"
     allowed_hosts: str = "localhost,127.0.0.1,backend,testserver"
     oidc_issuer: str = "http://localhost:8080/realms/geoforest"
     oidc_backchannel_origin: str = ""
     oidc_client_id: str = "geoforest"
-    oidc_client_secret: str = ""
-    auth_provider: Literal["oidc", "clerk_development"] = "oidc"
+    oidc_client_secret: str = Field(default="", repr=False)
+    auth_provider: Literal["oidc", "clerk_development", "clerk_production"] = "oidc"
     clerk_issuer: str = ""
     clerk_secret_key: str = Field(default="", repr=False)
-    session_secret: str
+    session_secret: str = Field(repr=False)
     session_hours: int = 8
     admin_acr: str = ""
     max_body_bytes: int = 65536
@@ -60,6 +60,16 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Clerk development requires a local _test database, no DB query overrides, no ADMIN_ACR and a non-production environment"
                 )
+        elif self.auth_provider == "clerk_production":
+            from app.clerk_identity import ClerkProductionConfig
+
+            ClerkProductionConfig(
+                self.clerk_issuer, self.public_origin, self.clerk_secret_key
+            )
+            if self.app_env != "production" or self.admin_acr != "clerk-mfa":
+                raise ValueError(
+                    "Clerk production requires APP_ENV=production and ADMIN_ACR=clerk-mfa"
+                )
         elif not self.oidc_client_secret:
             raise ValueError("OIDC_CLIENT_SECRET required for OIDC")
         if self.app_env == "production":
@@ -87,9 +97,10 @@ class Settings(BaseSettings):
                 return u
 
             public = https_url(self.public_origin, origin=True)
-            https_url(self.oidc_issuer)
-            if self.oidc_backchannel_origin:
-                https_url(self.oidc_backchannel_origin, origin=True)
+            if self.auth_provider == "oidc":
+                https_url(self.oidc_issuer)
+                if self.oidc_backchannel_origin:
+                    https_url(self.oidc_backchannel_origin, origin=True)
             hosts = self.allowed_hosts.split(",")
             if (
                 not hosts
@@ -103,7 +114,12 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Production requires explicit hostnames including PUBLIC_ORIGIN and a nonblank ADMIN_ACR"
                 )
-            secrets = (self.session_secret, self.oidc_client_secret)
+            identity_secret = (
+                self.clerk_secret_key
+                if self.auth_provider == "clerk_production"
+                else self.oidc_client_secret
+            )
+            secrets = (self.session_secret, identity_secret)
             if any(
                 len(v) < 32 or "change_me" in v.lower() or v != v.strip()
                 for v in secrets
@@ -111,8 +127,8 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Production requires distinct, non-placeholder secrets of at least 32 characters"
                 )
-            if self.session_secret == self.oidc_client_secret:
-                raise ValueError("Session and OIDC secrets must be distinct")
+            if self.session_secret == identity_secret:
+                raise ValueError("Session and identity secrets must be distinct")
             try:
                 db = make_url(self.database_url)
                 valid_db = (

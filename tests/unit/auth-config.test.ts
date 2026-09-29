@@ -37,3 +37,38 @@ it("does not need the backend secret in the frontend", () => {
   vi.stubEnv("CLERK_SECRET_KEY", "");
   expect(authProvider()).toBe("clerk_development");
 });
+
+function production() {
+  vi.stubEnv("AUTH_PROVIDER", "clerk_production");
+  vi.stubEnv("APP_ENV", "production");
+  vi.stubEnv("PUBLIC_ORIGIN", "https://app.geoforest.example");
+  vi.stubEnv("CLERK_ISSUER", "https://clerk.geoforest.example");
+  vi.stubEnv("CLERK_SECRET_KEY", "");
+  vi.stubEnv(
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    "pk_live_" + Buffer.from("clerk.geoforest.example$").toString("base64"),
+  );
+}
+it("accepts production public configuration without a server secret", () => {
+  production();
+  expect(authProvider()).toBe("clerk_production");
+});
+it.each([
+  ["APP_ENV", "development"],
+  ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "pk_test_synthetic"],
+  ["CLERK_ISSUER", "https://synthetic.clerk.accounts.dev"],
+  ["CLERK_ISSUER", "https://clerk.other.example"],
+  ["CLERK_ISSUER", "https://clerk.geoforest.example/"],
+  ["PUBLIC_ORIGIN", "https://app.vercel.app"],
+  ["PUBLIC_ORIGIN", "https://app.geoforest.example/"],
+  ["PUBLIC_ORIGIN", "https://app.geoforest.example:443"],
+  ["PUBLIC_ORIGIN", "https://other.example"],
+  ["PUBLIC_ORIGIN", "https://clerk.geoforest.example"],
+  ["PUBLIC_ORIGIN", "http://app.geoforest.example"],
+  ["PUBLIC_ORIGIN", "https://127.0.0.1"],
+  ["PUBLIC_ORIGIN", "https://evil.example;script-src"],
+])("rejects unsafe production configuration %s=%s", (key, value) => {
+  production();
+  vi.stubEnv(key, value);
+  expect(() => authProvider()).toThrow();
+});

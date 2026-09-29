@@ -1,0 +1,53 @@
+{
+  "date": "2026-09-29",
+  "base_commit": "7a2da36a76c7bc16b9bb080853ca649fc0d8b68e",
+  "clerk_live_tested": false,
+  "neon_accessed": false,
+  "deployed": false,
+  "local_full_backend_regression": {
+    "passed": 1043,
+    "seconds": 500.36,
+    "note": "Before final MFA status display harmonization"
+  },
+  "final_targeted_backend_regression": {
+    "passed": 250,
+    "seconds": 37.12,
+    "note": "After final application changes; overlaps with full suite"
+  },
+  "frontend_unit_tests": 54,
+  "browser_tests": 5,
+  "browser_scope": "Synthetic production profile, identity network blocked; no real signup/signin/MFA. Public screens and failure states responsive at 1440/768/390/360px.",
+  "native_database": "Fresh isolated local PostgreSQL17/PostGIS; migrations0001-0007 local only",
+  "builds": [
+    "clerk_production with fictional public configuration and no Clerk secret",
+    "oidc"
+  ],
+  "file_sha256": {
+    ".github/workflows/ci.yml": "e8af9acc2d6aff966980843a745b8dcec36556712dd5129b9858c7cc35aac527",
+    "backend/app/auth.py": "211fa6ace1b4352e4d907a86500e429864621a3f48174f51691607550475cd1e",
+    "backend/app/clerk_identity.py": "0827b5ff57430e72b9975328b3f7cf87582202a2b28090466bbb880dfb63d724",
+    "backend/app/clerk_routes.py": "ccf99ab1ce3adc4947dcb10f664b7f028fd154644d4445eaa320236d055d3bcd",
+    "backend/app/config.py": "4a8171f573836a546b8c86f70300ec5d50e36aabe72798a1b27e8d52c13f1201",
+    "backend/app/main.py": "34fc6f39da8bb67d5bc1a089c579814838a06a53714598f851749c14eba32b6e",
+    "backend/app/middleware.py": "6ac4f370171e5c712195e02fca46a0aaad382de57e08cbc6ef43f3d4a55b72b9",
+    "backend/app/security.py": "2561eb1b3f2a74ee004684193d26623fa5025c67bfca3d74523639ec0306d297",
+    "backend/identity_tests/test_clerk_production.py": "e4af66db7ed3dc6fe23546514d8ea5da468775c2a04870981123e5a4f0ea105a",
+    "backend/tests/test_clerk_production_bridge.py": "702dade2697936c5e1101a41e377be3280f779c48d3e82862fc37bf03934068e",
+    "next.config.ts": "c49af932932d499e9bd121923464fd9eb196554f58c7c320e544089e181f6e8a",
+    "src/app/(workspace)/espace/layout.tsx": "b89a89d4af7895d799aa69ffd408fedda5a253505ca9ea58f7c5fb2d0517cc2c",
+    "src/app/(workspace)/espace/page.tsx": "7910a992e63229b58fa23ce6c50e303f72375b2a7c3211a032f0302d037c656f",
+    "src/app/(workspace)/layout.tsx": "0a45c33f5a280c5ecbf3b13031e29ab4e3878dc4d9d78a3f6099ea8adbe03061",
+    "src/app/(workspace)/sign-in/[[...sign-in]]/page.tsx": "65f9d721caa15369f613e8e1e7c98bba303fe2d0382d147977885fd350e90f81",
+    "src/app/(workspace)/sign-up/[[...sign-up]]/page.tsx": "e5b70e34f84226a1fdb1595e32372882d555289dcb525f92551bb17c6285531b",
+    "src/app/globals.css": "9c237a72d656591b7b84ef0e04b3bdb020bb35c6513cf8a251050555dc43b1cf",
+    "src/auth-provider.ts": "f962259ef612a8c73ba72e5dcce9e7e2cca0f3a8e8e69ef4a4b380535d42684a",
+    "src/components/auth/AuthSession.tsx": "5e3f9f41fea695a6dbb8e7c921ce074b8e413bfe1dd8ddf9fb14b85f20aaf988",
+    "src/components/auth/ClerkSecurityControls.tsx": "cc2bd0b513b7936cddd847928f9571ca27b4e3610e5060d07b08841e5893b56f",
+    "src/components/auth/ClerkSessionBridge.tsx": "545eac3f55957d94d59dadd25f4d4c6c580c466dbdd0221bd7e101fc3fa36424",
+    "tests/e2e/clerk-production.spec.ts": "801885c1cd4017f69decaa3f59032fca4ccfb4124f52caea8de6c9861bfa6285",
+    "tests/e2e/public-accounts.spec.ts": "3fba06ee715f2f27d08a8087283015a2ae1f90977484fb860b931d24d1c32c6b",
+    "tests/unit/auth-config.test.ts": "0d04c5713699ed90d4f6089df466d34466f4c11153e7408da380e3a399a159d3",
+    "tests/unit/clerk-bridge.test.tsx": "9604f48b4cee68a33c0a736c93f5cf111108eec5854d9b8d72641f4c373c5be4",
+    "tests/unit/clerk-security.test.tsx": "49c152d28d5cf5002ad23159f8927f1e285f32a9e4407fb46c9b725a84655478"
+  }
+}

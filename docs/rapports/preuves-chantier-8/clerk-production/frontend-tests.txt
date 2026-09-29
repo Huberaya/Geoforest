@@ -1,0 +1,16 @@
+
+> geoforest-trace@0.8.0 test:unit
+> vitest run
+
+
+ RUN  v4.1.11 /home/user/Geoforest
+
+ ✓ tests/unit/public-account.test.tsx (8 tests) 433ms
+ ✓ tests/unit/clerk-security.test.tsx (8 tests) 378ms
+ ✓ tests/unit/clerk-bridge.test.tsx (16 tests) 474ms
+ ✓ tests/unit/auth-config.test.ts (22 tests) 13ms
+
+ Test Files  4 passed (4)
+      Tests  54 passed (54)
+   Start at  15:14:31
+   Duration  6.62s (transform 266ms, setup 0ms, import 869ms, tests 1.30s, environment 3.80s)

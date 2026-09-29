@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function SignUpPage() {
-  if (authProvider() !== "clerk_development")
+  if (authProvider() === "oidc")
     return (
       <main className="auth-shell">
         <section className="auth-card">

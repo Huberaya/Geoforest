@@ -1,4 +1,4 @@
-"""Opt-in development bridge. Never connect this mode to Neon Production."""
+"""Short-session bridges. Development and production remain separate modes."""
 
 import secrets
 from datetime import datetime, timezone
@@ -9,6 +9,10 @@ from app.clerk_identity import (
     ClerkAuthenticationError,
     ClerkDevelopmentConfig,
     ClerkDevelopmentVerifier,
+    ClerkProductionConfig,
+    ClerkProductionVerifier,
+    parse_production_marker,
+    production_marker,
 )
 from app.config import settings
 from app.database import transaction
@@ -22,7 +26,7 @@ MARKER = "clerk-development"
 
 
 def check_origin(request):
-    if settings().auth_provider != "clerk_development":
+    if settings().auth_provider not in {"clerk_development", "clerk_production"}:
         raise HTTPException(404, "Authentification Clerk désactivée")
     if request.headers.get("origin") != settings().public_origin:
         raise HTTPException(403, "Origine non autorisée")
@@ -31,16 +35,18 @@ def check_origin(request):
 @lru_cache(maxsize=1)
 def verifier():
     s = settings()
-    return ClerkDevelopmentVerifier(
-        ClerkDevelopmentConfig(s.clerk_issuer, s.public_origin, s.clerk_secret_key),
+    production = s.auth_provider == "clerk_production"
+    config_class = ClerkProductionConfig if production else ClerkDevelopmentConfig
+    verifier_class = ClerkProductionVerifier if production else ClerkDevelopmentVerifier
+    return verifier_class(
+        config_class(s.clerk_issuer, s.public_origin, s.clerk_secret_key),
         httpx.Client(
             limits=httpx.Limits(max_connections=4, max_keepalive_connections=4)
         ),
     )
 
 
-@router.post("/exchange")
-def exchange(request: Request):
+def verified_identity(request: Request):
     check_origin(request)
     authorization = request.headers.get("authorization", "")
     if not authorization.startswith("Bearer ") or len(authorization) > 16400:
@@ -49,6 +55,40 @@ def exchange(request: Request):
         identity = verifier().verify(authorization[7:])
     except ClerkAuthenticationError:
         raise HTTPException(401, "Session Clerk non vérifiable") from None
+    return identity
+
+
+@router.post("/assurance")
+def assurance(request: Request):
+    if settings().auth_provider != "clerk_production":
+        raise HTTPException(404, "Parcours production désactivé")
+    identity = verified_identity(request)
+    if not identity.mfa_enrolled:
+        raise HTTPException(
+            403, "Activez la double authentification dans Sécurité du compte."
+        )
+    if identity.mfa_expires_at <= int(datetime.now(timezone.utc).timestamp()):
+        # Contract consumed by Clerk's useReverification; NEVER authorize based on UI success.
+        return JSONResponse(
+            {
+                "clerk_error": {
+                    "type": "forbidden",
+                    "reason": "reverification-error",
+                    "metadata": {
+                        "reverification": {"level": "multi_factor", "afterMinutes": 5}
+                    },
+                }
+            },
+            status_code=403,
+        )
+    return {"verified": True}
+
+
+@router.post("/exchange")
+def exchange(request: Request):
+    identity = verified_identity(request)
+    production = settings().auth_provider == "clerk_production"
+    marker = production_marker(identity) if production else MARKER
     now = datetime.now(timezone.utc)
     # No clock leeway carried into application cookies. At most 60 seconds,
     # including with a custom five-minute Clerk JWT. Every renewal rechecks revocation.
@@ -86,11 +126,19 @@ def exchange(request: Request):
         # A logout must beat any queued refresh using the revoked cookie.
         if row and row["revoked_at"] is not None:
             raise HTTPException(401, "Session fermée : reconnectez-vous")
-        if row and row["user_id"] == uid and row["acr"] == MARKER:
+        previous_proof = (
+            parse_production_marker(row["acr"]) if row and production else None
+        )
+        same_session = (
+            previous_proof is not None and previous_proof[0] == identity.session_id
+            if production
+            else row is not None and row["acr"] == MARKER
+        )
+        if row and row["user_id"] == uid and same_session:
             raw, csrf = old, row["csrf_token"]
             conn.execute(
-                text("UPDATE sessions SET expires_at=:e WHERE token_hash=:h"),
-                {"e": expiry, "h": token_hash(raw)},
+                text("UPDATE sessions SET expires_at=:e,acr=:a WHERE token_hash=:h"),
+                {"e": expiry, "h": token_hash(raw), "a": marker},
             )
         else:
             if old:
@@ -102,13 +150,20 @@ def exchange(request: Request):
             conn.execute(
                 text("""INSERT INTO sessions(token_hash,user_id,csrf_token,acr,expires_at)
                 VALUES(:h,:u,:c,:a,:e)"""),
-                {"h": token_hash(raw), "u": uid, "c": csrf, "a": MARKER, "e": expiry},
+                {"h": token_hash(raw), "u": uid, "c": csrf, "a": marker, "e": expiry},
             )
         conn.execute(
             text("DELETE FROM sessions WHERE expires_at < now() - interval '1 day'")
         )
     response = JSONResponse(
-        {"csrf_token": csrf, "expires_at": int(expiry.timestamp()), "user_id": str(uid)}
+        {
+            "csrf_token": csrf,
+            "expires_at": int(expiry.timestamp()),
+            "user_id": str(uid),
+            "admin_mfa_satisfied": identity.mfa_expires_at > int(now.timestamp())
+            if production
+            else False,
+        }
     )
     response.set_cookie(
         settings().session_cookie,
@@ -134,7 +189,7 @@ def logout(request: Request):
         with transaction() as conn:
             conn.execute(
                 text(
-                    "UPDATE sessions SET revoked_at=now() WHERE token_hash=:h AND acr=:a"
+                    "UPDATE sessions SET revoked_at=now() WHERE token_hash=:h AND (acr=:a OR acr LIKE 'clerk-production:%')"
                 ),
                 {"h": token_hash(raw), "a": MARKER},
             )

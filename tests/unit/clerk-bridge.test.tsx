@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => mocks.auth,
   useClerk: () => mocks.clerk,
+  useReverification: (fetcher: () => Promise<unknown>) => fetcher,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => mocks.router }));
 function Workspace() {
@@ -203,4 +204,17 @@ describe("Clerk bridge with simulated SDK and HTTP only", () => {
     await screen.findByText("Connexion indisponible");
     expect(mocks.clerk.signOut).toHaveBeenCalledOnce();
   });
+});
+
+it("routes production through the bridge without a development disclaimer", async () => {
+  render(
+    <ClerkSessionBridge provider="clerk_production">
+      <Workspace />
+    </ClerkSessionBridge>,
+  );
+  await screen.findByText("Espace métier vérifié");
+  expect(screen.queryByText(/Environnement de test local/)).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Vérifier mon identité" }),
+  ).toBeTruthy();
 });

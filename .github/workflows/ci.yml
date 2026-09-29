@@ -14,6 +14,16 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run typecheck
+      - name: Compile Clerk production profile (fictional public configuration)
+        env:
+          APP_ENV: production
+          AUTH_PROVIDER: clerk_production
+          PUBLIC_ORIGIN: https://app.geoforest.example
+          CLERK_ISSUER: https://clerk.geoforest.example
+          CLERK_SECRET_KEY: ""
+        run: |
+          export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_$(printf 'clerk.geoforest.example$' | base64 -w0)"
+          npm run build
       - run: npm audit --audit-level=high
       - run: docker build -t geoforest-frontend:ci .
   backend:

@@ -1,0 +1,51 @@
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 20%]
+........................................................................ [ 27%]
+........................................................................ [ 34%]
+........................................................................ [ 41%]
+........................................................................ [ 48%]
+........................................................................ [ 55%]
+........................................................................ [ 62%]
+........................................................................ [ 69%]
+........................................................................ [ 75%]
+........................................................................ [ 82%]
+........................................................................ [ 89%]
+........................................................................ [ 96%]
+...................................                                      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /home/user/Geoforest/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/forest_unit/test_raster.py::test_native_window_real_decoder_synthetic_data
+tests/forest_unit/test_raster.py::test_raster_rejection[kw0-UNKNOWN_RASTER_CLASS]
+tests/forest_unit/test_raster.py::test_zero_loss_is_not_nodata
+tests/forest_unit/test_tmf.py::test_native_raster_multipart_etag_no_gcs[False-DeforestationYear-2025-uint16]
+tests/forest_unit/test_tmf.py::test_native_raster_multipart_etag_no_gcs[False-DegradationYear-2005-uint16]
+tests/forest_unit/test_tmf.py::test_native_raster_multipart_etag_no_gcs[False-AnnualChange_2020-1-uint8]
+  /home/user/Geoforest/.venv/lib/python3.13/site-packages/rasterio/windows.py:360: PendingDeprecationWarning: Use `@` matmul instead of `*` mul operator for matrix multiplication
+    x, y = transform * (window.col_off or 0.0, window.row_off or 0.0)
+
+tests/forest_unit/test_raster.py::test_native_window_real_decoder_synthetic_data
+tests/forest_unit/test_raster.py::test_raster_rejection[kw0-UNKNOWN_RASTER_CLASS]
+tests/forest_unit/test_raster.py::test_zero_loss_is_not_nodata
+tests/forest_unit/test_tmf.py::test_native_raster_multipart_etag_no_gcs[False-DeforestationYear-2025-uint16]
+tests/forest_unit/test_tmf.py::test_native_raster_multipart_etag_no_gcs[False-DegradationYear-2005-uint16]
+tests/forest_unit/test_tmf.py::test_native_raster_multipart_etag_no_gcs[False-AnnualChange_2020-1-uint8]
+  /home/user/Geoforest/.venv/lib/python3.13/site-packages/rasterio/windows.py:361: PendingDeprecationWarning: Use `@` matmul instead of `*` mul operator for matrix multiplication
+    return Affine.translation(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 10 durations =============================
+25.00s call     tests/test_diligence_pdf_limits.py::test_real_resource_boundaries[timeout]
+15.02s call     tests/test_diligence_pdf_limits.py::test_real_resource_boundaries[cpu]
+3.96s call     tests/forest_unit/test_geometry_engine.py::test_real_subprocess_outside_extent_no_network
+2.07s setup    tests/diligence_unit/test_core.py::test_unsupported_and_oversized_snapshots[inf]
+1.28s setup    tests/test_world_references.py::test_invented_global_anchors_are_indicative_only[CI-pair4]
+1.26s setup    tests/documents_unit/test_formats.py::test_active_unreferenced_pdf_values_rejected[/Filespec]
+1.21s setup    tests/documents_unit/test_formats.py::test_active_unreferenced_pdf_values_rejected[/FileAttachment]
+1.12s setup    tests/test_world_references.py::test_each_admitted_world_reference_hash_structure_and_topology[MF]
+1.11s setup    tests/test_world_references.py::test_each_admitted_world_reference_hash_structure_and_topology[TF]
+1.11s call     tests/test_diligence_api.py::test_pdf_escaped_markup_and_rejected_glyph
+1043 passed, 13 warnings in 500.36s (0:08:20)

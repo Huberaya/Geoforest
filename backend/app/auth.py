@@ -45,7 +45,7 @@ async def oidc_client():
 
 @router.get("/login")
 async def login(request: Request):
-    if settings().auth_provider == "clerk_development":
+    if settings().auth_provider in {"clerk_development", "clerk_production"}:
         return RedirectResponse("/sign-in", status_code=303)
     request.session.clear()
     params = {"acr_values": settings().admin_acr} if settings().admin_acr else {}
