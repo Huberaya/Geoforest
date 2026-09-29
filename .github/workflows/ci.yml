@@ -49,6 +49,6 @@ jobs:
           SQL
       - run: alembic -c backend/alembic.ini upgrade head
       - run: alembic -c backend/alembic.ini upgrade head
-      - run: python -m pytest -c backend/pytest.ini backend/tests -q
+      - run: python -m pytest -c backend/pytest.ini backend/tests backend/identity_tests -q
       - run: pip install pip-audit && pip-audit -r backend/requirements.lock
       - run: docker build -t geoforest-backend:ci backend
