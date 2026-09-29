@@ -347,7 +347,7 @@ export default function Home() {
               informations.
             </p>
             <div className="story-line">
-              <Icon name="shield" /> Identité vérifiée <span>·</span> Accès par
+              <Icon name="shield" /> Accès authentifié <span>·</span> Accès par
               organisation
             </div>
           </div>
@@ -373,7 +373,9 @@ export default function Home() {
         </div>
         <section className="login-panel">
           <div className="login-box">
-            <span className="badge neutral">CHANTIER 01 · SOCLE SÉCURISÉ</span>
+            <span className="badge neutral">
+              ESPACE PRIVÉ · DILIGENCE ASSISTÉE
+            </span>
             <h2>
               Bienvenue dans
               <br />
@@ -395,11 +397,11 @@ export default function Home() {
               </p>
             </div>
             <div className="phase-note">
-              <strong>Une plateforme en construction</strong>
+              <strong>Des décisions humaines documentées</strong>
               <p>
-                Les organisations et les accès constituent cette première étape.
-                Les analyses EUDR et les déclarations ne sont pas encore
-                disponibles.
+                Collecte, observations indicatives et dossiers internes selon
+                les modules activés. Aucun dépôt aux autorités ni certification
+                automatique.
               </p>
             </div>
             <span className="help">

@@ -1,11 +1,15 @@
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", hide_input_in_errors=True
+    )
     app_env: str = "development"
     database_url: str
     public_origin: str = "http://localhost:3000"
@@ -36,17 +40,81 @@ class Settings(BaseSettings):
         if not 1 <= self.session_hours <= 24:
             raise ValueError("SESSION_HOURS must be 1..24")
         if self.app_env == "production":
-            if not self.public_origin.startswith(
-                "https://"
-            ) or not self.oidc_issuer.startswith("https://"):
-                raise ValueError("HTTPS is mandatory in production")
-            if "*" in self.allowed_hosts or not self.admin_acr:
-                raise ValueError(
-                    "Explicit hosts and ADMIN_ACR are mandatory in production"
+
+            def https_url(value, *, origin=False):
+                try:
+                    u = urlsplit(value)
+                    valid = (
+                        u.scheme == "https"
+                        and bool(u.hostname)
+                        and u.username is None
+                        and u.password is None
+                        and not u.query
+                        and not u.fragment
+                        and not any(c.isspace() or ord(c) < 32 for c in value)
+                        and not (origin and u.path)
+                    )
+                    _ = u.port  # Reject invalid ports rather than failing during login.
+                except ValueError:
+                    valid = False
+                if not valid:
+                    raise ValueError(
+                        "Production URL must be a valid HTTPS URL without credentials/query/fragment; PUBLIC_ORIGIN has no path"
+                    )
+                return u
+
+            public = https_url(self.public_origin, origin=True)
+            https_url(self.oidc_issuer)
+            if self.oidc_backchannel_origin:
+                https_url(self.oidc_backchannel_origin, origin=True)
+            hosts = self.allowed_hosts.split(",")
+            if (
+                not hosts
+                or any(
+                    not h or h != h.strip() or "*" in h or "/" in h or ":" in h
+                    for h in hosts
                 )
-            if len(self.oidc_client_secret) < 32:
+                or public.hostname not in hosts
+                or not self.admin_acr.strip()
+            ):
                 raise ValueError(
-                    "Production OIDC secret must be at least 32 characters"
+                    "Production requires explicit hostnames including PUBLIC_ORIGIN and a nonblank ADMIN_ACR"
+                )
+            secrets = (self.session_secret, self.oidc_client_secret)
+            if any(
+                len(v) < 32 or "change_me" in v.lower() or v != v.strip()
+                for v in secrets
+            ):
+                raise ValueError(
+                    "Production requires distinct, non-placeholder secrets of at least 32 characters"
+                )
+            if self.session_secret == self.oidc_client_secret:
+                raise ValueError("Session and OIDC secrets must be distinct")
+            try:
+                db = make_url(self.database_url)
+                valid_db = (
+                    db.drivername == "postgresql+psycopg"
+                    and bool(db.host and db.database and db.username and db.password)
+                    and db.username not in {"postgres", "geoforest_migrator"}
+                    and db.query.get("sslmode") == "verify-full"
+                    and bool(db.query.get("sslrootcert"))
+                    and not any(
+                        k in db.query
+                        for k in (
+                            "host",
+                            "hostaddr",
+                            "user",
+                            "password",
+                            "dbname",
+                            "service",
+                        )
+                    )
+                )
+            except Exception:
+                valid_db = False
+            if not valid_db:
+                raise ValueError(
+                    "Production DB requires a runtime role, PostgreSQL psycopg, explicit host/database and TLS verify-full with sslrootcert"
                 )
         return self
 

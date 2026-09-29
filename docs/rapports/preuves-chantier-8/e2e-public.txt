@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/e2e/foundation.spec.ts:5:5 › Connexion publique responsive sans indicateurs réglementaires fictifs (830ms)
+
+  1 passed (2.9s)

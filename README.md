@@ -159,4 +159,10 @@ Le chantier 7 est clôturé localement pour la préparation/revue et les exports
 
 Migration **0007** requise ; activation explicite `DILIGENCE_ENABLED=true`, défaut `false`. Les fonctionnalités documentaires requièrent leur propre activation et un coffre/antivirus qualifiés. Seul le régime d’opérateur ordinaire est validable dans ce MVP ; les autres régimes restent à qualifier, sans en déduire une interdiction légale.
 
-**Préparé/validé en interne n’est pas déclaré aux autorités.** Le chantier 8 attend son GO ; les réserves d’exploitation/hébergement et les fonctionnalités différées restent décrites dans les rapports.
+**Préparé/validé en interne n’est pas déclaré aux autorités.** GO8 reçu : le chantier de sécurité, qualification du déploiement et lancement est en cours ; les réserves d’exploitation et les fonctionnalités différées restent décrites dans les rapports.
+
+## Chantier 8 — en cours, sans ouverture de production
+
+Premier incrément : garde-fous de configuration production et de rôle DB/RLS, générateur `.env` atomique 0600, cohérence Compose et mise à jour de l’écran public. [Rapport et preuves](docs/rapports/08a-chantier-8-securite-hebergement.md).
+
+L’hébergement UE fait l’objet d’une [recommandation sans souscription](docs/deploiement/recommandation-hebergement-ue.md). Lire les [exigences de production](docs/deploiement/production.md) : HTTPS et DB TLS vérifié, rôle runtime sans privilèges propriétaires, préparation du coffre/antivirus/sandbox et restauration à qualifier. Le Compose fourni reste de développement ; aucun déploiement public n’est autorisé par ces seuls tests locaux.

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from uuid import UUID
 
 from app.auth import router as auth_router
@@ -14,6 +15,7 @@ from app.middleware import RequestBoundary
 from app.plots.portal import router as plot_portal_router
 from app.plots.routes import router as plots_router
 from app.portal.routes import router as portal_router
+from app.readiness import UnsafeRuntimeDatabase, verify_runtime_database
 from app.schemas import MemberInput, OrganizationCreate, OrganizationUpdate
 from app.security import authorize, require_identity, require_mfa
 from app.supply.routes import router as supply_router
@@ -24,8 +26,30 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+
+@asynccontextmanager
+async def lifespan(app):
+    if settings().app_env == "production":
+        # Fail closed before accepting traffic; orchestration also probes readiness.
+        try:
+            with transaction() as conn:
+                verify_runtime_database(conn)
+                version = conn.execute(
+                    text("SELECT version_num FROM alembic_version")
+                ).scalar_one()
+                postgis = conn.execute(text("SELECT postgis_version()")).scalar_one()
+            if version != "0007" or not postgis:
+                raise UnsafeRuntimeDatabase("Database schema is not ready")
+        except (SQLAlchemyError, UnsafeRuntimeDatabase):
+            raise RuntimeError(
+                "Production database checks failed; consult the deployment runbook"
+            ) from None
+    yield
+
+
 app = FastAPI(
     title="GeoForest Trace — socle sécurisé",
+    lifespan=lifespan,
     version="0.8.0",
     docs_url=None,
     redoc_url=None,
@@ -84,6 +108,12 @@ def liveness():
 @app.get("/health/ready")
 def readiness():
     with transaction() as conn:
+        try:
+            verify_runtime_database(conn)
+        except UnsafeRuntimeDatabase:
+            raise HTTPException(
+                503, "Configuration d’isolation des données non prête"
+            ) from None
         version = conn.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()

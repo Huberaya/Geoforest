@@ -39,6 +39,9 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?required}
       ADMIN_ACR: ${ADMIN_ACR:-}
       FOREST_ANALYSIS_ENABLED: ${FOREST_ANALYSIS_ENABLED:-false}
+      DILIGENCE_ENABLED: ${DILIGENCE_ENABLED:-false}
+      # No qualified antivirus/vault in the base image: do not silently enable uploads.
+      DOCUMENTS_ENABLED: "false"
     depends_on:
       migrate: { condition: service_completed_successfully }
     networks: [internal, edge]

@@ -1,5 +1,6 @@
 """Create development-only secrets. Never overwrites an existing environment."""
 
+import os
 from pathlib import Path
 from secrets import token_urlsafe
 
@@ -27,7 +28,14 @@ values = {
     "SESSION_HOURS": "8",
     "API_INTERNAL_URL": "http://backend:8000",
     "KEYCLOAK_INTERNAL_URL": "http://keycloak:8080",
+    "FOREST_ANALYSIS_ENABLED": "false",
+    "DOCUMENTS_ENABLED": "false",
+    "DILIGENCE_ENABLED": "false",
 }
-path.write_text("\n".join(f"{k}={v}" for k, v in values.items()) + "\n")
-path.chmod(0o600)
+try:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+except FileExistsError:
+    raise SystemExit(".env already exists; refusing to overwrite it") from None
+with os.fdopen(fd, "w") as output:
+    output.write("\n".join(f"{k}={v}" for k, v in values.items()) + "\n")
 print("Development .env created with unique secrets. No secret printed.")
