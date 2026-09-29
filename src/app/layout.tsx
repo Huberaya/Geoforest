@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "GeoForest Trace — Espace de travail",
+  title: "GeoForest Trace — Traçabilité et diligence raisonnée",
   description:
-    "Espace sécurisé de préparation de la diligence raisonnée. Modules réglementaires en cours de développement.",
+    "Fournisseurs, parcelles et preuves : préparez votre diligence raisonnée avec une validation humaine.",
 };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

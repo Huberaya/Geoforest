@@ -12,7 +12,7 @@ test("Coffre réel, revue, légalité, risque, actions et portail mobile", async
   );
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await page.goto("/espace");
   await page
     .getByRole("link", { name: "Se connecter en toute sécurité" })
     .click();

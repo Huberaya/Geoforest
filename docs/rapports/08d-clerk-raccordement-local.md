@@ -2,6 +2,8 @@
 
 29 septembre 2026 · suite de l’incrément 08c · **recette automatisée réussie, connexion humaine à valider**.
 
+> Suite : [accueil public et comptes pour Vercel](08e-accueil-public-comptes-vercel.md). L’espace applicatif y est déplacé sous `/espace` ; les adresses Arena de recette sont temporaires et ne sont plus le point d’entrée souhaité.
+
 ## Résultat livré
 
 Le parcours Clerk est maintenant raccordé au frontend et à FastAPI, derrière un mode explicite `AUTH_PROVIDER=clerk_development`. Le mode OIDC reste celui par défaut. Un aperçu temporaire a été préparé avec l’instance Clerk développement fournie et **une base locale distincte de Neon Production**.

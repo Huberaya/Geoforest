@@ -16,7 +16,7 @@ test("Observations forestières : vraie source, preuves et historique par révis
     if (new URL(r.url()).origin !== new URL(process.env.PUBLIC_ORIGIN!).origin)
       externalRequests.push(r.url());
   });
-  await page.goto("/");
+  await page.goto("/espace");
   await page
     .getByRole("link", { name: "Se connecter en toute sécurité" })
     .click();

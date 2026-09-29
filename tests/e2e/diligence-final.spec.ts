@@ -20,7 +20,7 @@ test.beforeEach(() =>
 async function open(page: Page, mobile = false) {
   const d = data();
   if (mobile) await page.setViewportSize({ width: 360, height: 800 });
-  await page.goto("/");
+  await page.goto("/espace");
   await page
     .getByRole("link", { name: "Se connecter en toute sécurité" })
     .click();

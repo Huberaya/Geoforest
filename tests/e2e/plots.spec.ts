@@ -39,7 +39,7 @@ test("Parcelles : OIDC réel, GPS simulé, dessin, versions de lot, import et re
     if (r.url().startsWith("http") && new URL(r.url()).origin !== origin)
       external.push(r.url());
   });
-  await page.goto("/");
+  await page.goto("/espace");
   await page
     .getByRole("link", { name: "Se connecter en toute sécurité" })
     .click();
@@ -359,7 +359,7 @@ test("Saisie avancée : brouillon géométrique corrompu, coordonnées négative
   test.skip(!username || !password, "Compte Keycloak de recette requis");
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await page.goto("/espace");
   await page
     .getByRole("link", { name: "Se connecter en toute sécurité" })
     .click();

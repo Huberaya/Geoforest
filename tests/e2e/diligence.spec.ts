@@ -36,7 +36,7 @@ for (const mobile of [false, true]) {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto("/");
+    await page.goto("/espace");
     await page
       .getByRole("button", { name: "Diligence raisonnée", exact: true })
       .click();
@@ -101,7 +101,7 @@ test("Viewer lit et exporte sans préparer ni décider", async ({
   context,
 }) => {
   await login(context, "Viewer");
-  await page.goto("/");
+  await page.goto("/espace");
   await page
     .getByRole("button", { name: "Diligence raisonnée", exact: true })
     .click();
@@ -120,7 +120,7 @@ test("Supplier exclu de la navigation et de l’API diligence", async ({
   context,
 }) => {
   await login(context, "Supplier");
-  await page.goto("/");
+  await page.goto("/espace");
   await expect(
     page.getByRole("button", { name: "Documents", exact: true }),
   ).toBeVisible();

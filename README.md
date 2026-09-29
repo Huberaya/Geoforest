@@ -172,3 +172,9 @@ L’hébergement UE fait l’objet d’une [recommandation sans souscription](do
 La base existante `neondb` (branche déclarée Production) a reçu les migrations **0001→0007**, PostGIS 3.6.4 et deux rôles séparés. Aucune donnée de démonstration ajoutée. Compatibilité PostgreSQL 18.6 et restauration locale testées ; voir le [rapport de migration](docs/rapports/08b-neon-migrations.md) et la [procédure Neon](docs/deploiement/neon.md).
 
 Le raccordement **Clerk développement est maintenant disponible en mode opt-in local**, avec sessions courtes et tests automatisés. La connexion humaine reste à valider ; voir le [rapport Clerk](docs/rapports/08d-clerk-raccordement-local.md) et la [procédure](docs/deploiement/clerk-developpement.md). La migration DB ne déploie pas l’application, n’active pas ses modules et n’autorise pas un lancement public. Les identifiants Neon restent privés hors dépôt ; ne jamais lancer pytest sur cette base distante.
+
+### Accueil public et comptes — préparation Vercel
+
+L'accueil `/` propose **Créer un compte** (`/sign-up`) et **Se connecter** (`/sign-in`). L'application est maintenant sous `/espace`. Les formulaires Clerk n'attendent pas une session métier pour s'afficher ; le serveur conserve tous ses contrôles d'accès.
+
+Ce bloc est **préparé localement, non déployé** sur le site Vercel existant. Voir le [rapport et les tests](docs/rapports/08e-accueil-public-comptes-vercel.md) et la [procédure de publication](docs/deploiement/vercel-accueil-comptes.md). Ne pas configurer l'API distante avec une URL localhost ni relâcher les garde-fous Neon/Clerk développement.

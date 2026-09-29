@@ -1,7 +1,6 @@
 import { frFR } from "@clerk/localizations";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { ReactNode } from "react";
-import { ClerkSessionBridge } from "@/components/auth/ClerkSessionBridge";
 import { authProvider } from "@/auth-provider";
 
 export default function WorkspaceLayout({ children }: { children: ReactNode }) {
@@ -10,11 +9,12 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     <ClerkProvider
       localization={frFR}
       signInUrl="/sign-in"
-      signInForceRedirectUrl="/"
-      signUpForceRedirectUrl="/"
+      signUpUrl="/sign-up"
+      signInForceRedirectUrl="/espace"
+      signUpForceRedirectUrl="/espace"
       telemetry={false}
     >
-      <ClerkSessionBridge>{children}</ClerkSessionBridge>
+      {children}
     </ClerkProvider>
   );
 }

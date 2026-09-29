@@ -13,7 +13,7 @@ test("Collecte réelle : CSV, fournisseur, produit, lot, portail mobile et revue
     await new Promise((resolve) => setTimeout(resolve, 65000));
   const runtimeErrors: string[] = [];
   page.on("pageerror", (e) => runtimeErrors.push(e.message));
-  await page.goto("/");
+  await page.goto("/espace");
   await page
     .getByRole("link", { name: "Se connecter en toute sécurité" })
     .click();

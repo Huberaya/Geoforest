@@ -1,0 +1,9 @@
+
+Running 4 tests using 1 worker
+
+  ✓  1 tests/e2e/clerk-development.spec.ts:18:5 › Clerk unavailable: no business UI, actionable error, mobile layout (16.3s)
+  ✓  2 tests/e2e/clerk-development.spec.ts:48:5 › Supplier portal stays independent of Clerk and its outage (525ms)
+  ✓  3 tests/e2e/public-accounts.spec.ts:10:5 › Public home offers both account actions without backend or Clerk requests (775ms)
+  ✓  4 tests/e2e/public-accounts.spec.ts:34:5 › Sign-up remains navigable when Clerk is unavailable and never exchanges a business session (15.9s)
+
+  4 passed (35.4s)

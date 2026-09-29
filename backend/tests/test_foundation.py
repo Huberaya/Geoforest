@@ -292,7 +292,7 @@ def test_callback_without_state_fails_closed(client):
     r = client.get(
         "/api/auth/callback?code=forged&state=forged", follow_redirects=False
     )
-    assert r.status_code == 303 and r.headers["location"] == "/?auth_error=1"
+    assert r.status_code == 303 and r.headers["location"] == "/espace?auth_error=1"
     with owner.connect() as c:
         assert c.execute(text("SELECT count(*) FROM sessions")).scalar_one() == 0
 
@@ -324,3 +324,30 @@ def test_failed_mutation_leaves_no_audit(client, identity, signin, org):
     signin(client, u)
     client.patch(f"/api/v1/organizations/{o}", json={"name": "Wrong", "version": 9})
     assert len(client.get(f"/api/v1/organizations/{o}/audit").json()) == 1
+
+
+def test_oidc_success_redirects_to_workspace(client, monkeypatch):
+    from app.config import settings
+
+    from app import auth
+
+    class VerifiedOidcClient:
+        async def authorize_access_token(self, request):
+            return {
+                "userinfo": {
+                    "iss": settings().oidc_issuer,
+                    "sub": "synthetic-public-home-subject",
+                    "email_verified": True,
+                    "email": "home-test@example.invalid",
+                    "name": "Compte fictif",
+                }
+            }
+
+    async def oidc_client():
+        return VerifiedOidcClient()
+
+    monkeypatch.setattr(auth, "oidc_client", oidc_client)
+    result = client.get("/api/auth/callback", follow_redirects=False)
+    assert result.status_code == 303
+    assert result.headers["location"] == "/espace"
+    assert client.get("/api/v1/me").status_code == 200

@@ -101,7 +101,7 @@ async def callback(request: Request):
                 text("DELETE FROM sessions WHERE expires_at < now() - interval '1 day'")
             )
         request.session.clear()
-        response = RedirectResponse("/", status_code=303)
+        response = RedirectResponse("/espace", status_code=303)
         response.set_cookie(
             settings().session_cookie,
             raw,
@@ -115,7 +115,7 @@ async def callback(request: Request):
     except Exception:
         # No token, email, claims or external error details in browser/logs.
         request.session.clear()
-        return RedirectResponse("/?auth_error=1", status_code=303)
+        return RedirectResponse("/espace?auth_error=1", status_code=303)
 
 
 @router.post("/logout", status_code=204)
