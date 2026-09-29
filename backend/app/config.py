@@ -2,12 +2,13 @@ from functools import lru_cache
 from typing import Literal
 from urllib.parse import urlsplit
 
+from app.documents.s3_config import ObjectStorageSettings
 from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 from sqlalchemy.engine import make_url
 
 
-class Settings(BaseSettings):
+class Settings(ObjectStorageSettings):
     model_config = SettingsConfigDict(
         env_file=".env", extra="ignore", hide_input_in_errors=True
     )
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
     forest_analysis_enabled: bool = False
     documents_enabled: bool = False
     diligence_enabled: bool = False
-    document_storage_backend: Literal["local", "s3"] = "local"
+    document_s3_api_test: bool = False
     document_storage_root: str = "/var/lib/geoforest/documents"
     clamav_executable: str = "/usr/local/bin/clamscan"
     clamav_database: str = "/var/lib/clamav"
@@ -47,8 +48,23 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def secure_config(self):
-        if self.document_storage_backend != "local":
-            raise ValueError("S3 API integration is not yet qualified; activation refused")
+        if self.document_storage_backend != "local" and (
+            self.app_env != "test" or not self.document_s3_api_test
+        ):
+            raise ValueError(
+                "S3 API integration is not yet qualified; activation refused"
+            )
+        if self.document_s3_api_test:
+            test_db = make_url(self.database_url)
+            if (
+                self.app_env != "test"
+                or test_db.host != "127.0.0.1"
+                or not test_db.database
+                or not test_db.database.endswith("_test")
+            ):
+                raise ValueError(
+                    "S3 API test requires a dedicated loopback _test database"
+                )
         if len(self.session_secret) < 32:
             raise ValueError("SESSION_SECRET must contain at least 32 characters")
         if self.app_env not in {"development", "test", "production"}:

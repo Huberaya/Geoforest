@@ -531,4 +531,41 @@ def test_document_dto_hides_storage_locators():
             "input_sha256": "private-input",
             "actor_id": "private-actor",
         }
-    ) == {"id": "synthetic"}
+    ) == {"id": "synthetic", "processing_mode": "background"}
+
+
+def test_s3_requires_candidate_schema_before_any_object_io(
+    client, workspace, monkeypatch
+):
+    with owner.begin() as conn:
+        if conn.execute(
+            text(
+                "SELECT to_regprocedure('authz.document_enqueue(uuid,uuid)') IS NOT NULL"
+            )
+        ).scalar_one():
+            pytest.skip("This test checks the unchanged 0007 database")
+    _, _, path = workspace
+    s = supplier(client, path)
+    monkeypatch.setattr(settings(), "document_storage_backend", "s3")
+    monkeypatch.setattr(settings(), "document_s3_api_test", True)
+
+    def forbidden():
+        raise AssertionError("S3 accessed before schema qualification")
+
+    monkeypatch.setattr(processing, "s3_store", forbidden)
+    data = png()
+    response = client.post(
+        path + "/documents/uploads",
+        json={
+            "request_id": str(uuid4()),
+            "supplier_id": s["id"],
+            "title": "Preuve fictive",
+            "original_name": "fiction.png",
+            "claimed_mime": "image/png",
+            "size": len(data),
+            "expected_sha256": hashlib.sha256(data).hexdigest(),
+        },
+    )
+    assert response.status_code == 503
+    with owner.begin() as conn:
+        assert conn.execute(text("SELECT count(*) FROM documents")).scalar_one() == 0

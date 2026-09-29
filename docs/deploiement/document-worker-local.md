@@ -1,10 +1,10 @@
 # File documentaire et worker — recette locale uniquement
 
-**État au 29 septembre 2026 : candidat testé localement, non activé dans les routes S3.** Ce guide ne vaut ni autorisation de migration Neon, ni qualification d'un fournisseur, ni procédure de déploiement en production.
+**État au 29 septembre 2026 : candidat et routes S3 raccordés en recette locale explicite, activation production interdite.** Ce guide ne vaut ni autorisation de migration Neon, ni qualification d'un fournisseur, ni procédure de déploiement en production.
 
 ## Architecture préparée
 
-1. L'API autorisée doit terminer un upload S3, puis appeler `authz.document_enqueue(org, version)` dans une transaction. **Le raccordement des routes est encore à faire.**
+1. L'API autorisée termine un upload S3, puis appelle `authz.document_enqueue(org, version)` dans une transaction. **Le raccordement est disponible uniquement dans le profil de test local explicite** décrit dans `s3-api-locale.md`.
 2. L'enqueue vérifie le rôle staff écrivain ou la session portail du fournisseur, l'état, la taille reçue et l'expiration. Un seul job par version ; l'audit de mise en file est atomique et attribué à l'acteur réel.
 3. Le worker appelle `authz.document_claim()` : sélection `FOR UPDATE SKIP LOCKED`, lease de cinq minutes et nouveau jeton aléatoire. La transaction est fermée avant tout accès S3 ou scan.
 4. Assemblage des chunks avec délai de 150 secondes, écriture conditionnelle sous un identifiant d'objet stable, vérification SHA-256, scanner existant puis validation de format dans un sous-processus isolé (15 secondes).
@@ -75,7 +75,7 @@ Sans `DOCUMENT_QUEUE_TEST_URL`, la nouvelle suite d'intégration est ignorée ex
 
 ## Avant activation
 
-- Intégrer upload/finalisation/download S3 et les anciennes versions locales, quotas, réautorisation, erreurs et polling UI. Ne pas simplement enlever le garde `Settings` : les routes écrivent encore en local.
+- Qualifier upload/finalisation/download S3 et le suivi UI sur un vrai fournisseur et un vrai worker supervisé. Le raccordement est testé avec Moto et antivirus synthétique, pas qualifié en production. Ne pas simplement supprimer le garde `Settings`. Les anciennes versions locales restent sur leur stockage d’origine ; leur reprise sur une instance configurée S3 est refusée, sans effacement.
 - Transformer le candidat en migration Alembic versionnée après revue complète, ajuster les contrôles de schéma, puis demander une validation distincte avant toute application Neon.
 - Qualifier IAM, région effective UE, API conditionnelles, confidentialité, chiffrement et coûts sur le fournisseur choisi. Aucun fournisseur n'est encore qualifié.
 - Qualifier ClamAV réel, supervision, purge contrôlée des chunks/orphelins et limites des workers. Aucun nettoyage automatique n'est introduit ici pour éviter de supprimer des preuves.

@@ -1,0 +1,17 @@
+{
+  "backend/app/config.py": "ba6d5f8db51872ddc813543a848aa4efabf07c01f3cceeaecfb38b4a6c2f3d6f",
+  "backend/app/documents/processing.py": "af51c223723095cfd7590e55e6b78c4620b89d4902a17043e90e4a3ebcaceaff",
+  "backend/app/documents/routes.py": "484184b6391376ffa86b579ef4cb6b8b0de0a1caf9db110054d44251d5d21c70",
+  "backend/tests/test_documents_api.py": "2012c8667152e316c27e3bcfec4227ca355aa064443a3942875389f612d20c77",
+  "backend/tests/test_documents_s3_api.py": "cee3e95f30865b530b5cb2535a0e38dd43da481b96d04b6ed4f2cdaec1694e89",
+  "backend/tests/documents_unit/test_s3_store.py": "029ecf018bbf6fbfe3aa1fa77bfccf735ec7ca0209cf2fad96a200a8c71fbc0a",
+  "src/components/documents/DocumentsWorkspace.tsx": "663f61382dca4717e5517ab28e73fc0cf8c6bbaaef054e524cc81ce41ac7cba6",
+  "src/document-processing.ts": "44d830ec28915d7a2bf63e33d57735c7afa8bf485849be40276b5c78a36c5e53",
+  "tests/unit/document-processing.test.ts": "a163450568c0915e5a7b49a96e84569fe146b866adefbbfb103dab2cd50237c2",
+  "tests/e2e/documents-background.mock.spec.ts": "66a6e3615afd7f33ec509bd4275396f62d328c43ee715ea0091523efe4bbde57",
+  "docs/deploiement/s3-api-locale.md": "f0ee809bf365406f8abf05df9b4a1c9b5d221f42ec3fa97eda8493884f5416be",
+  "docs/deploiement/document-worker-local.md": "247f29cc70875f89a8b0449ee1a9d7c015710c6def34662996f5ffdb484f14a9",
+  "docs/rapports/08k-raccordement-api-s3.md": "d9f315f0cf092a1b9da0f546959bc759f1e3a962a9714bf5d57ac2384f4d8e38",
+  "docs/rapports/preuves-chantier-8/s3-api/interface-1440.png": "39034606d28c2a01cb80ea1a46af9b4d564cde77d933a1f03d3030abfb6a1fd1",
+  "docs/rapports/preuves-chantier-8/s3-api/interface-390.png": "5caaac38323ac6ed6ecd39fdbc6b2591d4fdbfe9434bb32a4fef7bf3f6d56e5f"
+}

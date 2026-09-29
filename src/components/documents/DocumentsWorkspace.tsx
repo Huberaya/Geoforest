@@ -1,5 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  documentProcessingPending,
+  startDocumentPolling,
+} from "../../document-processing";
 
 type Option = {
   id: string;
@@ -13,6 +17,8 @@ type Version = {
   supplier_id: string;
   version: number;
   state: string;
+  processing_mode?: "inline" | "background";
+  attempts: number;
   received_size: number;
   expected_size: number;
   sha256: string | null;
@@ -45,18 +51,23 @@ export async function jsonRequest(
   csrf: string,
   method = "GET",
   body?: unknown,
+  signal?: AbortSignal,
 ) {
   const r = await fetch(path, {
     method,
+    signal,
     headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) {
     const d = await r.json().catch(() => ({}));
-    throw new Error(
-      typeof d.detail === "string"
-        ? d.detail
-        : "Opération refusée. Vérifiez les champs et votre accès.",
+    throw Object.assign(
+      new Error(
+        typeof d.detail === "string"
+          ? d.detail
+          : "Opération refusée. Vérifiez les champs et votre accès.",
+      ),
+      { status: r.status },
     );
   }
   return r.json();
@@ -108,26 +119,35 @@ export function DocumentsWorkspace({
       alive.current = false;
     };
   }, []);
-  const load = useCallback(async () => {
-    const d = await jsonRequest(
-      `${base}/documents?page=${page}${supplier ? `&supplier_id=${supplier}` : ""}`,
-      csrf,
-    );
-    if (alive.current) {
-      setVersions(d.items);
-      setTotal(d.total);
-      setEnabled(d.enabled);
-    }
-  }, [base, csrf, page, supplier]);
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      const d = await jsonRequest(
+        `${base}/documents?page=${page}${supplier ? `&supplier_id=${supplier}` : ""}`,
+        csrf,
+        "GET",
+        undefined,
+        signal,
+      );
+      if (alive.current && !signal?.aborted) {
+        setVersions(d.items);
+        setTotal(d.total);
+        setEnabled(d.enabled);
+      }
+    },
+    [base, csrf, page, supplier],
+  );
   useEffect(() => {
-    let active = true;
-    load().catch((e) => {
-      if (active) setError(e.message);
+    const controller = new AbortController();
+    load(controller.signal).catch((e) => {
+      if (!controller.signal.aborted) setError(e.message);
     });
-    return () => {
-      active = false;
-    };
+    return () => controller.abort();
   }, [load]);
+  const processingPending = versions.some(documentProcessingPending);
+  useEffect(() => {
+    if (!processingPending) return;
+    return startDocumentPolling(load, (e) => setError(e.message));
+  }, [processingPending, load]);
   useEffect(() => {
     if (portal) return;
     const controller = new AbortController();
@@ -599,16 +619,32 @@ export function DocumentsWorkspace({
                 Ajouter une version
               </button>
             )}
-            {writable && ["SCANNING", "SCAN_UNAVAILABLE"].includes(v.state) && (
-              <button
-                className="button secondary"
-                type="button"
-                disabled={busy}
-                onClick={() => retry(v)}
-              >
-                Réessayer le contrôle
-              </button>
+            {documentProcessingPending(v) && (
+              <p role="status">
+                Contrôles en arrière-plan — actualisation automatique. Le
+                fichier reste en quarantaine.
+              </p>
             )}
+            {v.processing_mode === "background" &&
+              v.state === "SCAN_UNAVAILABLE" &&
+              v.attempts >= 3 && (
+                <p role="status">
+                  Trois tentatives sans succès. Ajoutez une nouvelle version ou
+                  contactez l’administrateur.
+                </p>
+              )}
+            {writable &&
+              v.processing_mode !== "background" &&
+              ["SCANNING", "SCAN_UNAVAILABLE"].includes(v.state) && (
+                <button
+                  className="button secondary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => retry(v)}
+                >
+                  Réessayer le contrôle
+                </button>
+              )}
             {reviewer && v.state === "SCAN_PASSED" && (
               <button
                 className="button secondary"

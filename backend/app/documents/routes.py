@@ -168,6 +168,10 @@ def dto(r):
             "storage_backend",
             "storage_version",
         }
+    } | {
+        "processing_mode": "background"
+        if r.get("storage_backend") == "s3"
+        else "inline"
     }
 
 
@@ -297,10 +301,19 @@ def begin_upload(body, access):
             ),
             {"o": access.org, "d": doc},
         ).scalar_one()
+        is_s3 = settings().document_storage_backend == "s3"
+        if is_s3:
+            processing.require_s3_schema(conn)
+            try:
+                processing.store().check_security()
+            except StorageError:
+                raise HTTPException(503, "Stockage privé indisponible") from None
+        storage_column = ",storage_backend" if is_s3 else ""
+        storage_value = ",:backend" if is_s3 else ""
         r = (
             conn.execute(
                 text(
-                    "INSERT INTO document_versions(organization_id,supplier_id,document_id,version,request_id,input_sha256,metadata,expected_size,actor_id,actor_kind) VALUES(:o,:s,:d,:v,:r,:h,CAST(:m AS jsonb),:n,:a,:k) RETURNING *"
+                    f"INSERT INTO document_versions(organization_id,supplier_id,document_id,version,request_id,input_sha256,metadata,expected_size,actor_id,actor_kind{storage_column}) VALUES(:o,:s,:d,:v,:r,:h,CAST(:m AS jsonb),:n,:a,:k{storage_value}) RETURNING *"
                 ),
                 {
                     "o": access.org,
@@ -313,6 +326,7 @@ def begin_upload(body, access):
                     "n": body.size,
                     "a": None if access.supplier_id else access.actor.id,
                     "k": "supplier" if access.supplier_id else "user",
+                    "backend": "s3",
                 },
             )
             .mappings()
@@ -338,6 +352,39 @@ def put_chunk(access, version, offset, data):
             raise HTTPException(409, "Dépôt fermé ou expiré")
         if offset > r["received_size"] or offset + len(data) > r["expected_size"]:
             raise HTTPException(409, "Position ou taille incohérente")
+        if r.get("storage_backend", "local") == "s3":
+            processing.require_s3_schema(conn)
+            try:
+                processing.store_for(r).put_chunk(
+                    access.org, version, offset, data, r["expected_size"]
+                )
+            except StorageError as exc:
+                code = str(exc)
+                if code in {
+                    "INVALID_CHUNK_SIZE",
+                    "INVALID_CHUNK_OFFSET",
+                    "S3_IMMUTABLE_CONFLICT",
+                }:
+                    raise HTTPException(
+                        409,
+                        "Bloc incohérent : reprise par blocs de 64000 octets attendue",
+                    ) from None
+                raise HTTPException(
+                    503, "Stockage privé indisponible ; le même bloc peut être réessayé"
+                ) from None
+            received = max(r["received_size"], offset + len(data))
+            conn.execute(
+                text(
+                    "UPDATE document_versions SET received_size=:n WHERE organization_id=:o AND id=:v"
+                ),
+                {"n": received, "o": access.org, "v": version},
+            )
+            return {"received_size": received}
+        if settings().document_storage_backend != "local":
+            raise HTTPException(
+                409,
+                "Dépôt historique local : créez une nouvelle version sur ce serveur",
+            )
         folder = processing.store()._tenant_fd(access.org, create=True)
         try:
             fd = os.open(
@@ -377,6 +424,34 @@ def put_chunk(access, version, offset, data):
 
 def finish(access, version):
     processing.configured()
+    with access.connection(write=True) as conn:
+        r = record(conn, access, version, True)
+        if r.get("storage_backend", "local") == "s3":
+            processing.require_s3_schema(conn)
+            if r["state"] in ("SCAN_PASSED", "SCAN_REJECTED", "FORMAT_REJECTED"):
+                return dto(r)
+            if r["attempts"] >= 3 and r["state"] == "SCAN_UNAVAILABLE":
+                raise HTTPException(
+                    409, "Trois tentatives atteintes ; créez une nouvelle version"
+                )
+            if r["state"] == "UPLOADING" and (
+                not r["upload_active"] or r["received_size"] != r["expected_size"]
+            ):
+                raise HTTPException(409, "Dépôt incomplet ou expiré")
+            conn.execute(
+                text("SELECT authz.document_enqueue(:o,:v)"),
+                {"o": access.org, "v": version},
+            )
+            return dto(record(conn, access, version))
+        if settings().document_storage_backend != "local":
+            raise HTTPException(
+                409,
+                "Dépôt historique local : créez une nouvelle version sur ce serveur",
+            )
+    return finish_local(access, version)
+
+
+def finish_local(access, version):
     with processing.scan_slot():
         with access.connection(write=True) as conn:
             r = record(conn, access, version, True)
@@ -521,8 +596,14 @@ def download(access, version):
             409, "Fichier en quarantaine ou rejeté, téléchargement interdit"
         )
     try:
-        f = processing.store().open_verified(
-            Blob(access.org, r["object_id"], r["expected_size"], r["sha256"])
+        f = processing.store_for(r).open_verified(
+            Blob(
+                access.org,
+                r["object_id"],
+                r["expected_size"],
+                r["sha256"],
+                r.get("storage_version"),
+            )
         )
     except (OSError, StorageError):
         raise HTTPException(503, "Intégrité ou stockage indisponible") from None

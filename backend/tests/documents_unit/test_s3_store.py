@@ -233,4 +233,62 @@ def test_api_refuses_premature_s3_activation():
             database_url="postgresql://synthetic/synthetic_test",
             session_secret="synthetic-test-secret-at-least-32-characters",
             document_storage_backend="s3",
+            document_s3_endpoint="https://s3.example.invalid",
+            document_s3_region="eu-west-3",
+            document_s3_bucket="synthetic-bucket",
+            document_s3_access_key="synthetic",
+            document_s3_secret_key="synthetic",
+        )
+
+
+@pytest.mark.parametrize(
+    "environment,enabled,allowed",
+    [
+        ("test", True, True),
+        ("test", False, False),
+        ("production", True, False),
+        ("development", True, False),
+    ],
+)
+def test_api_s3_activation_is_explicitly_test_only(environment, enabled, allowed):
+    from app.config import Settings
+
+    values = {
+        "app_env": environment,
+        "oidc_client_secret": "synthetic-oidc-test-secret",
+        "document_s3_api_test": enabled,
+        "database_url": "postgresql+psycopg://synthetic:synthetic@127.0.0.1/synthetic_test",
+        "session_secret": "synthetic-test-secret-at-least-32-characters",
+        "document_storage_backend": "s3",
+        "document_s3_endpoint": "https://s3.example.invalid",
+        "document_s3_region": "eu-west-3",
+        "document_s3_bucket": "synthetic-bucket",
+        "document_s3_access_key": "synthetic",
+        "document_s3_secret_key": "synthetic",
+    }
+    if allowed:
+        assert Settings(_env_file=None, **values).document_storage_backend == "s3"
+    else:
+        with pytest.raises(ValidationError, match="activation refused"):
+            Settings(_env_file=None, **values)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql+psycopg://synthetic:synthetic@db.example.invalid/geoforest_test",
+        "postgresql+psycopg://synthetic:synthetic@127.0.0.1/production",
+    ],
+)
+def test_api_s3_test_switch_refuses_remote_or_business_database(url):
+    from app.config import Settings
+
+    with pytest.raises(ValidationError, match="loopback _test database"):
+        Settings(
+            _env_file=None,
+            app_env="test",
+            database_url=url,
+            session_secret="synthetic-session-secret-at-least-32-characters",
+            oidc_client_secret="synthetic",
+            document_s3_api_test=True,
         )
