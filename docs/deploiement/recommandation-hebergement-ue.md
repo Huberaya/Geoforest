@@ -1,9 +1,9 @@
 # Hébergement UE — recommandation pour GeoForest Trace
 
-> Mise à jour : l’utilisateur a depuis choisi une base Neon existante et Clerk développement. La base Neon a été migrée après autorisation ; voir le [rapport Neon](../rapports/08b-neon-migrations.md). Ce comparatif demeure une proposition historique, pas un contrat ni la cible DB retenue. L’hébergement de l’application et du coffre reste à qualifier.
+> **Mise à jour 08m : proposition historique, remplacée pour le coffre.** Les choix actuels sont Neon + Clerk, backend Vercel préparé et stockage objet privé géré compatible S3 en UE avec antivirus séparé. Le choix auto-hébergé ci-dessous a été explicitement remplacé. Voir le [dossier stockage UE et sauvegarde indépendante](qualification-stockage-ue.md) : Scaleway Paris candidat non validé ; OVHcloud candidat backup uniquement, incompatible en l'état avec la garde runtime de blocage public dans les régions classiques. Aucune souscription ni activation. Les VM/Keycloak/PostgreSQL managé proposés ci-dessous ne constituent plus la cible retenue. Voir aussi le [rapport Neon](../rapports/08b-neon-migrations.md).
 29 septembre 2026 · choix demandé : **recommandation, sans souscription**.
 
-## Recommandation
+## Recommandation historique — ne pas appliquer comme plan actuel
 
 **Retenir Scaleway, région Paris, comme première cible de qualification**, avec PostgreSQL managé + PostGIS, machines virtuelles pour l’application et l’identité, et coffre documentaire auto-hébergé privé. **OVHcloud constitue l’alternative à qualifier** si les tests de droits, restauration, coût ou contrat ne conviennent pas. Hetzner est une option économique à étudier si l’équipe accepte davantage d’administration système/DB.
 

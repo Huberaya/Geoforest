@@ -1,0 +1,11 @@
+{
+  "archive-regression.txt": "1ba9cc75fbbcf36741a072e2ddc9edd460401fd62fa722dcb86369b17cb5e7d7",
+  "budget-stockage-nominal.csv": "06822dabf878db55c69c0a8793c32c63ce7ab480431b1576c82c7f4b9b56ea08",
+  "diagnostic-tests.txt": "6433d374a4aa54b66de991e4bb1f558f4f01443e97464399b62e2dfc2f13d52a",
+  "documents-regression.txt": "a6af26e143755d140258936448ef8093c006eae72b0f21699edb2a2bbbaa8d60",
+  "format.txt": "eee76f865de5a9f2456950f710ae5d5f9b5bd0ea02aa54f614c5eed6642a0bfd",
+  "offline-plan.json": "d94686294d3c4da786bccd491be791042864ee3b0c5e6e98f7e9ac1eff698f51",
+  "pip-check.txt": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09",
+  "ruff.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+  "sources-review.json": "16ef4fc39cf70a530c52eeb44d06d02fad7afb3362efa20c2477085c44514857"
+}

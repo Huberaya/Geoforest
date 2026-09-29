@@ -117,3 +117,7 @@ La suite d'intégration exige une base fictive dédiée exactement nommée `geof
 ## Avant une vraie politique de sauvegarde
 
 Choisir et qualifier : compte de sauvegarde distinct, région UE effective, fournisseur et garanties, chiffrement/KMS/escrow, IAM lecture source et écriture destination sans suppression, rétention et éventuel verrouillage, exports DB cohérents, supervision et alertes, budgets, RPO/RTO, restauration périodique complète et procédure de bascule approuvée. La conservation des preuves et les obligations de suppression doivent faire l'objet d'une politique validée, pas d'un nettoyage automatique ajouté à ce prototype.
+
+## Qualification de la destination indépendante
+
+Le [dossier stockage UE du lot 08m](qualification-stockage-ue.md) distingue le coffre runtime du dépôt d'archives chiffrées, propose une séparation des comptes/clés/régions et précise droits, rétention, coûts et recette restante. Aucun fournisseur n'est encore qualifié, aucun transport offsite n'est activé. Le diagnostic en lecture seule ne remplace ni la recette IAM ni l'exercice de restauration.

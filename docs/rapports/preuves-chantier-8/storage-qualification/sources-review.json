@@ -1,0 +1,62 @@
+{
+  "reviewed_on": "2026-09-29",
+  "kind": "analyst_notes_from_public_pages_not_signed_provider_attestations",
+  "cloud_api_calls": 0,
+  "entries": [
+    {
+      "url": "https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-s3-compliancy",
+      "observation": "Matrice lue integralement : Regions get public access block=no ; Local Zones=yes mais get bucket encryption=no.",
+      "limit": "Incompatibilite documentaire avec les gardes runtime actuelles, pas mesure API."
+    },
+    {
+      "url": "https://www.scaleway.com/en/docs/object-storage/api-cli/enable-sse-one/",
+      "observation": "GET bucket encryption documente avec Rules/ApplyServerSideEncryptionByDefault/SSEAlgorithm AES256.",
+      "limit": "Le support GetPublicAccessBlock reste non demontre dans les pages consultees."
+    },
+    {
+      "url": "https://www.scaleway.com/en/docs/object-storage/api-cli/bucket-policy/",
+      "observation": "Version actuelle 2023-04-17 ; Principal SCW ; intersection des permissions IAM/bucket ; proprietaire peut modifier politique.",
+      "limit": "Politique AWS non interchangeable. Pas de test reel IAM."
+    },
+    {
+      "url": "https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-identity-and-access-management",
+      "observation": "Absence de deny implicite pour proprietaire bucket : evaluation retourne aux ACL FULL_CONTROL.",
+      "limit": "Refus explicites et identites non proprietaires a tester."
+    },
+    {
+      "url": "https://www.ovhcloud.com/fr/public-cloud/prices/",
+      "observation": "Chunk 5 : Standard Multi Zone 0,00001917 EUR/Gio/h premiers 50 Tio ; One Zone 0,00000972 ; 730h mensuelles de reference.",
+      "limit": "Tarif regional Milan a confirmer au panier, pas devis."
+    },
+    {
+      "url": "https://www.scaleway.com/en/pricing/storage/",
+      "observation": "Standard Multi-AZ 0.000022 EUR/GB/h et 0.01606 EUR/GB/mois ; 75GB de sortie inclus puis ligne EUR0.01/MONTH.",
+      "limit": "Unite prix egress ambigue ; definition GB et agregation facture a confirmer."
+    },
+    {
+      "url": "https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-location",
+      "observation": "Milan eu-south-mil et Paris eu-west-par regions 3-AZ avec Standard ; protocole HTTPS et signature 4.",
+      "limit": "Selection et contrat non realises."
+    },
+    {
+      "url": "https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-conditional-writes",
+      "observation": "PutObject If-None-Match=* documente ; evaluation version courante ; delete marker traite comme absence ; SSE-C non encore pris en charge.",
+      "limit": "Pas de test de concurrence avec notre SDK."
+    },
+    {
+      "url": "https://www.scaleway.com/en/docs/object-storage/api-cli/using-conditional-writes/",
+      "observation": "PutObject conditionnel documente.",
+      "limit": "Pas de test de concurrence avec notre SDK."
+    },
+    {
+      "url": "https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-managing-object-lock",
+      "observation": "Governance, Compliance et minimum un jour documentes.",
+      "limit": "Aucun verrouillage effectif ni contrat valide."
+    },
+    {
+      "url": "https://www.scaleway.com/en/docs/object-storage/concepts.md",
+      "observation": "Concepts : exception de suppression a la cloture du compte mentionnee pour Compliance.",
+      "limit": "Verifier portee contractuelle, impayes, support et compte."
+    }
+  ]
+}
