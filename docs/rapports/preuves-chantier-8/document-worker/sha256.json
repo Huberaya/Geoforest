@@ -1,0 +1,18 @@
+{
+  "backend/app/documents/worker.py": "8e6e903beb739a42d0d9e72e95439dcaed5f339fbd42bf72f81230cc1a6f0fe6",
+  "backend/app/documents/format_validation.py": "51a3dd911c08f7b5ec12164deae97787bd7f5b683d0456a6325bdd47950126fd",
+  "backend/app/documents/processing.py": "2ef1ad041cae74bf76ca304728f385a259e4e63fd46c6d5e1d4cd3dd22f13808",
+  "backend/app/documents/routes.py": "f52ad284da91bb02ef42237d2061ba2945cdbd2b04dfb2b23fe9bff0d0c2e7ee",
+  "backend/migrations/candidates/0008_document_queue.sql": "1052b0c8d128d1251e8d5cea3e3d97164decd11d401a411f552fc39d0bcd0a6b",
+  "backend/tests/test_documents_api.py": "43372d500549b9ea06f48057896776177cf228f1ab89ba87a1294e89af42df49",
+  "src/audit-actor.ts": "7734dfef224084c5d3ffb33113810d5cb59452eaf4f1387d52c8b0fbfe047060",
+  "src/app/(workspace)/espace/page.tsx": "f4aad1a8204ea04a8423e74daae919191b67b0bf93fd8b2e7f43164c04a10bfe",
+  "tests/unit/audit-actor.test.ts": "4b5d896cd32c23dbe458d6301e91758f4b21eb4619f44d05afcda82cbb24cc03",
+  "docs/deploiement/document-worker-local.md": "3d4806227e597da2054b6e71e4aa9642f8d8b6229a264c7471260468ee371dd9",
+  "docs/rapports/08j-file-worker-documentaire.md": "21b6fece4d6d44b11af09a12abee2df8033d0ea3a923bd10797aa513f947292b",
+  "backend/tests/document_worker/__init__.py": "25d433b904a4402359101354c9719fb5c80bdc65afa66188a4f0db0d1ebf798c",
+  "backend/tests/document_worker/conftest.py": "ef522c06a1afdd8a10452d814f1939d100b804a8677121d4e1202a68665f9443",
+  "backend/tests/document_worker/helpers.py": "08b10e8ae67c62f0efd48618d12a68fc01aa3c87fc5d69b204b9c22a7da258d9",
+  "backend/tests/document_worker/test_queue.py": "c987f0aeeb827d9d5cbae1c84d957190954d04a87c4c1fd44d9269afc9c224e3",
+  "backend/tests/document_worker/test_worker.py": "84a53afdce10abf1c823251b8526eaa2c5d641aeed58737e9e1e755b50c626b4"
+}

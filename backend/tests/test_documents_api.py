@@ -517,3 +517,18 @@ def test_quota_function_fails_closed_on_missing_or_foreign_context(
         c.execute(
             text("SELECT * FROM authz.document_quota(:o,:s)"), {"o": oid, "s": s["id"]}
         ).all()
+
+
+def test_document_dto_hides_storage_locators():
+    from app.documents.routes import dto
+
+    assert dto(
+        {
+            "id": "synthetic",
+            "storage_backend": "s3",
+            "storage_version": "private-version",
+            "object_id": "private-object",
+            "input_sha256": "private-input",
+            "actor_id": "private-actor",
+        }
+    ) == {"id": "synthetic"}

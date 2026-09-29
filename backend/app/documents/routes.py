@@ -158,7 +158,16 @@ def record(conn, access, version, lock=False):
 
 def dto(r):
     return {
-        k: v for k, v in r.items() if k not in {"object_id", "input_sha256", "actor_id"}
+        k: v
+        for k, v in r.items()
+        if k
+        not in {
+            "object_id",
+            "input_sha256",
+            "actor_id",
+            "storage_backend",
+            "storage_version",
+        }
     }
 
 

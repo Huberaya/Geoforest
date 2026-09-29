@@ -1,4 +1,6 @@
 "use client";
+
+import { auditActorLabel } from "@/audit-actor";
 import Link from "next/link";
 import { useAuthSession } from "@/components/auth/AuthSession";
 import { DiligenceWorkspace } from "@/components/diligence/DiligenceWorkspace";
@@ -35,7 +37,7 @@ type Audit = {
   action: string;
   created_at: string;
   actor_id: string | null;
-  actor_kind: "user" | "supplier";
+  actor_kind: "user" | "supplier" | "system";
   supplier_actor_id: string | null;
   previous_value: unknown;
   new_value: unknown;
@@ -966,10 +968,7 @@ export default function Home() {
                         <strong>{actions[e.action] || e.action}</strong>
                         <small>
                           {new Date(e.created_at).toLocaleString("fr-FR")} ·
-                          Auteur :{" "}
-                          {e.actor_kind === "supplier"
-                            ? "Portail fournisseur · " + e.supplier_actor_id
-                            : e.actor_id}
+                          Auteur : {auditActorLabel(e)}
                         </small>
                         <details>
                           <summary>Voir les valeurs avant / après</summary>
