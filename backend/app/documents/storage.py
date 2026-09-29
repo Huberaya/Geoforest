@@ -25,6 +25,7 @@ class Blob:
     object_id: UUID
     size: int
     sha256: str
+    storage_version: str | None = None
 
 
 def identifier(value):

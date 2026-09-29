@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     forest_analysis_enabled: bool = False
     documents_enabled: bool = False
     diligence_enabled: bool = False
+    document_storage_backend: Literal["local", "s3"] = "local"
     document_storage_root: str = "/var/lib/geoforest/documents"
     clamav_executable: str = "/usr/local/bin/clamscan"
     clamav_database: str = "/var/lib/clamav"
@@ -46,6 +47,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def secure_config(self):
+        if self.document_storage_backend != "local":
+            raise ValueError("S3 API integration is not yet qualified; activation refused")
         if len(self.session_secret) < 32:
             raise ValueError("SESSION_SECRET must contain at least 32 characters")
         if self.app_env not in {"development", "test", "production"}:

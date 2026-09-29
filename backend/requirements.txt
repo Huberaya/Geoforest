@@ -42,3 +42,10 @@ Pillow==12.3.0
 pypdf==6.19.0
 reportlab==5.0.1
 charset-normalizer==3.5.1
+boto3==1.43.104
+botocore==1.43.104
+s3transfer==0.19.2
+jmespath==1.1.0
+python-dateutil==2.9.0.post0
+six==1.17.0
+urllib3==2.8.0

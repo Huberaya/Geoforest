@@ -1,0 +1,10 @@
+{
+  "backend/app/config.py": "0560a724ea3607beb5f44c39008b2e8d6d26bb38df08ca09c2d875d679eea99c",
+  "backend/app/documents/storage.py": "6beb5d486ab0e5ffb82efaf2fd471430c53530ad195021ea5e175812b3ef4dfe",
+  "backend/app/documents/s3_config.py": "f476a64496861378240465a21ad76ed50ae95025dc588e99d66b2ff7d3a68dc9",
+  "backend/app/documents/s3_store.py": "f71b5e9e1d1145eccbebcb0f242c26fa247e5d00dac738c10f8f401806421697",
+  "backend/tests/documents_unit/test_s3_store.py": "1feac565226c05a3b179ee0962b37953697c35d514184193e888904190c3b299",
+  "backend/requirements.txt": "f129a573766f0b9a295a9ee8db4826c6d8f2cfcf6adfcbaf7faae13a43ffa39d",
+  "backend/requirements.lock": "41a97c979e430bf9be587e9c45dcfdaf4aa12f8b0a1cb71bfa28ae624acb0475",
+  "docs/rapports/08i-s3-socle-intermediaire.md": "5f4f8f4372dca8c4599261bff82d39ca7a8b2da01669775dbb39c25259d5f693"
+}
