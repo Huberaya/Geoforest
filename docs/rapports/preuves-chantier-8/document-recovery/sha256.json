@@ -1,0 +1,15 @@
+{
+  "backend/app/documents/recovery/__init__.py": "cc1796934bfdf13b4b8c085ed583826e13f0fb8ebe3e370e43a8967da31508e7",
+  "backend/app/documents/recovery/archive.py": "c17aa3794f3a48765f4f3333e329d4fd39d31b0e3a1eca4bac30e37d47b38511",
+  "backend/app/documents/recovery/database.py": "59038401ef28458a5595682075e4745ec7cc85bb6808bac52d9fbad00bfadc85",
+  "backend/app/documents/recovery/service.py": "ec7b4f3c93554c6990106a6cb9cde39d9abd26dcf24dd179483062c1cdfa83d1",
+  "backend/tests/document_recovery/__init__.py": "7a0a3cdfdc4605a153ca725c85e010a4f7cd117f8b105bd215701ce231019323",
+  "backend/tests/document_recovery/conftest.py": "8f284d788a0a2791daeb9f9f407da29214ad2f72c18e462edaee9b17fc7ae5a7",
+  "backend/tests/document_recovery/test_roundtrip.py": "bb36443b88eb2e8fbb83ffe9b6c95798d70acf0c9e29c1197f1ec5ceeb0d1872",
+  "backend/tests/recovery_unit/test_archive.py": "fcc0aae680d5b2b133e1e37a2abfbe7073d474f1880193394e7c7b0e4241952c",
+  "scripts/document-recovery.py": "c47d65625589205da097c6bd40c4f08d78b5b0c79d5c382020e6d1216dfc4c23",
+  "docs/deploiement/sauvegarde-restauration-coffre.md": "a5622b0e24ef052f0059f3b3ff694be1398cf8dad662bf5403cfa3854419ffd6",
+  "docs/deploiement/s3-api-locale.md": "cff4f97cbb1ed3dfbec8c6167ea7c80bc1283f8d6adb97a0a49f7080a0508448",
+  "docs/deploiement/document-worker-local.md": "021d88ec7cb357ba9c6c286bbfc32745d9e3bd2af00b99bbf2c1e5be4c68a9ad",
+  "docs/rapports/08l-sauvegarde-restauration-documentaire.md": "40b87f5dce354267a0a0da1f0279d0169891655d6f20aaddb6c22b2a98e3eceb"
+}

@@ -65,3 +65,7 @@ Ce test opt-in ne valide ni Clerk/OIDC réel, ni le transport réseau API→S3, 
 Sauvegarde indépendante et restauration complète DB + objets + manifeste ; finalisation de la migration Alembic ; fournisseur/région UE, IAM et encryption qualifiés ; ClamAV réel/signatures et worker supervisé ; tests de pannes et charge sur services réels ; qualification Vercel.
 
 La réservation et l'écriture des chunks effectuent encore des appels S3 sous verrou transactionnel. Les contrôles de configuration du bucket sont conservateurs et répétés : coût en requêtes et durée des verrous à mesurer/optimiser avant exploitation. Aucun nettoyage de chunks/orphelins n'est automatisé ici. Le volume logique du quota n'est pas une borne des coûts physiques S3 (staging, versions et conservation).
+
+## Exercice de restauration désormais disponible
+
+Le mécanisme chiffré et la restauration isolée DB + coffre S3 ont été testés localement sur données fictives : voir [le guide de sauvegarde/restauration](sauvegarde-restauration-coffre.md). Cela ne configure pas de sauvegarde distante ni de bascule en production ; l’indépendance physique, les clés, la rétention, les alertes et les objectifs RPO/RTO restent à qualifier.

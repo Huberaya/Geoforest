@@ -81,3 +81,7 @@ Sans `DOCUMENT_QUEUE_TEST_URL`, la nouvelle suite d'intégration est ignorée ex
 - Qualifier ClamAV réel, supervision, purge contrôlée des chunks/orphelins et limites des workers. Aucun nettoyage automatique n'est introduit ici pour éviter de supprimer des preuves.
 - Tester une sauvegarde indépendante DB+objets+manifeste et une restauration complète, avec remappage maîtrisé des VersionId si nécessaire. Le versionnement ne remplace pas la sauvegarde.
 - Effectuer recette API S3, navigateur/responsive et qualification Vercel. Les gardes Vercel et l'interdiction d'activer S3 côté API restent en place.
+
+## Exercice de restauration désormais disponible
+
+Le mécanisme chiffré et la restauration isolée DB + coffre S3 ont été testés localement sur données fictives : voir [le guide de sauvegarde/restauration](sauvegarde-restauration-coffre.md). Cela ne configure pas de sauvegarde distante ni de bascule en production ; l’indépendance physique, les clés, la rétention, les alertes et les objectifs RPO/RTO restent à qualifier.
