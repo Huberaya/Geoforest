@@ -1,0 +1,642 @@
+{
+  "user_authorized": true,
+  "branch_declared": "Production",
+  "branch_mapping_verified_via_control_plane": false,
+  "migration_run": {
+    "first_upgrade_exit": 0,
+    "second_upgrade_exit": 0,
+    "postchecks_passed": true
+  },
+  "before": {
+    "connection": {
+      "server_version": "PostgreSQL 18.6 (6569466) on aarch64-unknown-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+      "database": "neondb",
+      "read_only": "on"
+    },
+    "direct_endpoint": true,
+    "tls_verify_full": true,
+    "client_tls": true,
+    "purpose": "pre-migration",
+    "relations": [],
+    "extensions": [
+      {
+        "extname": "plpgsql",
+        "extversion": "1.0"
+      }
+    ],
+    "schemas": [
+      {
+        "nspname": "public"
+      }
+    ],
+    "large_objects": 0,
+    "public_user_functions": 0,
+    "other_active_clients": 0,
+    "dump_sha256": "29b6ba47fc3fb47cb9934645e16a5cd109151f2328d5e8cf42801dbb1121a873",
+    "dump_bytes": 3207
+  },
+  "before_dump_restore": {
+    "extensions": [
+      "plpgsql"
+    ],
+    "public_relations": 0,
+    "large_objects": 0,
+    "restored": true,
+    "isolated_local_target": true,
+    "original_owner_names_preserved": true,
+    "dump_sha256": "29b6ba47fc3fb47cb9934645e16a5cd109151f2328d5e8cf42801dbb1121a873"
+  },
+  "after_dump_restore": {
+    "restored_locally": true,
+    "source": "Neon migrated schema",
+    "dump_sha256": "15523fd1794600e66a94b7af5333f25dbc3b467994cbd0f3a1acf511a6d04f98",
+    "dump_bytes": 345775,
+    "owners_and_acls_restored": true
+  },
+  "postchecks": {
+    "checked_at": "2026-09-29T12:08:12.784417+00:00",
+    "branch_declared": "Production",
+    "database": "neondb",
+    "endpoint": "direct",
+    "tls_verify_full": true,
+    "postchecks_read_only": true,
+    "business_rows": {
+      "audit_events": 0,
+      "collection_revisions": 0,
+      "compliance_tasks": 0,
+      "country_checks": 0,
+      "diligence_decisions": 0,
+      "diligence_dossiers": 0,
+      "diligence_revisions": 0,
+      "document_reviews": 0,
+      "document_versions": 0,
+      "documents": 0,
+      "forest_analyses": 0,
+      "legality_assessments": 0,
+      "lot_plots": 0,
+      "lots": 0,
+      "memberships": 0,
+      "notification_outbox": 0,
+      "organizations": 0,
+      "plot_geolocations": 0,
+      "plot_imports": 0,
+      "plot_proposal_revisions": 0,
+      "plot_proposals": 0,
+      "plots": 0,
+      "product_commodities": 0,
+      "products": 0,
+      "rate_buckets": 0,
+      "risk_assessments": 0,
+      "sessions": 0,
+      "supplier_collections": 0,
+      "supplier_contacts": 0,
+      "supplier_imports": 0,
+      "supplier_invitations": 0,
+      "supplier_products": 0,
+      "supplier_sessions": 0,
+      "suppliers": 0,
+      "users": 0
+    },
+    "seeded_demo_data": false,
+    "migration": "0007",
+    "postgis": "3.6.4",
+    "tables": [
+      {
+        "relname": "alembic_version",
+        "owner": "geoforest_migrator",
+        "rls": false
+      },
+      {
+        "relname": "audit_events",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "collection_revisions",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "commodities",
+        "owner": "geoforest_migrator",
+        "rls": false
+      },
+      {
+        "relname": "compliance_tasks",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "country_checks",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "diligence_decisions",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "diligence_dossiers",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "diligence_revisions",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "document_reviews",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "document_versions",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "documents",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "forest_analyses",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "legality_assessments",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "lot_plots",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "lots",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "memberships",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "notification_outbox",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "organizations",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "plot_geolocations",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "plot_imports",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "plot_proposal_revisions",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "plot_proposals",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "plots",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "product_commodities",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "products",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "rate_buckets",
+        "owner": "geoforest_migrator",
+        "rls": false
+      },
+      {
+        "relname": "risk_assessments",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "sessions",
+        "owner": "geoforest_migrator",
+        "rls": false
+      },
+      {
+        "relname": "supplier_collections",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "supplier_contacts",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "supplier_imports",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "supplier_invitations",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "supplier_products",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "supplier_sessions",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "suppliers",
+        "owner": "geoforest_migrator",
+        "rls": true
+      },
+      {
+        "relname": "users",
+        "owner": "geoforest_migrator",
+        "rls": false
+      }
+    ],
+    "reference_commodity_rows": 7,
+    "roles": [
+      {
+        "rolname": "geoforest_app",
+        "rolsuper": false,
+        "rolbypassrls": false,
+        "rolcreatedb": false,
+        "rolcreaterole": false,
+        "rolreplication": false
+      },
+      {
+        "rolname": "geoforest_migrator",
+        "rolsuper": false,
+        "rolbypassrls": false,
+        "rolcreatedb": false,
+        "rolcreaterole": false,
+        "rolreplication": false
+      }
+    ],
+    "privileged_memberships": {
+      "app_in_migrator": false,
+      "app_in_neon_superuser": false,
+      "migrator_in_neon_superuser": false
+    },
+    "security_definer_functions": [
+      {
+        "schema": "authz",
+        "proname": "compliance_writer",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "create_organization",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "document_quota",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "exchange_supplier_token",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "lock_diligence_member",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "member_role",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "portal_access",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "product_reader",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "supplier_logout",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "supplier_reader",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      },
+      {
+        "schema": "authz",
+        "proname": "supplier_session_info",
+        "prosecdef": true,
+        "proconfig": [
+          "search_path=pg_catalog, public"
+        ]
+      }
+    ],
+    "runtime_database_gate": "PASSED",
+    "rls_table_count": 32,
+    "no_context_visibility": "zero rows for 31 protected tables; supplier_sessions direct SELECT forbidden",
+    "append_only_acl_checks": "PASSED",
+    "postgis_geometry_smoke": true,
+    "source_sql_sha256": {
+      "0001_foundation.sql": "4000d93e451b02431d320b95fcd7ba53af01acc573942be5e89788df80fe05bb",
+      "0002_supply.sql": "7a16615ba56c0e99c6a41e973378866bff6f50b06f7d9f1f24ce5a6d8f3ec72b",
+      "0003_plots.sql": "801766eb27eabe7f7f6f0a84e42234e7cf63d139e15d2eb6f407bf62367c0d76",
+      "0004_country_checks.sql": "c7677c1744b8c2a9ac32d4b6debc54c0e3eced930db2a3da41ccc7e3d65ca8f0",
+      "0005_forest_analyses.sql": "4f7ee5afd02a1aebacda8a35e5454e53bf2d281f03194eaa9634eab9bb8ca73f",
+      "0006_documents.sql": "43b7ee9e77d9e9f40dec4e4d0a06aed1755c8a8f7b493076bd4a56f472f65317",
+      "0007_diligence.sql": "373b7490dc5e21a204b88dee7dd9e098aafc0936ecd1bb93bf1803874a14d64d"
+    },
+    "application_commit": "467d71efd74a41cc25cec1b890a122f08a7aad41"
+  },
+  "local_restoration_comparison": {
+    "production_source_read_only": true,
+    "local_target": "geoforest_neon_after_test",
+    "tables": {
+      "alembic_version": {
+        "rows": 1,
+        "identical": true,
+        "sha256": "87e4b4193852dd0d45cfdc97bc1e89ea21d294d7a233909c5e6a3bd324e19f68"
+      },
+      "audit_events": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "collection_revisions": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "commodities": {
+        "rows": 7,
+        "identical": true,
+        "sha256": "e9c165e5048751b26e3c58dcd4de9edd504fbe58e6907cd82974c58275cc5551"
+      },
+      "compliance_tasks": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "country_checks": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "diligence_decisions": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "diligence_dossiers": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "diligence_revisions": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "document_reviews": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "document_versions": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "documents": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "forest_analyses": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "legality_assessments": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "lot_plots": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "lots": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "memberships": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "notification_outbox": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "organizations": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plot_geolocations": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plot_imports": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plot_proposal_revisions": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plot_proposals": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plots": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "product_commodities": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "products": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "rate_buckets": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "risk_assessments": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "sessions": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "supplier_collections": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "supplier_contacts": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "supplier_imports": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "supplier_invitations": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "supplier_products": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "supplier_sessions": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "suppliers": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "users": {
+        "rows": 0,
+        "identical": true,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "schema_comparisons": {
+      "constraints": {
+        "entries": 459,
+        "identical": true,
+        "sha256": "87a2781768b9e075ea509020b3fa299344e455d186375a62634972a6a5df18db"
+      },
+      "policies": {
+        "entries": 72,
+        "identical": true,
+        "sha256": "01ad7e422be773749a6ad28fba8822f29df16e47475c3ff55cea0b1246029162"
+      },
+      "owners_rls_acl": {
+        "entries": 37,
+        "identical": true,
+        "sha256": "b625b806c3b89d845d5c8fbd40f100e56777e22353964be7fd0aca3f5337ee9d"
+      },
+      "authz_functions": {
+        "entries": 18,
+        "identical": true,
+        "sha256": "29e4c2c51d42fb6487360b1fc6a3f1cbf0ac4393ae18e885331333259fcd2860"
+      }
+    }
+  },
+  "final": {
+    "checked_at": "2026-09-29T12:18:34.343694+00:00",
+    "schema": "0007",
+    "business_tables_checked": 35,
+    "total_business_rows": 0,
+    "commodity_reference_rows": 7,
+    "production_demo_rows": 0,
+    "final_check_read_only": true
+  }
+}

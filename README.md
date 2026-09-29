@@ -166,3 +166,9 @@ Migration **0007** requise ; activation explicite `DILIGENCE_ENABLED=true`, déf
 Premier incrément : garde-fous de configuration production et de rôle DB/RLS, générateur `.env` atomique 0600, cohérence Compose et mise à jour de l’écran public. [Rapport et preuves](docs/rapports/08a-chantier-8-securite-hebergement.md).
 
 L’hébergement UE fait l’objet d’une [recommandation sans souscription](docs/deploiement/recommandation-hebergement-ue.md). Lire les [exigences de production](docs/deploiement/production.md) : HTTPS et DB TLS vérifié, rôle runtime sans privilèges propriétaires, préparation du coffre/antivirus/sandbox et restauration à qualifier. Le Compose fourni reste de développement ; aucun déploiement public n’est autorisé par ces seuls tests locaux.
+
+### Base Neon — installation autorisée
+
+La base existante `neondb` (branche déclarée Production) a reçu les migrations **0001→0007**, PostGIS 3.6.4 et deux rôles séparés. Aucune donnée de démonstration ajoutée. Compatibilité PostgreSQL 18.6 et restauration locale testées ; voir le [rapport de migration](docs/rapports/08b-neon-migrations.md) et la [procédure Neon](docs/deploiement/neon.md).
+
+Clerk est prévu en développement, mais son intégration n’est **pas encore réalisée**. La migration DB ne déploie pas l’application, n’active pas ses modules et n’autorise pas un lancement public. Les identifiants Neon restent privés hors dépôt ; ne jamais lancer pytest sur cette base distante.

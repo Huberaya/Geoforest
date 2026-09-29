@@ -1,5 +1,6 @@
 # Hébergement UE — recommandation pour GeoForest Trace
 
+> Mise à jour : l’utilisateur a depuis choisi une base Neon existante et Clerk développement. La base Neon a été migrée après autorisation ; voir le [rapport Neon](../rapports/08b-neon-migrations.md). Ce comparatif demeure une proposition historique, pas un contrat ni la cible DB retenue. L’hébergement de l’application et du coffre reste à qualifier.
 29 septembre 2026 · choix demandé : **recommandation, sans souscription**.
 
 ## Recommandation
