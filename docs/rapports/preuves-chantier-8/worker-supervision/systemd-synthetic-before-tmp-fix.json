@@ -1,0 +1,42 @@
+{
+  "scope": "LOCAL_SYNTHETIC_SYSTEMD",
+  "production_authorized": false,
+  "antivirus_qualified": false,
+  "profile_overrides": [
+    "Environment",
+    "EnvironmentFile",
+    "ExecStart",
+    "ExecStartPre",
+    "Group",
+    "InaccessiblePaths",
+    "ReadOnlyPaths",
+    "StandardError",
+    "StandardOutput",
+    "SyslogIdentifier",
+    "User",
+    "WorkingDirectory"
+  ],
+  "synthetic_changes": [
+    "DynamicUser=yes",
+    "WorkingDirectory=/",
+    "timeout probe only: 2s + 1s"
+  ],
+  "checks": {
+    "isolation": {
+      "passed": false,
+      "exit_code": 1,
+      "seconds": 0.333,
+      "stdout": "",
+      "stderr": "Running as unit: geoforest-synthetic-dc3d734e2c2845e6bff8e467385ac6b8.service\nTraceback (most recent call last):\n  File \"<string>\", line 25, in <module>\n    assert v.f_frsize * v.f_blocks <= 256 * 1024**2\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 302ms\nCPU time consumed: 125ms\nMemory peak: 13.1M\n"
+    },
+    "process_tree_timeout": {
+      "passed": true,
+      "exit_code": 1,
+      "seconds": 3.313,
+      "stdout": "{\"child_pid\": 1499}\n",
+      "stderr": "Running as unit: geoforest-synthetic-7b2dbbf7787b42e8b2397399a4a24a1f.service; invocation ID: 12f006f7c29d4c0aa3b8abc61743c990\nFinished with result: timeout\nMain processes terminated with: code=killed, status=9/KILL\nService runtime: 3.287s\nCPU time consumed: 101ms\nMemory peak: 9.1M\n",
+      "child_state_after_service_exit": "ABSENT"
+    }
+  },
+  "passed": false
+}

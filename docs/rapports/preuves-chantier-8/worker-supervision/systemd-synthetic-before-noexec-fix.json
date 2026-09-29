@@ -1,0 +1,57 @@
+{
+  "scope": "LOCAL_SYNTHETIC_SYSTEMD",
+  "production_authorized": false,
+  "antivirus_qualified": false,
+  "profile_overrides": [
+    "Environment",
+    "EnvironmentFile",
+    "ExecStart",
+    "ExecStartPre",
+    "Group",
+    "InaccessiblePaths",
+    "ReadOnlyPaths",
+    "StandardError",
+    "StandardOutput",
+    "SyslogIdentifier",
+    "User",
+    "WorkingDirectory"
+  ],
+  "synthetic_changes": [
+    "DynamicUser=yes",
+    "WorkingDirectory=/",
+    "timeout probe only: 2s + 1s",
+    "network positive control only: IPAddressDeny and IPAddressAllow empty"
+  ],
+  "checks": {
+    "isolation": {
+      "passed": false,
+      "exit_code": 1,
+      "seconds": 0.105,
+      "stdout": "",
+      "stderr": "Running as unit: geoforest-synthetic-fc05097f0d5b4b9eb16557f376deeb72.service; invocation ID: 9a10794d15eb47fbb9983d56d91a8578\nTraceback (most recent call last):\n  File \"<string>\", line 26, in <module>\n    assert v.f_flag & os.ST_NOEXEC\n           ~~~~~~~~~^~~~~~~~~~~~~~\nAssertionError\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 81ms\nCPU time consumed: 60ms\nMemory peak: 5.7M\n"
+    },
+    "process_tree_timeout": {
+      "passed": true,
+      "exit_code": 1,
+      "seconds": 3.273,
+      "stdout": "{\"child_pid\": 1688}\n",
+      "stderr": "Running as unit: geoforest-synthetic-50cefd7aeed64ff7aabd34e3d1ca1727.service; invocation ID: fb8f378d41264a76887622e13e7231b7\nFinished with result: timeout\nMain processes terminated with: code=killed, status=9/KILL\nService runtime: 3.251s\nCPU time consumed: 71ms\nMemory peak: 8.9M\n",
+      "child_state_after_service_exit": "ABSENT"
+    },
+    "local_network_control": {
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.101,
+      "stdout": "{\"isolation_checks\": \"PASS\"}\n",
+      "stderr": "Running as unit: geoforest-synthetic-a396b5023431407189985f1ea263a6b4.service; invocation ID: ecd4adea81944b7a848d6e81ebc41276\nFinished with result: success\nMain processes terminated with: code=exited, status=0/SUCCESS\nService runtime: 69ms\nCPU time consumed: 53ms\nMemory peak: 4.8M\n"
+    },
+    "local_network_denied": {
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 2.116,
+      "stdout": "{\"isolation_checks\": \"PASS\"}\n",
+      "stderr": "Running as unit: geoforest-synthetic-9b10f083f0ca4aea9da3b70ea8353fe8.service; invocation ID: d54c4a6421d64ea5bc8b1ccb7fc34646\nFinished with result: success\nMain processes terminated with: code=exited, status=0/SUCCESS\nService runtime: 2.091s\nCPU time consumed: 72ms\nMemory peak: 4.6M\n"
+    }
+  },
+  "passed": false
+}

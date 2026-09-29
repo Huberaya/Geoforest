@@ -1,0 +1,42 @@
+{
+  "scope": "LOCAL_SYNTHETIC_SYSTEMD",
+  "production_authorized": false,
+  "antivirus_qualified": false,
+  "profile_overrides": [
+    "Environment",
+    "EnvironmentFile",
+    "ExecStart",
+    "ExecStartPre",
+    "Group",
+    "InaccessiblePaths",
+    "ReadOnlyPaths",
+    "StandardError",
+    "StandardOutput",
+    "SyslogIdentifier",
+    "User",
+    "WorkingDirectory"
+  ],
+  "synthetic_changes": [
+    "DynamicUser=yes",
+    "WorkingDirectory=/",
+    "timeout probe only: 2s + 1s"
+  ],
+  "checks": {
+    "isolation": {
+      "passed": false,
+      "exit_code": 1,
+      "seconds": 1.105,
+      "stdout": "",
+      "stderr": "Running as unit: geoforest-synthetic-a8ca1149edd8436387483bd7938c0bdf.service; invocation ID: 544a4b744c8541adbbffd84444bfc6f4\nTraceback (most recent call last):\n  File \"<string>\", line 35, in <module>\n    s.connect(('192.0.2.1', 9))\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^\nTimeoutError: timed out\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"<string>\", line 38, in <module>\n    assert e.errno in (errno.EPERM, errno.EACCES), 'EGRESS_NOT_PROVEN_BLOCKED'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: EGRESS_NOT_PROVEN_BLOCKED\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 1.085s\nCPU time consumed: 58ms\nMemory peak: 6.3M\n"
+    },
+    "process_tree_timeout": {
+      "passed": true,
+      "exit_code": 1,
+      "seconds": 3.325,
+      "stdout": "{\"child_pid\": 1528}\n",
+      "stderr": "Running as unit: geoforest-synthetic-1a8d0d96a38741848ca5353a24dd3e11.service; invocation ID: 728261bbdfe0486bb715d2862bbb2f22\nFinished with result: timeout\nMain processes terminated with: code=killed, status=9/KILL\nService runtime: 3.306s\nCPU time consumed: 58ms\nMemory peak: 8.9M\n",
+      "child_state_after_service_exit": "ABSENT"
+    }
+  },
+  "passed": false
+}

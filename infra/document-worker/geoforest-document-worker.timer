@@ -1,0 +1,13 @@
+[Unit]
+Description=GeoForest document worker polling (not enabled by default)
+
+[Timer]
+OnBootSec=60s
+OnUnitInactiveSec=30s
+RandomizedDelaySec=5s
+AccuracySec=1s
+Unit=geoforest-document-worker.service
+Persistent=no
+
+[Install]
+WantedBy=timers.target

@@ -85,3 +85,7 @@ Sans `DOCUMENT_QUEUE_TEST_URL`, la nouvelle suite d'intégration est ignorée ex
 ## Exercice de restauration désormais disponible
 
 Le mécanisme chiffré et la restauration isolée DB + coffre S3 ont été testés localement sur données fictives : voir [le guide de sauvegarde/restauration](sauvegarde-restauration-coffre.md). Cela ne configure pas de sauvegarde distante ni de bascule en production ; l’indépendance physique, les clés, la rétention, les alertes et les objectifs RPO/RTO restent à qualifier.
+
+## Profil de supervision candidat (08n)
+
+Un service/timer systemd non installé et un audit hors ligne sont désormais préparés. Quatre épreuves système synthétiques vérifient localement des restrictions OS et l'arrêt des descendants ; ce n'est pas une exécution du worker métier ni une qualification de l'antivirus réel. Voir [la supervision et ses limites](supervision-worker-documentaire.md). Aucun superviseur documentaire permanent n'est activé.

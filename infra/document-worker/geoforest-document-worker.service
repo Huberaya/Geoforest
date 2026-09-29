@@ -1,0 +1,56 @@
+[Unit]
+Description=GeoForest document worker (qualification required)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/geoforest/document-worker.qualified
+
+[Service]
+Type=oneshot
+User=geoforest-worker
+Group=geoforest-worker
+WorkingDirectory=/opt/geoforest/backend
+EnvironmentFile=/etc/geoforest/document-worker.env
+Environment=PATH=/usr/bin:/bin LANG=C PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ExecStartPre=/usr/bin/test -x /opt/geoforest/.venv/bin/python
+ExecStart=/usr/bin/env -- /opt/geoforest/.venv/bin/python -m app.documents.worker --once
+TimeoutStartSec=270s
+TimeoutStopSec=10s
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes
+Restart=no
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+# Private bounded tmpfs below; do not overlay them with PrivateTmp/NoExecPaths.
+PrivateTmp=no
+PrivateDevices=yes
+TemporaryFileSystem=/tmp:rw,nosuid,nodev,noexec,size=256M,mode=1777 /var/tmp:rw,nosuid,nodev,noexec,size=32M,mode=1777
+ReadOnlyPaths=/var/lib/clamav /opt/clamav
+InaccessiblePaths=-/etc/geoforest/document-worker.env -/opt/geoforest/.env
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+MemoryMax=3G
+MemorySwapMax=0
+CPUQuota=200%
+TasksMax=32
+LimitNOFILE=256
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=geoforest-document-worker

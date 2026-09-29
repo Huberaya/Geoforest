@@ -1,0 +1,1 @@
+{"scope": "OFFLINE_CANDIDATE_PROFILE_ONLY", "production_authorized": false, "host_isolation_verified": false, "antivirus_qualified": false, "checks": {"service": true, "timer": true, "synthetic_environment": true}, "candidate_profile_valid": true}
