@@ -1,0 +1,8 @@
+{
+  "docs/rapports/preuves-chantier-8/worker-operations/profile-audit.json": "471184e9143c95845a5f59f5cd8f05d8cf2bcdac12c02eb75a2ae8d99d160edc",
+  "docs/rapports/preuves-chantier-8/worker-operations/profile-regressions.txt": "4dbe40fbdf7e798b2be3666afce5d2851769343427cf12860761eb48fde0da89",
+  "docs/rapports/preuves-chantier-8/worker-operations/pytest.txt": "fd9b450125d83e3aa0a4670723cd9ce59014dfa6ccb95991c20c77dce4bcc58e",
+  "docs/rapports/preuves-chantier-8/worker-operations/ruff.txt": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a",
+  "scripts/evaluate-worker-health.py": "700c1b9096f6b1c9f7b0cf184f6721b807cec63a45229214698cdd27b33596af",
+  "tests/worker_operations/test_health.py": "3db8904bb4db67d0314c258962911b5763fff21a40b06495778e83f4ab553fef"
+}

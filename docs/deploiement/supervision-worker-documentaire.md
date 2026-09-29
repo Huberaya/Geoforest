@@ -146,3 +146,7 @@ Le marqueur est une condition opérateur, **pas une attestation cryptographique 
 ## Suite 08o : sandbox réelle disponible, composition non activée
 
 Le [lot sandbox documentaire](sandbox-documentaire.md) ajoute des adaptateurs isolés et une recette locale avec ClamAV réel. Le présent service reste inchangé : `RestrictNamespaces=yes` empêche leur lancement. Une composition révisée et testée est nécessaire avant raccordement ; les résultats isolés ne qualifient pas automatiquement cette unité.
+
+## Suite 08q : règles de santé et préparation d'exploitation
+
+Un [évaluateur hors ligne et un guide opérateur](exploitation-worker-documentaire.md) sont disponibles. Ils ne collectent pas encore les états réels, n'envoient pas d'alertes et n'activent aucun service. Les exigences de qualification et d'autorisation restent inchangées. Le [suivi priorisé](../SUIVI-PROCHAINES-ETAPES.md) place la reprise fonctionnelle du chantier 4 après ce lot préparatoire.
