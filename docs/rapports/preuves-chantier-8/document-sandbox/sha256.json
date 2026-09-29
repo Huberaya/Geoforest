@@ -1,0 +1,16 @@
+{
+  "bubblewrap-version.txt": "c2e785078f5ddb8cb9a495292e71a198c051793b15c4a77d9d13675e28e714a7",
+  "document-regression.txt": "5537ef3ae3638ae79f022e3141c7b2c7f686b0348774e01ba2100ba3d0abe4a4",
+  "format.txt": "8e93d18ae56550d4eef2feac77e6630617c7e169246e56e39c75d58b46167985",
+  "freshclam.txt": "c64df2b3feea25c80004c68adb60aff57650bc9b2ff20828a5a896669a7a42b2",
+  "gpg-import.txt": "ec898a13605a00f60d03ab955082d1aaa623748826a8964ccd0a0c11bd96685f",
+  "opt-in-guard.txt": "40867642d9afcd4280c42c06ade18db041a5dea27f02f9c7b1293890dcfeeaa1",
+  "package-sha256.txt": "b98cd9992ce1dd539ae570540166b168acc2c7296a4a60aba3e10d61a45af0db",
+  "package-verification.txt": "c8c5eb728be3a690f2e24909d095158f6b40f5cd9e4c9e0da3f3394476796b95",
+  "pip-check.txt": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09",
+  "process-cleanup.txt": "8017bfc1754c8900f5a89f07ebd58d2351ce065d1df150d34b2bc7c14cd20f9b",
+  "real-qualification.json": "0e8bf81e763b3aef09ac3723347c5d742c005c9ebbd17b113237dccfc6213b1f",
+  "real-tests.txt": "946f8bffb01990937fae964d67b8af574bf50776c209aa5adeb3c372c8578338",
+  "ruff.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+  "unit-tests.txt": "6f7ac328809138dbbdacb9c79771235b743272a61d38f55e254d016b211fadb3"
+}

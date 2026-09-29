@@ -1,0 +1,7 @@
+gpg: keybox '/home/user/Geoforest/.cache/clamav-qualification/gnupg/pubring.kbx' created
+gpg: key 707F0DB480836771: 1 signature not checked due to a missing key
+gpg: /home/user/Geoforest/.cache/clamav-qualification/gnupg/trustdb.gpg: trustdb created
+gpg: key 707F0DB480836771: public key "Talos (Talos, Cisco Systems Inc.) <research@sourcefire.com>" imported
+gpg: Total number processed: 1
+gpg:               imported: 1
+gpg: no ultimately trusted keys found

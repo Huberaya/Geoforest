@@ -89,3 +89,7 @@ Le mécanisme chiffré et la restauration isolée DB + coffre S3 ont été test�
 ## Profil de supervision candidat (08n)
 
 Un service/timer systemd non installé et un audit hors ligne sont désormais préparés. Quatre épreuves système synthétiques vérifient localement des restrictions OS et l'arrêt des descendants ; ce n'est pas une exécution du worker métier ni une qualification de l'antivirus réel. Voir [la supervision et ses limites](supervision-worker-documentaire.md). Aucun superviseur documentaire permanent n'est activé.
+
+## Adaptateurs sandbox candidats (08o)
+
+ClamAV réel et les parseurs ont été testés dans des namespaces séparés ; la fonction `execute_job` a été exercée avec ces adaptateurs et S3 émulé. Voir [la sandbox documentaire](sandbox-documentaire.md). La commande worker et les routes ne les sélectionnent pas encore ; le raccordement et la composition avec la supervision restent une étape distincte, sans fallback non isolé.

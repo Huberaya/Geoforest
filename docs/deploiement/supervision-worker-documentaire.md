@@ -139,3 +139,7 @@ L'audit valide seulement le contenu des trois fichiers candidats. Il ne lit ni u
 7. Revue d'exploitation et GO explicite, puis seulement création du marqueur `/etc/geoforest/document-worker.qualified` et installation/activation contrôlée du timer.
 
 Le marqueur est une condition opérateur, **pas une attestation cryptographique ni une validation automatique de ces sept points**. Il n'a pas été créé. Aucun fichier de service/timer métier n'a été installé sur cette machine.
+
+## Suite 08o : sandbox réelle disponible, composition non activée
+
+Le [lot sandbox documentaire](sandbox-documentaire.md) ajoute des adaptateurs isolés et une recette locale avec ClamAV réel. Le présent service reste inchangé : `RestrictNamespaces=yes` empêche leur lancement. Une composition révisée et testée est nécessaire avant raccordement ; les résultats isolés ne qualifient pas automatiquement cette unité.
