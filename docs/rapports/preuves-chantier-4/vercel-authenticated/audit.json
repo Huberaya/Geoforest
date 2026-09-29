@@ -1,0 +1,84 @@
+{
+  "observed_at_utc": "2026-09-29T20:41:17.890014+00:00",
+  "method": "authenticated Vercel GET only",
+  "project": {
+    "id": "prj_fy7HvU73NXRhgBtpSwLVUb5hkbwB",
+    "name": "geoforest-eabr",
+    "framework": "nextjs",
+    "rootDirectory": null,
+    "production_branch_setting": "main"
+  },
+  "production": {
+    "deployment_id": "dpl_4hpypVn7UZ5ywE9BE3moMRJRCkRt",
+    "state": "READY",
+    "substate": "PROMOTED",
+    "target": "production",
+    "git_commit": "a924ba85839cfb4921d3b1983dbc10d3e3e9299c",
+    "git_branch": "chantier-2/collecte-fournisseurs",
+    "plan_recorded_in_deployment": "hobby"
+  },
+  "preview": {
+    "deployment_id": "dpl_5RKxTvfum6AKc8fKi1BEsncgnC5E",
+    "state": "READY",
+    "substate": "STAGED",
+    "target": null,
+    "git_commit": "7a2da36a76c7bc16b9bb080853ca649fc0d8b68e",
+    "git_branch": "chantier-8/security-release",
+    "plan_recorded_in_deployment": "hobby"
+  },
+  "environment_metadata": [
+    {
+      "key": "AUTH_PROVIDER",
+      "target": [
+        "preview"
+      ],
+      "type": "encrypted"
+    },
+    {
+      "key": "APP_ENV",
+      "target": [
+        "preview"
+      ],
+      "type": "encrypted"
+    },
+    {
+      "key": "CLERK_ISSUER",
+      "target": [
+        "preview"
+      ],
+      "type": "encrypted"
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+      "target": [
+        "preview"
+      ],
+      "type": "encrypted"
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED",
+      "target": [
+        "preview"
+      ],
+      "type": "encrypted"
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_KEYLESS_DISABLED",
+      "target": [
+        "preview"
+      ],
+      "type": "encrypted"
+    }
+  ],
+  "visible_projects": [
+    {
+      "id": "prj_fy7HvU73NXRhgBtpSwLVUb5hkbwB",
+      "name": "geoforest-eabr",
+      "framework": "nextjs"
+    }
+  ],
+  "scope_limit": "Only projects visible to this token; team/user administration returned 403/404, not proof of absence outside scope.",
+  "mutations_performed": false,
+  "neon_accessed": false,
+  "secrets_recorded": false
+}

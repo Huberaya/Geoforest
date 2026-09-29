@@ -21,3 +21,7 @@ Suivi des vérifications (le rapport 04b précise ce qui a été inspecté local
 5. Plan de corrections sans suppression Neon, sans migration cloud supplémentaire implicite, sans dépendre de l'achat immédiat d'un domaine.
 
 Les rapports anciens restent des preuves datées : leurs mentions de publication bloquée ou de chantiers ultérieurs non engagés ne décrivent pas automatiquement l'état présent. Celui-ci doit être inspecté, pas déduit. Aucune conclusion réglementaire favorable ne découle d'une intersection cartographique.
+
+## Complément : accès Vercel reçu et utilisé
+
+L'[audit authentifié 04c](rapports/04c-audit-vercel-authentifie.md) confirme Production sur le chantier 2 et accueil/comptes restés en Preview. L'accès frontend fonctionne ; le blocage restant est le backend/identité et le choix entre accueil public limité ou application complète. Aucune promotion aveugle de la Preview ancienne ni modification Neon.
