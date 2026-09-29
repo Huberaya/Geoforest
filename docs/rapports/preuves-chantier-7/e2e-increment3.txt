@@ -1,0 +1,9 @@
+
+Running 4 tests using 1 worker
+
+  ✓  1 tests/e2e/diligence.spec.ts:31:7 › Diligence réelle : préparer, revue bloquée, exports, historique (desktop) (3.8s)
+  ✓  2 tests/e2e/diligence.spec.ts:31:7 › Diligence réelle : préparer, revue bloquée, exports, historique (mobile) (2.7s)
+  ✓  3 tests/e2e/diligence.spec.ts:99:5 › Viewer lit et exporte sans préparer ni décider (724ms)
+  ✓  4 tests/e2e/diligence.spec.ts:118:5 › Supplier exclu de la navigation et de l’API diligence (619ms)
+
+  4 passed (8.7s)

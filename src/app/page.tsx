@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { DiligenceWorkspace } from "@/components/diligence/DiligenceWorkspace";
 import { DocumentsWorkspace } from "@/components/documents/DocumentsWorkspace";
 import { ComplianceWorkspace } from "@/components/documents/ComplianceWorkspace";
 import { PlotsWorkspace } from "@/components/plots/PlotsWorkspace";
@@ -460,30 +461,26 @@ export default function Home() {
             ["map", "Parcelles", "plots"],
             ["file", "Documents", "documents"],
             ["shield", "Légalité & risque", "compliance"],
-          ].map(([icon, label, id]) => (
-            <button
-              key={id}
-              disabled={
-                !org || (id === "compliance" && org.role === "Supplier")
-              }
-              className={view === id ? "active" : ""}
-              onClick={() => setView(id)}
-            >
-              <Icon name={icon} />
-              {label}
-            </button>
-          ))}
-          {[["shield", "Diligence raisonnée"]].map(([icon, label]) => (
-            <button
-              key={label}
-              disabled
-              title="Disponible dans un prochain chantier"
-            >
-              <Icon name={icon} />
-              {label}
-              <span className="soon">À venir</span>
-            </button>
-          ))}
+            ["shield", "Diligence raisonnée", "diligence"],
+          ]
+            .filter(
+              ([, , id]) => id !== "diligence" || org?.role !== "Supplier",
+            )
+            .map(([icon, label, id]) => (
+              <button
+                key={id}
+                disabled={
+                  !org ||
+                  (["compliance", "diligence"].includes(id) &&
+                    org.role === "Supplier")
+                }
+                className={view === id ? "active" : ""}
+                onClick={() => setView(id)}
+              >
+                <Icon name={icon} />
+                {label}
+              </button>
+            ))}
           <div className="nav-label">ADMINISTRATION</div>
           <button
             className={view === "members" ? "active" : ""}
@@ -555,6 +552,7 @@ export default function Home() {
             "plots",
             "documents",
             "compliance",
+            "diligence",
           ].includes(view) && (
             <div className="page-heading">
               <div>
@@ -596,6 +594,14 @@ export default function Home() {
               org={org.id}
               csrf={me.csrf_token}
               reviewer={Boolean(canAudit)}
+            />
+          )}
+          {org && view === "diligence" && org.role !== "Supplier" && (
+            <DiligenceWorkspace
+              key={org.id}
+              org={org.id}
+              csrf={me.csrf_token}
+              role={org.role}
             />
           )}
           {org && view === "plots" && (
@@ -971,7 +977,7 @@ export default function Home() {
         </main>
         <footer className="main-footer">
           <span>© GeoForest Trace</span>
-          <span>Chantier 06 · Documents, légalité & risque</span>
+          <span>Chantier 07 · Dossiers de diligence</span>
         </footer>
       </div>
     </div>

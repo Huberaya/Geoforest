@@ -1,5 +1,6 @@
 # Chantier 7 — deuxième incrément : stockage et API
 
+> État actuel : voir le [troisième incrément interface/exports](07c-chantier-7-interface-exports.md). Les résultats ci-dessous sont historiques.
 29 septembre 2026 · branche `chantier-7/due-diligence-exports`.
 
 **EN COURS — chantier 7 non clôturé.** Le GO7 couvre la suite. Aucun GO8.

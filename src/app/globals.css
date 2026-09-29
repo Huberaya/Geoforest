@@ -2380,3 +2380,175 @@ progress::-moz-progress-bar {
 .documentary-workspace article + article {
   margin-top: 14px;
 }
+
+/* Diligence: private review, explicit status, no regulatory progress meter. */
+.diligence-workspace {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.diligence-heading {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 24px;
+}
+.diligence-heading h1 {
+  font-size: clamp(23px, 3vw, 32px);
+  font-weight: 650;
+  letter-spacing: -0.6px;
+  margin: 6px 0 8px;
+}
+.diligence-disclaimer {
+  background: #eef4ec;
+  border-left: 3px solid #47785a;
+  padding: 16px 20px;
+  border-radius: 6px;
+  margin: 0 0 24px;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.diligence-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.6fr);
+  gap: 22px;
+  align-items: start;
+}
+.diligence-workspace .panel {
+  min-width: 0;
+  margin-bottom: 22px;
+}
+.diligence-workspace fieldset {
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid #dfe7df;
+  min-width: 0;
+}
+.diligence-workspace label:not(.diligence-check) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.diligence-workspace input:not([type="checkbox"]),
+.diligence-workspace textarea,
+.diligence-workspace select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.diligence-workspace textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+.diligence-check {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.diligence-check input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+.diligence-lot-picker {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #dfe7df;
+  border-radius: 7px;
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+.diligence-lot-settings {
+  border-top: 1px solid #dfe7df;
+  padding: 8px 0;
+}
+.diligence-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  align-items: start;
+  width: 100%;
+  gap: 7px;
+  padding: 16px;
+  border: 1px solid #dfe7df;
+  border-radius: 8px;
+  margin: 10px 0;
+  background: #fff;
+  cursor: pointer;
+}
+.diligence-card.selected {
+  border-color: #47785a;
+  background: #f1f6ef;
+  box-shadow: inset 3px 0 #47785a;
+}
+.diligence-card strong {
+  font-size: 14px;
+}
+.diligence-card span,
+.diligence-card small {
+  font-size: 12px;
+  color: #56695e;
+}
+.diligence-steps {
+  padding-left: 22px;
+  color: #56695e;
+}
+.diligence-steps li {
+  padding: 8px 0;
+}
+.diligence-issues {
+  list-style: none;
+  padding: 0;
+}
+.diligence-issues li {
+  display: grid;
+  gap: 5px;
+  border-left: 2px solid #ccae75;
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: #fcf8ef;
+  font-size: 13px;
+}
+.diligence-issues strong {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: #79603c;
+}
+.diligence-decision {
+  padding: 12px 0;
+  border-top: 1px solid #dfe7df;
+}
+.diligence-decision p {
+  margin: 6px 0;
+}
+.diligence-decision small {
+  color: #56695e;
+}
+@media (max-width: 1050px) {
+  .diligence-layout {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 540px) {
+  .diligence-heading {
+    flex-direction: column;
+  }
+  .diligence-workspace .panel {
+    padding: 18px 14px;
+  }
+  .diligence-workspace .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .diligence-workspace .row-actions {
+    align-items: stretch;
+  }
+  .diligence-workspace .row-actions button {
+    flex: 1 1 150px;
+  }
+}

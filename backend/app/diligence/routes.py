@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 from app.config import settings
 from app.database import transaction
+from app.diligence.artifacts import artifact
 from app.diligence.core import (
     PreparationError,
     State,
@@ -405,8 +406,13 @@ def decide(dossier: UUID, revision: int, body: Decide, a=Depends(staff_access)):
         return dict(result)
 
 
-@router.get("/{dossier}/revisions/{revision}/export.json")
-def export_json(dossier: UUID, revision: int, a=Depends(staff_access)):
+@router.get("/{dossier}/revisions/{revision}/export.{kind}")
+def export_dossier(
+    dossier: UUID,
+    revision: int,
+    kind: Literal["json", "csv", "pdf"],
+    a=Depends(staff_access),
+):
     with connection(a, READERS, True) as (conn, _):
         r = row(conn, a.org, dossier, revision)
         # Historical exports remain possible, always explicitly re-evaluated or marked unavailable.
@@ -432,27 +438,35 @@ def export_json(dossier: UUID, revision: int, a=Depends(staff_access)):
             ),
             {"o": a.org, "d": dossier},
         ).scalar_one()
-        raw = canonical_bytes(
-            {
-                "format": "geoforest-diligence-export-1",
-                "label": "DOSSIER INTERNE — NON SOUMIS PAR GEOFOREST",
-                "snapshot": r["snapshot"],
-                "snapshot_sha256": r["snapshot_sha256"],
-                "internal_state": r["state"],
-                "decisions": decisions,
-                "current_revision": current,
-                "is_current_revision": current == revision,
-                "validation_applicability": "CURRENT_INTERNAL_VALIDATION"
-                if current == revision
-                and matches
-                and checks.get("status") == "READY_FOR_INTERNAL_REVIEW"
-                and r["state"] == "INTERNALLY_VALIDATED"
-                else "NOT_A_CURRENT_VALIDATION",
-                "source_matches_now": matches,
-                "checks_at_export": checks,
-                "exported_at": datetime.now(timezone.utc).isoformat(),
-            }
-        )
+        if (
+            kind == "pdf"
+            and not conn.execute(
+                text(
+                    "SELECT pg_try_advisory_xact_lock(hashtextextended('diligence-pdf-global',0))"
+                )
+            ).scalar_one()
+        ):
+            raise HTTPException(429, "Un PDF est déjà en préparation : réessayez")
+        envelope = {
+            "format": "geoforest-diligence-export-1",
+            "label": "DOSSIER INTERNE — NON SOUMIS PAR GEOFOREST",
+            "snapshot": r["snapshot"],
+            "snapshot_sha256": r["snapshot_sha256"],
+            "internal_state": r["state"],
+            "decisions": decisions,
+            "current_revision": current,
+            "is_current_revision": current == revision,
+            "validation_applicability": "CURRENT_INTERNAL_VALIDATION"
+            if current == revision
+            and matches
+            and checks.get("status") == "READY_FOR_INTERNAL_REVIEW"
+            and r["state"] == "INTERNALLY_VALIDATED"
+            else "NOT_A_CURRENT_VALIDATION",
+            "source_matches_now": matches,
+            "checks_at_export": checks,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+        }
+        raw, mime, content_hash = artifact(envelope, kind)
         audit(
             conn,
             a,
@@ -460,15 +474,16 @@ def export_json(dossier: UUID, revision: int, a=Depends(staff_access)):
             dossier,
             {
                 "revision": revision,
-                "format": "json",
+                "format": kind,
                 "snapshot_sha256": r["snapshot_sha256"],
             },
         )
     return Response(
         raw,
-        media_type="application/json",
+        media_type=mime,
         headers={
-            "Content-Disposition": f'attachment; filename="diligence-{dossier}-r{revision}.json"',
+            "Content-Disposition": f'attachment; filename="diligence-{dossier}-r{revision}.{kind}"',
             "Content-Security-Policy": "sandbox; default-src 'none'",
+            "X-Content-SHA256": content_hash,
         },
     )

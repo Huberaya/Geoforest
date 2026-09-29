@@ -170,9 +170,10 @@ def test_roles_and_rls(client, workspace, role):
             },
         )
     assert client.get(url).status_code == (403 if role == "Supplier" else 200)
-    assert client.get(url + "/export.json").status_code == (
-        403 if role == "Supplier" else 200
-    )
+    for kind in ("json", "csv", "pdf"):
+        assert client.get(url + "/export." + kind).status_code == (
+            403 if role == "Supplier" else 200
+        )
     assert (
         client.post(
             path + "/diligence/revisions", json=prepare_body(lot_data["id"])
@@ -562,3 +563,148 @@ def test_session_deadline_rechecked_before_commit(client, workspace, monkeypatch
             ).scalar_one()
             == 0
         )
+
+
+@pytest.mark.parametrize("kind", ["json", "csv", "pdf"])
+@pytest.mark.parametrize("complete", [False, True])
+def test_export_artifacts(client, workspace, kind, complete):
+    import csv
+    import hashlib
+    import io
+
+    from pypdf import PdfReader
+
+    if complete:
+        d, url, _ = ready_dossier(client, workspace)
+        assert decision(client, url).status_code == 200
+    else:
+        path, _, data = fixture(client, workspace)
+        d, url = create(client, path, prepare_body(data["id"]))
+    r = client.get(url + "/export." + kind)
+    assert r.status_code == 200, r.text
+    assert r.headers["x-content-sha256"] == hashlib.sha256(r.content).hexdigest()
+    assert r.headers["cache-control"] == "no-store"
+    if kind == "pdf":
+        pdf = PdfReader(io.BytesIO(r.content))
+        content = "\n".join(p.extract_text() for p in pdf.pages)
+        assert "NON SOUMIS PAR GEOFOREST" in content
+        assert d["snapshot_sha256"] in content.replace("\n", "")
+        if complete:
+            assert "Preuve acceptée" in content
+            assert "SUBMIT_FOR_REVIEW" in content
+    elif kind == "csv":
+        rows = list(csv.DictReader(io.StringIO(r.content.decode("utf-8-sig"))))
+        assert len(rows) == 1
+        assert rows[0]["snapshot_sha256"] == d["snapshot_sha256"]
+    else:
+        assert r.json()["snapshot_sha256"] == d["snapshot_sha256"]
+
+
+def test_pdf_failure_rolls_back_export_audit(client, workspace, monkeypatch):
+    from app.diligence import routes
+    from app.diligence.core import PreparationError
+
+    path, _, data = fixture(client, workspace)
+    _, url = create(client, path, prepare_body(data["id"]))
+
+    def fail(*args):
+        raise PreparationError("PDF_TIMEOUT")
+
+    monkeypatch.setattr(routes, "artifact", fail)
+    r = client.get(url + "/export.pdf")
+    assert r.status_code == 409, r.text
+    with owner.connect() as c:
+        assert (
+            c.execute(
+                text(
+                    "SELECT count(*) FROM audit_events WHERE action='diligence.exported'"
+                )
+            ).scalar_one()
+            == 0
+        )
+
+
+def test_pdf_concurrency_lock(client, workspace):
+    path, _, data = fixture(client, workspace)
+    _, url = create(client, path, prepare_body(data["id"]))
+    with owner.begin() as c:
+        c.execute(
+            text(
+                "SELECT pg_advisory_xact_lock(hashtextextended('diligence-pdf-global',0))"
+            )
+        )
+        assert client.get(url + "/export.pdf").status_code == 429
+        assert client.get(url + "/export.csv").status_code == 200
+    assert client.get(url + "/export.pdf").status_code == 200
+
+
+@pytest.mark.parametrize("kind", ["pdf", "csv", "json"])
+def test_export_session_expiry_rolls_back(client, workspace, monkeypatch, kind):
+    from app.diligence import routes
+
+    path, _, data = fixture(client, workspace)
+    _, url = create(client, path, prepare_body(data["id"]))
+    original = routes.audit
+
+    def expire(conn, a, action, *args):
+        original(conn, a, action, *args)
+        if action == "diligence.exported":
+            conn.execute(
+                text(
+                    "UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=:h"
+                ),
+                {"h": a.actor.token_hash},
+            )
+
+    monkeypatch.setattr(routes, "audit", expire)
+    assert client.get(url + "/export." + kind).status_code == 401
+    with owner.connect() as c:
+        assert (
+            c.execute(
+                text(
+                    "SELECT count(*) FROM audit_events WHERE action='diligence.exported'"
+                )
+            ).scalar_one()
+            == 0
+        )
+
+
+def test_pdf_escaped_markup_and_rejected_glyph(client, workspace):
+    import io
+
+    from app.diligence.artifacts import artifact
+    from app.diligence.core import PreparationError
+    from pypdf import PdfReader
+
+    path, _, data = fixture(client, workspace)
+    _, url = create(client, path, prepare_body(data["id"]))
+    envelope = client.get(url + "/export.json").json()
+    envelope["snapshot"]["title"] = (
+        '<img src="http://example.invalid/private"/> & <b>Test</b>'
+    )
+    raw, _, _ = artifact(envelope, "pdf")
+    rendered = "".join(p.extract_text() for p in PdfReader(io.BytesIO(raw)).pages)
+    assert '<img src="http://example.invalid/private"/>' in rendered
+    envelope["snapshot"]["title"] = "\U00020000"
+    with pytest.raises(PreparationError, match="PDF_UNSUPPORTED_CHARACTER"):
+        artifact(envelope, "pdf")
+    envelope["snapshot"]["title"] = "x" * 80001
+    with pytest.raises(PreparationError, match="PDF_TEXT_BUDGET"):
+        artifact(envelope, "pdf")
+
+
+def test_csv_formula_neutralized(client, workspace):
+    import csv
+    import io
+
+    from app.diligence.artifacts import artifact
+
+    path, _, data = fixture(client, workspace)
+    _, url = create(client, path, prepare_body(data["id"]))
+    envelope = client.get(url + "/export.json").json()
+    envelope["snapshot"]["declaration"]["preparation"]["operator_name"] = (
+        '\t=HYPERLINK("https://example.invalid")'
+    )
+    raw, _, _ = artifact(envelope, "csv")
+    row = next(csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))))
+    assert row["operator"].startswith("'=HYPERLINK")

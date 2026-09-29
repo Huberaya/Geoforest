@@ -42,3 +42,7 @@ Migration 0007, résolution des faits sous RLS, révisions immuables, décisions
 Contrôles physiques des preuves, 80 Mio distincts/résolution, 20 lots/révision et 500 révisions/organisation. Géométries budgétées avant chargement. États validés historiques conservés mais non présentés comme validation courante après remplacement/retrait ou changement de contexte. Exports JSON internes avec décisions et géolocalisations, pas pièces binaires ni blocs raster embarqués.
 
 Voir [rapport backend](../rapports/07b-chantier-7-backend.md) : 802 tests backend, migration neuve/peuplée et restauration isolée. Interface, PDF, CSV HTTP, suivi manuel externe et recette navigateur restent à faire. Aucun GO8.
+
+## Troisième incrément
+
+Interface, export PDF/CSV HTTP, contrôle SHA-256 navigateur et guide assisté intégrés. Voir [rapport 07c](../rapports/07c-chantier-7-interface-exports.md) : 815 tests backend et 4 parcours navigateur réels sur sessions synthétiques. Chantier encore à finaliser ; recette positive OIDC et bornes PDF approfondies restent ouvertes. Suivi externe structuré non implémenté. Aucun GO8.

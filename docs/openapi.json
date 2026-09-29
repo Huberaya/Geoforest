@@ -1153,10 +1153,10 @@
         }
       }
     },
-    "/api/v1/organizations/{org}/diligence/{dossier}/revisions/{revision}/export.json": {
+    "/api/v1/organizations/{org}/diligence/{dossier}/revisions/{revision}/export.{kind}": {
       "get": {
-        "summary": "Export Json",
-        "operationId": "export_json_api_v1_organizations__org__diligence__dossier__revisions__revision__export_json_get",
+        "summary": "Export Dossier",
+        "operationId": "export_dossier_api_v1_organizations__org__diligence__dossier__revisions__revision__export__kind__get",
         "parameters": [
           {
             "name": "dossier",
@@ -1175,6 +1175,20 @@
             "schema": {
               "type": "integer",
               "title": "Revision"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "json",
+                "csv",
+                "pdf"
+              ],
+              "type": "string",
+              "title": "Kind"
             }
           },
           {

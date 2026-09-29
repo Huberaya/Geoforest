@@ -152,8 +152,10 @@ TMF utilise `tmf-parcel-grid-v1`, trois couches natives et des années entières
 
 ## Diligence — chantier 7 en cours (backend 0.8.0-dev)
 
-Schéma 0007 et `DILIGENCE_ENABLED=true` nécessaires. Flag désactivé par défaut ; interface/PDF pas encore livrés. Documentation des contrats dans `openapi.json`, synthèse dans [le rapport backend](rapports/07b-chantier-7-backend.md).
+Schéma 0007 et `DILIGENCE_ENABLED=true` nécessaires. Flag désactivé par défaut ; interface et PDF/CSV intégrés, recette finale encore en cours. Documentation des contrats dans `openapi.json`, synthèse dans [le rapport interface/exports](rapports/07c-chantier-7-interface-exports.md).
 
-Préfixe `O/diligence` : POST `/revisions`, GET liste paginée, GET `/{dossier}/revisions/{revision}`, POST `/{dossier}/revisions/{revision}/decisions`, GET `/{dossier}/revisions/{revision}/export.json`.
+Préfixe `O/diligence` : POST `/revisions`, GET liste paginée, GET `/{dossier}/revisions/{revision}`, POST `/{dossier}/revisions/{revision}/decisions`, GET `/{dossier}/revisions/{revision}/export.{kind}` (`json`, `csv`, `pdf`).
 
 Rôles internes uniquement. Création/revue idempotentes par `request_id`, conflits 409, snapshots immuables, état officiel toujours `NOT_SUBMITTED_BY_GEOFOREST`. Un export d’une validation ancienne indique explicitement si elle reste une validation interne courante ; aucune équivalence avec TRACES. Le JSON inclut géolocalisations, références des preuves et décisions, pas les pièces binaires ni les blocs raster détaillés.
+
+Exports : `X-Content-SHA256` contient le SHA-256 des octets servis ; le navigateur le vérifie. PDF synthèse 8 Mio/60 pages/80 000 caractères affichés, JSON et CSV 2 Mio. Un PDF simultané par base (429 si occupé). Échec borné PDF : 409 avec code explicite ; aucun audit d’export validé en cas d’échec. PDF/CSV ne remplacent pas le JSON structuré. Voir [guide](guide-diligence.md).
