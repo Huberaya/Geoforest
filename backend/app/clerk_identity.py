@@ -1,4 +1,4 @@
-"""Development-only Clerk identity verifier. Not yet mounted on HTTP routes.
+"""Development-only Clerk identity verifier, used by the opt-in short-session bridge.
 
 No DB writes, tenant provisioning, role mapping or persistent GeoForest session.
 An identity is valid only for the checked request; do not turn it into an
@@ -8,6 +8,7 @@ unbounded local session without revalidation of Clerk revocation.
 import re
 import time
 from dataclasses import dataclass, field
+from threading import BoundedSemaphore, Lock
 from urllib.parse import urlsplit
 
 import httpx
@@ -63,20 +64,33 @@ class ClerkDevelopmentVerifier:
     def __init__(self, config: ClerkDevelopmentConfig, client: httpx.Client):
         self.config = config
         self.client = client
+        self._slots = BoundedSemaphore(4)
+        self._cache_lock = Lock()
+        self._jwks = None
+        self._cache_until = 0.0
 
-    def _get(self, path, *, authenticated=False):
+    def _get(self, path, *, authenticated=False, deadline=None):
+        remaining = (deadline - time.monotonic()) if deadline is not None else 5
+        if remaining <= 0:
+            raise ValueError("Identity verification budget exhausted")
         base = "https://api.clerk.com/v1" if authenticated else self.config.issuer
         headers = {"Accept": "application/json", "User-Agent": "GeoForest-Clerk/0.8"}
         if authenticated:
             headers["Authorization"] = "Bearer " + self.config.secret_key
         with self.client.stream(
-            "GET", base + path, headers=headers, timeout=5, follow_redirects=False
+            "GET",
+            base + path,
+            headers=headers,
+            timeout=min(3, remaining),
+            follow_redirects=False,
         ) as response:
             if response.status_code != 200:
                 raise ValueError("Identity service unavailable")
             size = 0
             chunks = []
             for chunk in response.iter_bytes():
+                if deadline is not None and time.monotonic() > deadline:
+                    raise ValueError("Identity verification budget exhausted")
                 size += len(chunk)
                 if size > 131072:
                     raise ValueError("Identity response too large")
@@ -88,13 +102,37 @@ class ClerkDevelopmentVerifier:
                 raise ValueError("Invalid identity response")
             return data
 
+    def _keys(self, deadline):
+        if not self._cache_lock.acquire(timeout=0.5):
+            raise ValueError("Identity key cache busy")
+        try:
+            if self._jwks is None or time.monotonic() >= self._cache_until:
+                data = self._get("/.well-known/jwks.json", deadline=deadline)
+                if (
+                    not isinstance(data.get("keys"), list)
+                    or not 1 <= len(data["keys"]) <= 64
+                ):
+                    raise ValueError("Invalid identity keys")
+                self._jwks = data
+                self._cache_until = time.monotonic() + 60
+            return self._jwks
+        finally:
+            self._cache_lock.release()
+
     def verify(self, token: str) -> ClerkIdentity:
+        if not self._slots.acquire(blocking=False):
+            raise ClerkAuthenticationError("Clerk identity could not be verified")
+        try:
+            return self._verify(token)
+        finally:
+            self._slots.release()
+
+    def _verify(self, token: str) -> ClerkIdentity:
+        deadline = time.monotonic() + 10
         try:
             if not isinstance(token, str) or not 1 <= len(token) <= 16384:
                 raise ValueError("Invalid token")
-            claims = JsonWebToken(["RS256"]).decode(
-                token, self._get("/.well-known/jwks.json")
-            )
+            claims = JsonWebToken(["RS256"]).decode(token, self._keys(deadline))
             now = int(time.time())
             claims.validate(now=now, leeway=5)
             if (
@@ -122,14 +160,18 @@ class ClerkDevelopmentVerifier:
                 and claims["nbf"] <= claims["exp"]
             ):
                 raise ValueError("Token outside accepted lifetime")
-            session = self._get("/sessions/" + claims["sid"], authenticated=True)
+            session = self._get(
+                "/sessions/" + claims["sid"], authenticated=True, deadline=deadline
+            )
             if (
                 session.get("id") != claims["sid"]
                 or session.get("user_id") != claims["sub"]
                 or session.get("status") != "active"
             ):
                 raise ValueError("Session not active")
-            user = self._get("/users/" + claims["sub"], authenticated=True)
+            user = self._get(
+                "/users/" + claims["sub"], authenticated=True, deadline=deadline
+            )
             if (
                 user.get("id") != claims["sub"]
                 or user.get("banned")
@@ -159,7 +201,7 @@ class ClerkDevelopmentVerifier:
             )
             if len(name) > 200 or any(ord(c) < 32 for c in email + name):
                 raise ValueError("Invalid identity profile")
-            if claims["exp"] <= int(time.time()) - 5:
+            if time.monotonic() > deadline or claims["exp"] <= int(time.time()) - 5:
                 raise ValueError("Token expired during verification")
             return ClerkIdentity(
                 self.config.issuer,

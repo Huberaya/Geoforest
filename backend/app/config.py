@@ -1,7 +1,8 @@
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -17,7 +18,10 @@ class Settings(BaseSettings):
     oidc_issuer: str = "http://localhost:8080/realms/geoforest"
     oidc_backchannel_origin: str = ""
     oidc_client_id: str = "geoforest"
-    oidc_client_secret: str
+    oidc_client_secret: str = ""
+    auth_provider: Literal["oidc", "clerk_development"] = "oidc"
+    clerk_issuer: str = ""
+    clerk_secret_key: str = Field(default="", repr=False)
     session_secret: str
     session_hours: int = 8
     admin_acr: str = ""
@@ -39,6 +43,25 @@ class Settings(BaseSettings):
             raise ValueError("Invalid APP_ENV")
         if not 1 <= self.session_hours <= 24:
             raise ValueError("SESSION_HOURS must be 1..24")
+        if self.auth_provider == "clerk_development":
+            from app.clerk_identity import ClerkDevelopmentConfig
+
+            ClerkDevelopmentConfig(
+                self.clerk_issuer, self.public_origin, self.clerk_secret_key
+            )
+            db = make_url(self.database_url)
+            if (
+                self.app_env == "production"
+                or db.host not in {"127.0.0.1", "localhost"}
+                or not (db.database or "").endswith("_test")
+                or db.query
+                or self.admin_acr
+            ):
+                raise ValueError(
+                    "Clerk development requires a local _test database, no DB query overrides, no ADMIN_ACR and a non-production environment"
+                )
+        elif not self.oidc_client_secret:
+            raise ValueError("OIDC_CLIENT_SECRET required for OIDC")
         if self.app_env == "production":
 
             def https_url(value, *, origin=False):

@@ -31,7 +31,7 @@ def require_identity(request: Request):
     with transaction() as conn:
         row = (
             conn.execute(
-                text("""SELECT u.id,u.email,u.display_name,s.csrf_token,s.token_hash,s.acr,s.expires_at
+                text("""SELECT u.id,u.email,u.display_name,s.csrf_token,s.token_hash,s.acr,s.expires_at,u.issuer
           FROM sessions s JOIN users u ON u.id=s.user_id
           WHERE s.token_hash=:h AND s.revoked_at IS NULL"""),
                 {"h": token_hash(raw)},
@@ -41,6 +41,14 @@ def require_identity(request: Request):
         )
     if not row or row["expires_at"] <= datetime.now(timezone.utc):
         raise HTTPException(401, "Session expirée ou révoquée")
+    if settings().auth_provider == "clerk_development":
+        if (
+            row["issuer"] != settings().clerk_issuer
+            or row["acr"] != "clerk-development"
+        ):
+            raise HTTPException(401, "Fournisseur de session incompatible")
+    elif row["acr"] == "clerk-development":
+        raise HTTPException(401, "Fournisseur de session incompatible")
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         if request.headers.get("origin") != settings().public_origin:
             raise HTTPException(403, "Origine non autorisée")

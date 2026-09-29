@@ -2,6 +2,8 @@
 
 29 septembre 2026 — **module de vérification développé et testé, non activé dans l’application**.
 
+> Suite livrée : [raccordement local HTTP/frontend et recette automatisée](08d-clerk-raccordement-local.md). Le présent rapport décrit le premier incrément historique.
+
 ## Objectif et périmètre
 
 Commencer l’intégration de l’instance Clerk développement fournie, sans remplacer prématurément le parcours OIDC/Keycloak existant, modifier Clerk ou toucher à Neon Production. Les clés réelles restent privées hors dépôt. Aucun achat, changement de compte, création d’utilisateur ou appel réseau à Clerk n’a été effectué pendant ce bloc de développement.

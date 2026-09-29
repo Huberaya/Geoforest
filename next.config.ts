@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { authProvider } from "./src/auth-provider";
+const clerk = authProvider() === "clerk_development";
+const issuer = clerk ? process.env.CLERK_ISSUER! : "";
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -34,8 +37,18 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value:
               "default-src 'self'; script-src 'self' 'unsafe-inline'" +
+              (clerk
+                ? ` ${issuer} https://challenges.cloudflare.com https://*.protect.clerk.com`
+                : "") +
               (process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "") +
-              "; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+              "; style-src 'self' 'unsafe-inline'; img-src 'self' data:" +
+              (clerk ? " https://img.clerk.com" : "") +
+              "; connect-src 'self'" +
+              (clerk ? ` ${issuer} https://*.protect.clerk.com:*` : "") +
+              "; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" +
+              (clerk
+                ? "; worker-src 'self' blob:; frame-src 'self' https://challenges.cloudflare.com https://*.protect.clerk.com"
+                : ""),
           },
           ...(process.env.APP_ENV === "production"
             ? [

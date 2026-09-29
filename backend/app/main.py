@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from uuid import UUID
 
 from app.auth import router as auth_router
+from app.clerk_routes import router as clerk_router
 from app.config import settings
 from app.database import transaction
 from app.diligence.routes import router as diligence_router
@@ -68,6 +69,7 @@ app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=settings().allowed_hosts.split(",")
 )
 app.include_router(auth_router)
+app.include_router(clerk_router)
 app.include_router(documents_router)
 app.include_router(documents_portal)
 app.include_router(compliance_router)

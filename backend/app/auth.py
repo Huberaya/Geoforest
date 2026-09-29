@@ -5,7 +5,7 @@ from app.config import settings
 from app.database import transaction
 from app.security import require_identity, token_hash
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 
@@ -45,6 +45,8 @@ async def oidc_client():
 
 @router.get("/login")
 async def login(request: Request):
+    if settings().auth_provider == "clerk_development":
+        return RedirectResponse("/sign-in", status_code=303)
     request.session.clear()
     params = {"acr_values": settings().admin_acr} if settings().admin_acr else {}
     return await (await oidc_client()).authorize_redirect(
@@ -54,6 +56,8 @@ async def login(request: Request):
 
 @router.get("/callback")
 async def callback(request: Request):
+    if settings().auth_provider != "oidc":
+        raise HTTPException(404, "Parcours OIDC désactivé")
     try:
         token = await (await oidc_client()).authorize_access_token(request)
         claims = token.get("userinfo", {})

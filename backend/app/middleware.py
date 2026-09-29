@@ -57,6 +57,8 @@ class RequestBoundary:
             category = (
                 "login"
                 if scope["path"] in {"/api/auth/login", "/api/portal/exchange"}
+                else "clerk"
+                if scope["path"] == "/api/auth/clerk/exchange"
                 else "api"
             )
             window = datetime.now(timezone.utc).replace(second=0, microsecond=0)
@@ -84,7 +86,7 @@ class RequestBoundary:
                 hits = await run_in_threadpool(rate_check)
             except Exception:
                 return await reject(503, "Service temporairement indisponible")
-            if hits > (10 if category == "login" else 120):
+            if hits > {"login": 10, "clerk": 30, "api": 120}[category]:
                 return await reject(429, "Trop de requêtes : réessayez dans une minute")
             delivered = False
 

@@ -1,0 +1,12 @@
+{
+  "frontend_http_200": true,
+  "login_redirect_to_clerk": true,
+  "oidc_callback_disabled": true,
+  "anonymous_business_api_401": true,
+  "same_origin_logout_204": true,
+  "missing_proof_401": true,
+  "clerk_secret_absent_in_next_build": true,
+  "files_scanned": 1580,
+  "database_target": "local geoforest_clerk_test only",
+  "real_human_signin_verified": false
+}

@@ -1,0 +1,8 @@
+{
+  "checked_at": "2026-09-29T13:18:45.642980+00:00",
+  "real_httpx_transport_read_only": true,
+  "frontend_backend_jwks_match": true,
+  "user_profiles_read": false,
+  "remote_mutations": false,
+  "human_sign_in_verified": false
+}

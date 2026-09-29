@@ -2552,3 +2552,11 @@ progress::-moz-progress-bar {
     flex: 1 1 150px;
   }
 }
+
+/* Isolated authentication state, including third-party identity outages. */
+.auth-shell { min-height:100dvh; display:grid; place-items:center; padding:32px 16px; background:#f3f6f1; }
+.auth-card { width:min(100%, 500px); min-width:0; padding:clamp(20px,5vw,40px); background:white; border:1px solid #dce5dd; border-radius:20px; box-shadow:0 12px 40px #133b1b0a; }
+.auth-card h1 { font-size:clamp(24px,5vw,32px); margin:20px 0 12px; }
+.auth-card p { line-height:1.65; margin:16px 0; }
+.auth-card .button { margin:8px 8px 8px 0; }
+.auth-card .cl-rootBox,.auth-card .cl-cardBox { width:100%; max-width:100%; }

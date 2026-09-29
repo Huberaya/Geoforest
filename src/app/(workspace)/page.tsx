@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useAuthSession } from "@/components/auth/AuthSession";
 import { DiligenceWorkspace } from "@/components/diligence/DiligenceWorkspace";
 import { DocumentsWorkspace } from "@/components/documents/DocumentsWorkspace";
 import { ComplianceWorkspace } from "@/components/documents/ComplianceWorkspace";
@@ -122,6 +123,7 @@ function Icon({ name }: { name: string }) {
 }
 
 export default function Home() {
+  const authSession = useAuthSession();
   const [me, setMe] = useState<Me | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -193,7 +195,7 @@ export default function Home() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [authSession.generation]);
   useEffect(() => {
     if (!selected || !me) return;
     const c = new AbortController();
@@ -282,6 +284,10 @@ export default function Home() {
   }
   async function logout() {
     await run(async () => {
+      if (authSession.provider === "clerk_development") {
+        await authSession.logout();
+        return;
+      }
       const r = await fetch("/api/auth/logout", {
         method: "POST",
         headers: { "X-CSRF-Token": me?.csrf_token || "" },

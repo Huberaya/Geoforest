@@ -62,7 +62,7 @@ En cas d’incident : interrompre les écritures, analyser l’état committé, 
 
 ## Reste hors de cette opération
 
-- Intégration Clerk développement et tests des sessions/rôles avec ce fournisseur.
+- Recette humaine Clerk développement et qualification ultérieure de production. Le [raccordement local](clerk-developpement.md) est développé/testé mais interdit avec Neon Production.
 - Mise en service de l’application, activation des modules et provisionnement du coffre documentaire/antivirus.
 - Qualification de l’hébergement applicatif, MFA/TLS de production, egress/sandbox, supervision, sauvegardes récurrentes, RPO/RTO et contrat/résidence des données Neon.
 - Connecteur officiel EUDR et fonctionnalités différées des chantiers précédents.

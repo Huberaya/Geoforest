@@ -61,7 +61,9 @@ def harness():
         if request.url.path == "/.well-known/jwks.json":
             assert "authorization" not in request.headers
             assert request.url.host == "synthetic.clerk.accounts.dev"
-            return httpx.Response(200, json={"keys": [key.as_dict(is_private=False)]})
+            return httpx.Response(
+                200, json={"keys": state.get("keys", [key.as_dict(is_private=False)])}
+            )
         assert request.url.host == "api.clerk.com"
         assert request.headers["authorization"] == "Bearer " + SECRET
         assert request.method == "GET"
@@ -284,3 +286,54 @@ def test_invalid_or_oversized_jwks(harness, body):
         )
         with pytest.raises(ClerkAuthenticationError):
             verifier.verify(token())
+
+
+def test_keys_cached_but_session_and_profile_rechecked(harness):
+    state, verifier, token = harness
+    verifier.verify(token())
+    verifier.verify(token())
+    assert state["calls"].count("/.well-known/jwks.json") == 1
+    assert state["calls"].count("/v1/sessions/sess_synthetic") == 2
+    state["session"]["status"] = "revoked"
+    with pytest.raises(ClerkAuthenticationError):
+        verifier.verify(token())
+
+
+def test_key_rotation_after_bounded_cache_expiry(harness):
+    state, verifier, token = harness
+    verifier.verify(token())
+    new = JsonWebKey.generate_key(
+        "RSA", 2048, is_private=True, options={"kid": "rotated"}
+    )
+    state["keys"] = [new.as_dict(is_private=False)]
+    rotated = (
+        JsonWebToken(["RS256"])
+        .encode({"alg": "RS256", "kid": "rotated"}, state["claims"], new)
+        .decode()
+    )
+    with pytest.raises(ClerkAuthenticationError):
+        verifier.verify(rotated)
+    assert state["calls"].count("/.well-known/jwks.json") == 1
+    verifier._cache_until = 0
+    assert verifier.verify(rotated).subject == "user_synthetic"
+    assert state["calls"].count("/.well-known/jwks.json") == 2
+
+
+def test_concurrency_limit_before_network(harness):
+    state, verifier, token = harness
+    for _ in range(4):
+        assert verifier._slots.acquire(blocking=False)
+    try:
+        with pytest.raises(ClerkAuthenticationError):
+            verifier.verify(token())
+        assert state["calls"] == []
+    finally:
+        for _ in range(4):
+            verifier._slots.release()
+
+
+def test_oversized_profile_response(harness):
+    state, verifier, token = harness
+    state["user"]["metadata"] = "x" * 131073
+    with pytest.raises(ClerkAuthenticationError):
+        verifier.verify(token())
