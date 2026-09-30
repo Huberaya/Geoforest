@@ -1,0 +1,17 @@
+{
+  "observed_at_utc": "2026-09-30T06:38:27.853053+00:00",
+  "remote_methods": [
+    "GET"
+  ],
+  "mutations": false,
+  "clerk_configured_key_mode": "development",
+  "clerk_instance_api": {
+    "status": 403
+  },
+  "vercel_production": {
+    "deployment_id": "dpl_4hpypVn7UZ5ywE9BE3moMRJRCkRt",
+    "state": "READY",
+    "commit": "a924ba85839cfb4921d3b1983dbc10d3e3e9299c",
+    "plan_recorded_in_deployment": "hobby"
+  }
+}

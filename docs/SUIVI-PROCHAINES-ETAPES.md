@@ -1,6 +1,6 @@
 # Suivi des prochaines étapes
 
-Actualisé le 29 septembre 2026 après la reprise effective du chantier 4. Voir [audit et corrections 04b](rapports/04b-reprise-geospatial-production.md).
+Actualisé le 30 septembre 2026 après la recette intégrée du chantier 4. Voir [audit et corrections 04b](rapports/04b-reprise-geospatial-production.md).
 
 | Ordre | Travail | État et critère de sortie |
 |---|---|---|
@@ -25,3 +25,7 @@ Les rapports anciens restent des preuves datées : leurs mentions de publication
 ## Complément : accès Vercel reçu et utilisé
 
 L'[audit authentifié 04c](rapports/04c-audit-vercel-authentifie.md) confirme Production sur le chantier 2 et accueil/comptes restés en Preview. L'accès frontend fonctionne ; le blocage restant est le backend/identité et le choix entre accueil public limité ou application complète. Aucune promotion aveugle de la Preview ancienne ni modification Neon.
+
+## Exécution du 30 septembre — chantier 4 toujours prioritaire
+
+[Recette 04d](rapports/04d-recette-geospatiale-complete.md) : **516 tests PASS**, navigateur réel/API/SQL locaux, restauration distincte et vérification Neon read-only réussis. Les credentials runtime Neon ont été retrouvés : ne plus les présenter comme manquants ni redemander des captures Neon. Identité Clerk disponible = développement ; pas de configuration production qualifiée. Clôture publique toujours bloquée par identité/hébergement/déploiement, pas par un besoin de nouveau développement géospatial ou un nouveau lot documentaire. Aucun accueil limité publié.

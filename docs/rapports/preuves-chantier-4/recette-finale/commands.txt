@@ -1,0 +1,14 @@
+Executed 2026-09-30. Backend test environment: APP_ENV=test, AUTH_PROVIDER=oidc, VERCEL=0, both DATABASE_URL/MIGRATION_DATABASE_URL on 127.0.0.1, database geoforest_gis_final_test. Local synthetic credentials only.
+
+PYTHONPATH=backend .venv/bin/pytest backend/tests/test_geometry.py backend/tests/test_geospatial.py backend/tests/test_world_references.py backend/tests/test_country_checks_api.py backend/tests/test_plots_api.py backend/tests/test_geo_imports.py -q
+npm run test:unit
+.venv/bin/pytest --confcutdir=tests/geospatial_artifact tests/geospatial_artifact -q
+GIS_FINAL_SESSION_FILE=<private local synthetic session> npx playwright test --config tests/gis-integrated/playwright.config.ts
+npm run typecheck
+npm run lint
+.venv/bin/ruff check scripts/seed-gis-final-e2e.py tests/geospatial_artifact/test_seed_guards.py
+
+Build: AUTH_PROVIDER=oidc APP_ENV=test API_INTERNAL_URL=http://127.0.0.1:8000 KEYCLOAK_INTERNAL_URL=http://127.0.0.1:8080 VERCEL=0 NEXT_TELEMETRY_DISABLED=1 npm run build
+
+Neon: standalone read-only script, runtime role only, no pytest, no migrations, no business-table reads/writes. verify_ready_connection + screen_country with synthetic CI/FR/AQ points. Read-only options enforced on connection and transaction.
+Local restore: pg_dump -Fc geoforest_gis_final_test; pg_restore --exit-on-error into new geoforest_gis_restore_test. No overwrite. Table row JSON fingerprints compared before synthetic session revocation in both local DBs.

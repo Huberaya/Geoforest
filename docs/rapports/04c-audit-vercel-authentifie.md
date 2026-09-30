@@ -2,6 +2,8 @@
 
 29 septembre 2026. Nouvel accès temporaire fourni par le propriétaire ; **GET uniquement, aucune mutation cloud ni accès Neon**. Preuve filtrée : `preuves-chantier-4/vercel-authenticated/audit.json` (aucun secret, email ou configuration chiffrée enregistré).
 
+> **Rectification du 30 septembre 2026 :** le fichier privé runtime Neon préparé au lot 08b a été retrouvé et testé avec succès. L’absence d’accès Neon évoquée dans les échanges était un diagnostic incomplet, pas une absence de credentials. Voir [la recette 04d](04d-recette-geospatiale-complete.md). Les observations Vercel historiques ci-dessous restent exactes à leur date.
+
 ## Cause désormais vérifiée
 
 - Projet frontend `geoforest-eabr`, framework Next.js, racine du dépôt.

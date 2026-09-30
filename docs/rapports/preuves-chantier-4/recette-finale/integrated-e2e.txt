@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/gis-integrated/country-checks.spec.ts:3:5 › API/DB locales réelles : calcul, révision immuable et responsive (session fictive) (4.1s)
+
+  1 passed (6.5s)

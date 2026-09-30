@@ -1,0 +1,17 @@
+{
+  "backend-tests.txt": "d5fda62cee2b599ef1d99a61c0c31f16a58a7173ca32fec5b48dc8a464aae4f4",
+  "build.txt": "5caf9490787a33f4b239076e5e5a74f7baa7a317edb3a3a5d8e653e43161aed6",
+  "cloud-gates.json": "77e46c6cc9f8356ebd0dd94b98bb06384c246d728b8b0dddb6b4586e09cebf15",
+  "commands.txt": "ab0ec65d526ef8193124f055b740d2ea288eccd65c9869350e19362ad8ef8274",
+  "frontend-tests.txt": "6f405663bde2b2f4c37476af562ce00f53d83b1760b0d19dd7d6cca7994c4871",
+  "integrated-desktop.png": "47adf59501ed059e4dbf4406047fe993c54c18054f8f24f1546c6a089c6b2f2d",
+  "integrated-e2e.txt": "eec763cb32d1862eb563b04b66e2522347779125ee9f301772e3738576defa5e",
+  "integrated-mobile.png": "a38fb37da7707d4276a24331d0f737c2375ff34527fde8f5655e824d97a9b363",
+  "lint.txt": "f7a2eb4c028d7b5b3145ad45f58e64ad7604bf5e7a0ada6fb5fcff680648c898",
+  "migration-locale.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "neon-readonly.json": "4c9776ed52e88dfc0c3a89eb5f6b0ed58442f3ac4cb6e0194a314a5705c91882",
+  "offline-tests.txt": "feaa228f1a58c9829605064fc451e608332619577506f07b3a9a58939ad125d2",
+  "restore-local.json": "5f0d5fbd9a4ebc83f8e7008286e28661c83cdf3f14b5c35f742a181795ec9350",
+  "ruff.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+  "typecheck.txt": "4e03677bdb7332cabbe8bc82ffd47ecad29d30e1476a4884d0762a81b278494f"
+}

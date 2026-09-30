@@ -1,0 +1,32 @@
+{
+  "source": "geoforest_gis_final_test",
+  "restored": "geoforest_gis_restore_test",
+  "cloud_restore": false,
+  "promotion": false,
+  "synthetic_only": true,
+  "tables": {
+    "plots": {
+      "count": 1,
+      "sha256": "fc4ce9f33c6508381de2cbeefc0b5ed775584ac8d3aaada991691c8143aaae22",
+      "identical": true
+    },
+    "plot_geolocations": {
+      "count": 2,
+      "sha256": "4b4a14983b4e650793d07306813544fae55e33f7fb0759d39172ec2d52edca0d",
+      "identical": true
+    },
+    "country_checks": {
+      "count": 2,
+      "sha256": "baa3193ecd9fa9b074416795570bf5db5d3e0ff9d04a4f3f607a0ac453e24e56",
+      "identical": true
+    },
+    "audit_events": {
+      "count": 6,
+      "sha256": "b6fb53da10d48024cbdeb3f0abd3b7304666d1a580ecacc78e7e7eac40a69cab",
+      "identical": true
+    }
+  },
+  "status": "PASS",
+  "runtime_rls_and_append_only": "PASS",
+  "synthetic_sessions_revoked_in_both_local_databases": true
+}

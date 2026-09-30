@@ -1,0 +1,35 @@
+{
+  "observed_at_utc": "2026-09-30T06:31:57.973442+00:00",
+  "environment": "existing_neon_runtime",
+  "read_only": true,
+  "business_data_read": false,
+  "synthetic_geometry_only": true,
+  "production_api_qualified": false,
+  "readiness": {
+    "status": "ok",
+    "migration": "0007",
+    "postgis": true
+  },
+  "postgis_version": "3.6.4",
+  "checks": [
+    {
+      "country": "CI",
+      "status": "INSIDE_REFERENCE_INDICATIVE",
+      "country_verified": false,
+      "human_review_required": true
+    },
+    {
+      "country": "FR",
+      "status": "INSIDE_REFERENCE_INDICATIVE",
+      "country_verified": false,
+      "human_review_required": true
+    },
+    {
+      "country": "AQ",
+      "status": "NOT_COVERED",
+      "country_verified": false,
+      "human_review_required": true
+    }
+  ],
+  "status": "PASS"
+}
