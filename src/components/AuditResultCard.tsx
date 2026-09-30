@@ -15,9 +15,10 @@ const RISK_STYLES: Record<RiskLevel, string> = {
   LOW: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   STANDARD: "bg-amber-100 text-amber-800 ring-amber-200",
   HIGH: "bg-red-100 text-red-800 ring-red-200",
+  CRITICAL: "bg-rose-100 text-rose-800 ring-rose-200",
 };
 
-const RISK_LABELS: Record<RiskLevel, string> = { LOW: "Faible", STANDARD: "Standard", HIGH: "Élevé" };
+const RISK_LABELS: Record<RiskLevel, string> = { LOW: "Faible", STANDARD: "Standard", HIGH: "Élevé", CRITICAL: "Critique" };
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (

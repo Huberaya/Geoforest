@@ -1,6 +1,6 @@
 /** Contrats de données GeoForest Trace — miroir strict des schémas Pydantic du backend. */
 
-export type RiskLevel = "LOW" | "STANDARD" | "HIGH";
+export type RiskLevel = "LOW" | "STANDARD" | "HIGH" | "CRITICAL";
 export type AuditStatus = "COMPLIANT" | "NON_COMPLIANT" | "INVALID_GEOMETRY";
 export type GeometryRule = "POINT_ALLOWED" | "POLYGON_REQUIRED";
 
@@ -159,4 +159,51 @@ export interface TracesExportRequest {
   net_weight_kg?: number | null;
   internal_reference?: string | null;
   country_of_activity?: string;
+}
+
+// ---------------------------------------------------------------- Fournisseurs
+export interface Supplier {
+  id: string;
+  name: string;
+  eori: string | null;
+  country: string;
+  commodity: Commodity;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  completenessScore: number;
+  riskLevel: RiskLevel;
+  status: "ACTIVE" | "PENDING_INVITE" | "SUSPENDED";
+  plotsCount: number;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------- Produits
+export interface Product {
+  id: string;
+  name: string;
+  sku: string | null;
+  commodity: Commodity;
+  hsCode: string;
+  countryOfOrigin: string;
+  annualVolumeKg: number;
+  status: "ACTIVE" | "INACTIVE";
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------- Lots & Expéditions
+export interface Shipment {
+  id: string;
+  reference: string;
+  supplierId: string | null;
+  supplierName?: string;
+  productId: string | null;
+  productName?: string;
+  commodity?: Commodity;
+  netWeightKg: number;
+  harvestDate: string;
+  customsDeclarationRef: string | null;
+  status: "IN_PREPARATION" | "AUDITED" | "READY" | "SHIPPED";
+  plotsCount?: number;
+  createdAt: string;
 }
