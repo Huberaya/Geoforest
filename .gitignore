@@ -71,3 +71,8 @@ pnpm-debug.log*
 .vscode/
 *.swp
 *.swo
+.cache/
+.config/
+.npm/
+Geoforest/
+uploads/

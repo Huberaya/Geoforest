@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-RiskLevel = Literal["LOW", "STANDARD", "HIGH"]
-AuditStatus = Literal["COMPLIANT", "NON_COMPLIANT", "INVALID_GEOMETRY"]
+RiskLevel = Literal["LOW", "STANDARD", "HIGH", "CRITICAL"]
+AuditStatus = Literal["COMPLIANT", "NON_COMPLIANT", "INVALID_GEOMETRY", "WARNING"]
 
 
 class Commodity(str, Enum):
@@ -127,6 +127,7 @@ class SatelliteCheckResult(BaseModel):
     confidence_score: float = Field(..., ge=0, le=1)
     risk_level: RiskLevel
     country_code: str
+    country_name: str
     country_risk: RiskLevel
     source: str
     loss_area_ha: float = 0.0
@@ -148,12 +149,7 @@ class ParcelAuditResponse(BaseModel):
 
 
 class TracesExportRequest(BaseModel):
-    """Payload de POST /api/v1/export/traces.
-
-    Deux modes :
-      * `audit_id` : rejoue un audit persisté ;
-      * payload complet (`audit` + `operator`) : export sans persistance préalable.
-    """
+    """Payload de POST /api/v1/export/traces."""
 
     audit_id: Optional[str] = None
     operator: Optional[OperatorInfo] = None
@@ -184,3 +180,83 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     version: str
     gfw_mode: Literal["live", "deterministic-mock"]
+
+
+# --------------------------------------------------------------------------- Geospatial Analysis Extensions (Chantier 4)
+class HansenLayerResult(BaseModel):
+    source: str = "Hansen / UMD Tree Cover Loss (Global Forest Watch)"
+    resolution_m: int = 30
+    canopy_threshold_pct: int = 30
+    loss_year: Optional[int] = None
+    loss_area_ha: float = 0.0
+    loss_detected_post_2020: bool = False
+    tree_cover_2000_pct: float = 0.0
+
+
+class Sentinel2LayerResult(BaseModel):
+    source: str = "Copernicus Sentinel-2 MSI Optical"
+    resolution_m: int = 10
+    baseline_ndvi_2020: float = 0.0
+    current_ndvi: float = 0.0
+    delta_ndvi: float = 0.0
+    vegetation_loss_detected: bool = False
+    cloud_cover_pct: float = 0.0
+    observation_period: str = "2020-2026"
+
+
+class EsaWorldCoverLayerResult(BaseModel):
+    source: str = "ESA WorldCover 10m"
+    resolution_m: int = 10
+    tree_cover_pct: float = 0.0
+    cropland_pct: float = 0.0
+    shrubland_pct: float = 0.0
+    other_pct: float = 0.0
+    dominant_land_cover: str = "Tree cover"
+
+
+class BufferEncroachmentResult(BaseModel):
+    buffer_distance_m: int = 50
+    encroachment_detected: bool = False
+    buffer_loss_area_ha: float = 0.0
+    buffer_alerts_count: int = 0
+    buffer_risk_level: RiskLevel = "LOW"
+
+
+class GeospatialLayers(BaseModel):
+    hansen: HansenLayerResult
+    sentinel2: Sentinel2LayerResult
+    esa_worldcover: EsaWorldCoverLayerResult
+    buffer_encroachment: BufferEncroachmentResult
+
+
+class GeospatialAnalysisRequest(BaseModel):
+    geojson: Dict[str, Any]
+    commodity: Commodity
+    harvest_date: date = Field(default_factory=date.today)
+    buffer_meters: int = Field(default=50, ge=10, le=500)
+    canopy_threshold: int = Field(default=30, ge=10, le=75)
+    plot_name: Optional[str] = None
+
+
+class GeospatialAnalysisResponse(BaseModel):
+    analysis_id: str
+    created_at: str
+    plot_name: str
+    commodity: Commodity
+    status: AuditStatus
+    risk_level: RiskLevel
+    compliant: bool
+    confidence_score: float
+    eudr_cutoff_date: str = "2020-12-31"
+    area_ha: float
+    centroid: List[float]
+    country_code: str
+    country_name: str
+    country_risk: RiskLevel
+    layers: GeospatialLayers
+    summary: str
+    methodology: str
+    legal_disclaimer: str = (
+        "GeoForest Trace est un outil d'aide à la décision et de diligence raisonnée EUDR. "
+        "Les résultats d'analyses géospatiales constituent des indicateurs de risque et ne remplacent pas une vérification sur le terrain ni un certificat juridique d'exemption."
+    )

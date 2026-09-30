@@ -3,13 +3,113 @@
 import AuditHistory from "@/components/AuditHistory";
 import AuditResultCard from "@/components/AuditResultCard";
 import GeoUploader from "@/components/GeoUploader";
-import MapViewer, { type MapStatus } from "@/components/MapViewer";
+import MultiPlotMap from "@/components/MultiPlotMap";
 import { ApiError, auditParcel, getAudit, listAudits } from "@/lib/api";
-import type { AuditSummary, GeoJsonInput, ParcelAuditRequest, ParcelAuditResponse } from "@/lib/eudr/types";
+import type { AuditSummary, GeoJsonInput, ParcelAuditRequest, ParcelAuditResponse, Plot } from "@/lib/eudr/types";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+const DEMO_PLOTS: Plot[] = [
+  {
+    id: "plot-ci-001",
+    name: "PLT-008742 (Cacao Divo)",
+    reference: "PLT-008742",
+    supplierId: "sup-ci-001",
+    supplierName: "Coopérative Cacaoyère de Divo",
+    commodity: "cocoa",
+    countryCode: "CI",
+    geometryType: "Polygon",
+    areaHa: 14.8,
+    vertexCount: 5,
+    centroidLon: -5.359734,
+    centroidLat: 5.842734,
+    status: "COMPLIANT",
+    riskLevel: "LOW",
+    lossYear: null,
+    confidenceScore: 0.96,
+    lastAuditAt: "2026-09-28T14:32:00Z",
+    createdAt: "2026-09-10T10:00:00Z",
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [-5.361234, 5.841234],
+          [-5.358234, 5.841234],
+          [-5.358234, 5.844234],
+          [-5.361234, 5.844234],
+          [-5.361234, 5.841234],
+        ],
+      ],
+    },
+  },
+  {
+    id: "plot-br-002",
+    name: "Fazenda Santa Maria Lote 04",
+    reference: "PLT-BR-004",
+    supplierId: "sup-br-002",
+    supplierName: "AgroPecuária do Pará Ltda",
+    commodity: "soya",
+    countryCode: "BR",
+    geometryType: "Polygon",
+    areaHa: 142.3,
+    vertexCount: 6,
+    centroidLon: -52.123456,
+    centroidLat: -5.123456,
+    status: "NON_COMPLIANT",
+    riskLevel: "CRITICAL",
+    lossYear: 2022,
+    confidenceScore: 0.98,
+    lastAuditAt: "2026-09-27T09:15:00Z",
+    createdAt: "2026-09-15T08:00:00Z",
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [-52.128456, -5.128456],
+          [-52.118456, -5.128456],
+          [-52.118456, -5.118456],
+          [-52.128456, -5.118456],
+          [-52.128456, -5.128456],
+        ],
+      ],
+    },
+  },
+  {
+    id: "plot-id-003",
+    name: "Perkebunan Sawit Riau Block B",
+    reference: "PLT-ID-009",
+    supplierId: "sup-id-003",
+    supplierName: "PT Sumatra Agro Palm",
+    commodity: "palm_oil",
+    countryCode: "ID",
+    geometryType: "Polygon",
+    areaHa: 68.0,
+    vertexCount: 8,
+    centroidLon: 101.451234,
+    centroidLat: 0.541234,
+    status: "WARNING",
+    riskLevel: "STANDARD",
+    lossYear: null,
+    confidenceScore: 0.91,
+    lastAuditAt: "2026-09-26T16:45:00Z",
+    createdAt: "2026-09-18T11:00:00Z",
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [101.445234, 0.535234],
+          [101.457234, 0.535234],
+          [101.457234, 0.547234],
+          [101.445234, 0.547234],
+          [101.445234, 0.535234],
+        ],
+      ],
+    },
+  },
+];
+
 export default function DashboardPage() {
+  const [selectedCommodity, setSelectedCommodity] = useState<string>("ALL");
   const [pendingGeometry, setPendingGeometry] = useState<GeoJsonInput | null>(null);
   const [result, setResult] = useState<ParcelAuditResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,150 +167,259 @@ export default function DashboardPage() {
     }
   };
 
-  const mapGeometry = result ? (result.validation.normalized_geometry ?? pendingGeometry) : pendingGeometry;
-  const mapStatus: MapStatus = result ? result.status : "PENDING";
+  const filteredPlots = DEMO_PLOTS.filter((p) => {
+    if (selectedCommodity !== "ALL" && p.commodity !== selectedCommodity) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Welcome & Global Compliance Header */}
-      <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-6 text-white shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* 5.1 Header Mockup: "Bonjour Marie, Voici l'état actuel de votre conformité EUDR." */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight sm:text-2xl">Bonjour Marie,</h1>
+          <p className="text-xs text-slate-500">Voici l'état actuel de votre conformité EUDR.</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href="/due-diligence"
+            className="rounded-xl bg-[#0D5B41] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#0a4833] transition"
+          >
+            + Nouveau Dossier DDR
+          </Link>
+        </div>
+      </div>
+
+      {/* 6 Macro KPI Cards (Mirroring exact values from Mockup 5.1) */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+            <span>👥</span>
+            <span>Fournisseurs</span>
+          </div>
+          <div className="text-2xl font-extrabold text-slate-900">248</div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+            <span>📦</span>
+            <span>Produits</span>
+          </div>
+          <div className="text-2xl font-extrabold text-slate-900">1 426</div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+            <span>🗺️</span>
+            <span>Parcelles</span>
+          </div>
+          <div className="text-2xl font-extrabold text-slate-900">8 742</div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+            <span>📋</span>
+            <span>Dossiers en cours</span>
+          </div>
+          <div className="text-2xl font-extrabold text-slate-900">186</div>
+        </div>
+
+        <div className="rounded-2xl border border-rose-100 bg-rose-50/40 p-4 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-700">
+            <span>⚠️</span>
+            <span>À risque</span>
+          </div>
+          <div className="text-2xl font-extrabold text-rose-600">23</div>
+        </div>
+
+        <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4 shadow-2xs space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
+            <span>⏳</span>
+            <span>Données manquantes</span>
+          </div>
+          <div className="text-2xl font-extrabold text-amber-600">47</div>
+        </div>
+      </div>
+
+      {/* 5.1 Central Interactive Section (Gauge + Map + Actions) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        {/* Left Sub-Card: État de votre diligence raisonnée (Gauge 82%) */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-3 flex flex-col justify-between space-y-4">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              Règlement (UE) 2023/1115 · Diligence Raisonnée Active
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4">
+              État de votre diligence raisonnée
+            </h2>
+
+            {/* Circular Gauge 82% */}
+            <div className="flex flex-col items-center justify-center my-2">
+              <div className="relative flex items-center justify-center w-28 h-28">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="#F1F5F9" strokeWidth="9" fill="transparent" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke="#0D5B41"
+                    strokeWidth="9"
+                    strokeDasharray="251.2"
+                    strokeDashoffset="45.2"
+                    strokeLinecap="round"
+                    fill="transparent"
+                  />
+                </svg>
+                <div className="absolute text-center">
+                  <span className="text-2xl font-black text-slate-900">82%</span>
+                </div>
+              </div>
             </div>
-            <h1 className="mt-2 text-xl font-bold tracking-tight sm:text-2xl">
-              Cockpit de Conformité EUDR — GeoForest Agrobusiness SAS
-            </h1>
-            <p className="mt-1 text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Supervision consolidée des approvisionnements, analyse satellite de déforestation post-31/12/2020 et préparation des dossiers de déclaration TRACES-NT.
-            </p>
+
+            {/* Breakdown List */}
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-slate-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="font-semibold text-slate-900">1 368</span>
+                <span className="text-slate-500">parcelles analysées</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-700">
+                <span className="h-2 w-2 rounded-full bg-amber-400" />
+                <span className="font-semibold text-slate-900">43</span>
+                <span className="text-slate-500">à vérifier</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-700">
+                <span className="h-2 w-2 rounded-full bg-amber-600" />
+                <span className="font-semibold text-slate-900">17</span>
+                <span className="text-slate-500">avec données manquantes</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-700">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                <span className="font-semibold text-slate-900">6</span>
+                <span className="text-slate-500">nécessitant action immédiate</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/due-diligence"
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 transition-all"
-            >
-              + Nouveau Dossier DDR
-            </Link>
-            <Link
-              href="/supplier-portal"
-              className="rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20 transition-all border border-white/10"
-            >
-              📱 Portail Fournisseur
-            </Link>
+          <Link
+            href="/due-diligence"
+            className="w-full text-center rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            Consulter les dossiers DDR →
+          </Link>
+        </div>
+
+        {/* Center Sub-Card: Interactive MultiPlot Map with Pills & Floating Popup */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-xs lg:col-span-6 flex flex-col min-h-[460px]">
+          {/* Commodity Filter Pills */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 px-2">
+            <span className="text-xs font-bold text-slate-800">Parcelles</span>
+            <div className="flex flex-wrap gap-1 text-[11px]">
+              {[
+                { id: "ALL", label: "Tout" },
+                { id: "cocoa", label: "Cacao" },
+                { id: "coffee", label: "Café" },
+                { id: "soya", label: "Soja" },
+                { id: "cattle", label: "Bovin" },
+                { id: "palm_oil", label: "Huile de palme" },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setSelectedCommodity(pill.id)}
+                  className={`rounded-lg px-2.5 py-1 font-semibold transition ${
+                    selectedCommodity === pill.id
+                      ? "bg-[#0D5B41] text-white"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Satellite Map with Live Color-Coded Polygons */}
+          <div className="relative flex-1 rounded-xl overflow-hidden mt-2 min-h-[380px]">
+            <MultiPlotMap plots={filteredPlots} onSelectPlot={(p) => console.log(p.id)} />
+
+            {/* Floating Highlight Box for PLT-008742 (matching Mockup 5.1 popup) */}
+            <div className="absolute bottom-4 left-4 z-[1000] rounded-xl bg-white/95 p-3.5 shadow-lg border border-slate-200 backdrop-blur-xs text-xs space-y-1.5 max-w-[220px]">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-slate-900">PLT-008742</span>
+                <span className="rounded bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800">À vérifier</span>
+              </div>
+              <div className="text-[11px] text-slate-500">Côte d'Ivoire • Cacao</div>
+              <div className="text-[11px] text-slate-700">
+                Surface : <strong>14,8 ha</strong>
+              </div>
+              <div className="text-[10px] text-emerald-700 font-semibold">✓ Analyse terminée post-2020</div>
+              <Link
+                href="/plots/plot-ci-001"
+                className="mt-1 block text-center rounded-lg bg-[#0D5B41] py-1 text-[11px] font-bold text-white shadow-2xs hover:bg-[#0a4833]"
+              >
+                Voir la parcelle
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Global Compliance Bar */}
-        <div className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 sm:grid-cols-4">
-          <div>
-            <div className="text-[11px] font-medium text-slate-300">Indice de conformité global</div>
-            <div className="text-xl font-extrabold text-emerald-400">91.4 %</div>
-            <div className="text-[10px] text-slate-400">38 / 42 parcelles conformes</div>
+        {/* Right Sub-Card: Actions rapides (Mirroring Mockup 5.1) */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-3 flex flex-col justify-between space-y-4">
+          <div className="space-y-4">
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Actions rapides</h2>
+
+            <div className="space-y-2.5">
+              <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
+                  <span className="font-bold text-xs text-rose-950">4 actions critiques</span>
+                </div>
+                <p className="text-[11px] text-rose-800">Perte forestière détectée en attente de blocage.</p>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="font-bold text-xs text-amber-950">17 actions à effectuer</span>
+                </div>
+                <p className="text-[11px] text-amber-800">Titres de propriété et permis à renouveler.</p>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="font-bold text-xs text-emerald-950">42 dossiers terminés</span>
+                </div>
+                <p className="text-[11px] text-emerald-800">Prêts pour déclaration douanière TRACES-NT.</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-[11px] font-medium text-slate-300">Surface totale tracée</div>
-            <div className="text-xl font-extrabold text-white">1 248.5 ha</div>
-            <div className="text-[10px] text-slate-400">Polygones géodésiques WGS84</div>
-          </div>
-          <div>
-            <div className="text-[11px] font-medium text-slate-300">Fournisseurs engagés</div>
-            <div className="text-xl font-extrabold text-white">14</div>
-            <div className="text-[10px] text-slate-400">Côte d'Ivoire, Indonésie, Brésil...</div>
-          </div>
-          <div>
-            <div className="text-[11px] font-medium text-slate-300">Dossiers prêts TRACES</div>
-            <div className="text-xl font-extrabold text-emerald-300">5 / 8</div>
-            <div className="text-[10px] text-slate-400">XML/JSON générés conformes</div>
-          </div>
+
+          <Link
+            href="/alerts"
+            className="w-full text-center rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800"
+          >
+            Voir toutes les actions
+          </Link>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-            <span>Fournisseurs actifs</span>
-            <span className="text-lg">👥</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">14</div>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            <span>2 fournisseurs avec données incomplètes</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-            <span>Parcelles auditées</span>
-            <span className="text-lg">🗺️</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">42</div>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-rose-700 font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-            <span>4 alertes déforestation identifiées</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-            <span>Dossiers DDR</span>
-            <span className="text-lg">📋</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">8</div>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span>5 prêts pour transmission DDS</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-            <span>Alertes & Légalité</span>
-            <span className="text-lg">⚠️</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">3</div>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-rose-700 font-semibold">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-            <span>3 actions requises aujourd'hui</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Interactive Studio (Map + Uploader + Audit Result) */}
+      {/* Bottom Section: Instant Audit Studio & Audit Table */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-4 shadow-xs">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-5 shadow-xs">
           <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-sm font-bold text-slate-900">1. Audit instantané de parcelle</h2>
-            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">GIS & GFW</span>
+            <h2 className="text-sm font-bold text-slate-900">Audit instantané de parcelle GeoJSON/KML</h2>
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">EPSG:4326</span>
           </div>
           <GeoUploader onGeometryLoaded={handleGeometryLoaded} onSubmit={handleSubmit} loading={loading} />
         </section>
 
-        <section className="min-h-[520px] xl:col-span-5 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs flex flex-col">
-          <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100">
-            <h3 className="text-xs font-semibold text-slate-800">2. Imagerie Satellite & Polygone WGS84</h3>
-            <span className="text-[10px] text-slate-500">Hansen / GFW · Esri World Imagery</span>
-          </div>
-          <div className="flex-1 min-h-[460px] rounded-xl overflow-hidden mt-2">
-            <MapViewer geometry={mapGeometry} status={mapStatus} areaHa={result?.validation.area_ha ?? null} lossYear={result?.satellite?.loss_year ?? null} />
-          </div>
-        </section>
-
-        <section className="min-h-[520px] xl:col-span-3">
+        <section className="min-h-[460px] xl:col-span-7">
           <AuditResultCard result={result} error={error} loading={loading} onExported={() => void refreshHistory()} />
         </section>
       </div>
 
-      {/* Audit History */}
+      {/* Audit History Log */}
       <AuditHistory audits={history} loading={historyLoading} selectedId={result?.audit_id ?? null} onSelect={(a) => void handleSelectHistory(a)} />
-
-      <footer className="pt-2 pb-6 text-center text-[11px] text-slate-400">
-        GeoForest Trace V1 · Moteur de conformité au Règlement (UE) 2023/1115 (EUDR) · Référentiel WGS84 (EPSG:4326) · Format TRACES-NT
-      </footer>
     </div>
   );
 }

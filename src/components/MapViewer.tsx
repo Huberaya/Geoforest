@@ -18,6 +18,7 @@ const COLORS: Record<MapStatus, { stroke: string; fill: string; label: string }>
   COMPLIANT: { stroke: "#16a34a", fill: "#22c55e", label: "Conforme EUDR" },
   NON_COMPLIANT: { stroke: "#dc2626", fill: "#ef4444", label: "Déforestation post-2020" },
   INVALID_GEOMETRY: { stroke: "#d97706", fill: "#f59e0b", label: "Géométrie invalide" },
+  WARNING: { stroke: "#d97706", fill: "#f59e0b", label: "Vigilance Buffer / Dégradation" },
   PENDING: { stroke: "#0f766e", fill: "#14b8a6", label: "En attente d'audit" },
 };
 

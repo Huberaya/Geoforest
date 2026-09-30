@@ -12,6 +12,8 @@ from app.core.database import Database, get_db
 from app.models.schemas import (
     COMMODITY_HS_CODES,
     AuditSummary,
+    GeospatialAnalysisRequest,
+    GeospatialAnalysisResponse,
     HealthResponse,
     OperatorInfo,
     ParcelAuditRequest,
@@ -20,7 +22,7 @@ from app.models.schemas import (
 )
 from app.models.sql_models import ParcelAuditRecord
 from app.services.gis_validator import validate_geometry
-from app.services.satellite_checker import check_deforestation_risk
+from app.services.satellite_checker import check_deforestation_risk, perform_full_geospatial_analysis
 from app.services.traces_exporter import build_reference, export_traces_json, export_traces_xml
 
 router = APIRouter()
@@ -70,7 +72,6 @@ def audit_parcel(payload: ParcelAuditRequest, db: Database = Depends(get_db)) ->
 
     satellite: Dict[str, Any] | None = None
     if validation["valid"]:
-        # On passe le GeoJSON d'origine pour préserver d'éventuelles propriétés de démonstration.
         satellite = check_deforestation_risk(payload.geojson, payload.harvest_date.isoformat())
         status_value = "COMPLIANT" if satellite["compliant"] else "NON_COMPLIANT"
     else:
@@ -145,6 +146,68 @@ def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     if record is None:
         raise HTTPException(status_code=404, detail="Audit introuvable")
     return record.__dict__
+
+
+# --------------------------------------------------------------------------- Geospatial Analysis (Chantier 4)
+@router.post(
+    "/geospatial/analyze",
+    response_model=GeospatialAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["geospatial"],
+    summary="Analyse multi-sources avancée (Hansen, Sentinel-2, ESA WorldCover, Buffer)",
+)
+def geospatial_analyze(payload: GeospatialAnalysisRequest) -> GeospatialAnalysisResponse:
+    res = perform_full_geospatial_analysis(
+        geometry=payload.geojson,
+        commodity_val=payload.commodity.value,
+        harvest_date_str=payload.harvest_date.isoformat(),
+        buffer_meters=payload.buffer_meters,
+        canopy_threshold=payload.canopy_threshold,
+        plot_name=payload.plot_name,
+    )
+    return GeospatialAnalysisResponse(**res)
+
+
+@router.get("/geospatial/sources", tags=["geospatial"], summary="Catalogue des connecteurs satellites supportés")
+def geospatial_sources() -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": "hansen_umd_gfw",
+            "name": "Hansen / UMD Tree Cover Loss",
+            "provider": "Global Forest Watch & University of Maryland",
+            "resolution": "30m",
+            "cadence": "Annuel (2001 - 2024)",
+            "status": "OPERATIONAL",
+            "description": "Perte de couvert arboré avec seuil de canopée paramétrique (>10% à >75%). Base de référence historique EUDR.",
+        },
+        {
+            "id": "sentinel_2_msi",
+            "name": "Copernicus Sentinel-2 MSI",
+            "provider": "European Space Agency (ESA) & Union Européenne",
+            "resolution": "10m",
+            "cadence": "Tous les 5 jours",
+            "status": "OPERATIONAL",
+            "description": "Imagerie optique multispectrale. Calcul automatisé du différentiel NDVI et NBR entre 2020 et aujourd'hui.",
+        },
+        {
+            "id": "esa_worldcover",
+            "name": "ESA WorldCover",
+            "provider": "European Space Agency",
+            "resolution": "10m",
+            "cadence": "Annuel (2020, 2021)",
+            "status": "OPERATIONAL",
+            "description": "Cartographie globale de l'occupation des sols en 11 classes (arbres, cultures, bâti, eau, etc.).",
+        },
+        {
+            "id": "jrc_forest_cover",
+            "name": "JRC Global Forest Cover & Degradation",
+            "provider": "Joint Research Centre (JRC) Commission Européenne",
+            "resolution": "10m / 30m",
+            "cadence": "Annuel",
+            "status": "OPERATIONAL",
+            "description": "Données de référence de la Commission européenne pour l'identification des forêts primaires et dégradées.",
+        },
+    ]
 
 
 @router.post(

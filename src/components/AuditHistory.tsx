@@ -13,12 +13,14 @@ const STATUS_BADGE: Record<AuditSummary["status"], string> = {
   COMPLIANT: "bg-emerald-100 text-emerald-800",
   NON_COMPLIANT: "bg-red-100 text-red-800",
   INVALID_GEOMETRY: "bg-amber-100 text-amber-800",
+  WARNING: "bg-amber-100 text-amber-800",
 };
 
 const STATUS_LABEL: Record<AuditSummary["status"], string> = {
   COMPLIANT: "Conforme",
   NON_COMPLIANT: "Non conforme",
   INVALID_GEOMETRY: "Invalide",
+  WARNING: "Vigilance",
 };
 
 export default function AuditHistory({ audits, loading, selectedId, onSelect }: AuditHistoryProps) {
