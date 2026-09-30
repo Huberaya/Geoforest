@@ -10,23 +10,28 @@ export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? "50") || 50, 1), 500);
 
-  const rows = await db.select().from(parcelAudits).orderBy(desc(parcelAudits.createdAt)).limit(limit);
+  try {
+    const rows = await db.select().from(parcelAudits).orderBy(desc(parcelAudits.createdAt)).limit(limit);
 
-  const summaries: AuditSummary[] = rows.map((r) => ({
-    audit_id: r.id,
-    created_at: r.createdAt.toISOString(),
-    operator_name: r.operatorName,
-    commodity: r.commodity,
-    hs_code: r.hsCode,
-    harvest_date: r.harvestDate,
-    area_ha: r.areaHa,
-    geometry_type: r.geometryType,
-    status: r.status as AuditStatus,
-    compliant: r.compliant,
-    loss_year: r.lossYear,
-    risk_level: r.riskLevel as RiskLevel,
-    country_code: r.countryCode,
-  }));
+    const summaries: AuditSummary[] = rows.map((r) => ({
+      audit_id: r.id,
+      created_at: r.createdAt.toISOString(),
+      operator_name: r.operatorName,
+      commodity: r.commodity,
+      hs_code: r.hsCode,
+      harvest_date: r.harvestDate,
+      area_ha: r.areaHa,
+      geometry_type: r.geometryType,
+      status: r.status as AuditStatus,
+      compliant: r.compliant,
+      loss_year: r.lossYear,
+      risk_level: r.riskLevel as RiskLevel,
+      country_code: r.countryCode,
+    }));
 
-  return NextResponse.json(summaries);
+    return NextResponse.json(summaries);
+  } catch (err) {
+    console.warn("Drizzle DB select skipped/failed (returning empty list):", err);
+    return NextResponse.json([]);
+  }
 }

@@ -64,13 +64,15 @@ class Settings:
 
     # --- Persistance ---
     database_path: Path = field(
-        default_factory=lambda: Path(os.getenv("DATABASE_PATH", "data/geoforest.db"))
+        default_factory=lambda: Path(
+            os.getenv("DATABASE_PATH", "/tmp/geoforest.db" if os.getenv("VERCEL") else "data/geoforest.db")
+        )
     )
 
     # --- CORS ---
     cors_origins: List[str] = field(
         default_factory=lambda: _env_list(
-            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000"]
+            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000", "*"]
         )
     )
 

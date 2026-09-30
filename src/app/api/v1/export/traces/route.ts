@@ -23,7 +23,13 @@ export async function POST(request: Request): Promise<Response> {
   if (!auditId) return NextResponse.json({ detail: "audit_id requis" }, { status: 422 });
   if (!UUID_PATTERN.test(auditId)) return NextResponse.json({ detail: "Audit introuvable" }, { status: 404 });
 
-  const [row] = await db.select().from(parcelAudits).where(eq(parcelAudits.id, auditId)).limit(1);
+  let row: typeof parcelAudits.$inferSelect | undefined;
+  try {
+    const [found] = await db.select().from(parcelAudits).where(eq(parcelAudits.id, auditId)).limit(1);
+    row = found;
+  } catch (err) {
+    console.warn("Drizzle DB lookup error in traces export:", err);
+  }
   if (!row) return NextResponse.json({ detail: "Audit introuvable" }, { status: 404 });
   if (row.status === "INVALID_GEOMETRY") {
     return NextResponse.json(

@@ -12,32 +12,37 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   if (!UUID_PATTERN.test(id)) return NextResponse.json({ detail: "Audit introuvable" }, { status: 404 });
 
-  const [row] = await db.select().from(parcelAudits).where(eq(parcelAudits.id, id)).limit(1);
-  if (!row) return NextResponse.json({ detail: "Audit introuvable" }, { status: 404 });
+  try {
+    const [row] = await db.select().from(parcelAudits).where(eq(parcelAudits.id, id)).limit(1);
+    if (!row) return NextResponse.json({ detail: "Audit introuvable" }, { status: 404 });
 
-  const validation = row.validation as GeometryValidationResult;
-  const satellite = (row.satellite ?? null) as SatelliteCheckResult | null;
-  const status = row.status as AuditStatus;
-  const summary =
-    status === "INVALID_GEOMETRY"
-      ? `Dossier rejeté : ${validation.errors?.[0]?.message ?? "géométrie invalide"}`
-      : status === "NON_COMPLIANT"
-        ? `NON CONFORME EUDR : déforestation détectée en ${row.lossYear} (après le 31/12/2020) sur une parcelle de ${row.areaHa.toFixed(2)} ha.`
-        : `CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${row.areaHa.toFixed(2)} ha, risque ${row.riskLevel}, confiance ${Math.round(row.confidenceScore * 100)} %).`;
+    const validation = row.validation as GeometryValidationResult;
+    const satellite = (row.satellite ?? null) as SatelliteCheckResult | null;
+    const status = row.status as AuditStatus;
+    const summary =
+      status === "INVALID_GEOMETRY"
+        ? `Dossier rejeté : ${validation.errors?.[0]?.message ?? "géométrie invalide"}`
+        : status === "NON_COMPLIANT"
+          ? `NON CONFORME EUDR : déforestation détectée en ${row.lossYear} (après le 31/12/2020) sur une parcelle de ${row.areaHa.toFixed(2)} ha.`
+          : `CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${row.areaHa.toFixed(2)} ha, risque ${row.riskLevel}, confiance ${Math.round(row.confidenceScore * 100)} %).`;
 
-  const response: ParcelAuditResponse & { traces_reference: string | null; exported_at: string | null } = {
-    audit_id: row.id,
-    created_at: row.createdAt.toISOString(),
-    status,
-    commodity: row.commodity as Commodity,
-    hs_code: row.hsCode,
-    harvest_date: row.harvestDate,
-    validation,
-    satellite,
-    eudr_cutoff_date: EUDR_CUTOFF_DATE,
-    summary,
-    traces_reference: row.tracesReference,
-    exported_at: row.exportedAt ? row.exportedAt.toISOString() : null,
-  };
-  return NextResponse.json(response);
+    const response: ParcelAuditResponse & { traces_reference: string | null; exported_at: string | null } = {
+      audit_id: row.id,
+      created_at: row.createdAt.toISOString(),
+      status,
+      commodity: row.commodity as Commodity,
+      hs_code: row.hsCode,
+      harvest_date: row.harvestDate,
+      validation,
+      satellite,
+      eudr_cutoff_date: EUDR_CUTOFF_DATE,
+      summary,
+      traces_reference: row.tracesReference,
+      exported_at: row.exportedAt ? row.exportedAt.toISOString() : null,
+    };
+    return NextResponse.json(response);
+  } catch (err) {
+    console.warn("Drizzle DB lookup failed:", err);
+    return NextResponse.json({ detail: "Audit introuvable ou base de données non connectée" }, { status: 404 });
+  }
 }

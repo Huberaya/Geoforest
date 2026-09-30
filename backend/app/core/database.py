@@ -24,8 +24,15 @@ class Database:
         self._path = path
         self._lock = threading.Lock()
         if str(path) != ":memory:":
-            path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(path), check_same_thread=False)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                self._path = Path(f"/tmp/{path.name}")
+        try:
+            self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
+        except OSError:
+            self._path = Path(f"/tmp/{path.name}")
+            self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._init_schema()
 
