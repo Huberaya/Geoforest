@@ -23,9 +23,18 @@ import { adresseClient, verifierCadence } from "@/lib/rate-limit";
  * Contrôle d'accès **deny-by-default**.
  *
  * Tout ce qui n'est pas explicitement public exige un jeton d'accès valide.
- * Le middleware ne vérifie que la signature (compatible Edge Runtime, sans
- * base de données) ; la validation complète — statut du compte, verrouillage,
- * révocation, permissions — est faite dans les routes via `guard()`.
+ * Le **proxy** ne vérifie que la signature du jeton, sans base de données ; la
+ * validation complète — statut du compte, verrouillage, révocation,
+ * permissions — est faite dans les routes via `guard()`.
+ *
+ * ⚠️ Pourquoi ce fichier s'appelle `proxy.ts` et non `middleware.ts`.
+ *   Next 16 remplace la convention `middleware.ts` (moteur Edge) par `proxy.ts`
+ *   (runtime **Node.js**). Ici le renommage n'a rien de cosmétique : un fichier
+ *   `middleware.ts` produit une sortie « Edge Function », et l'hébergeur refuse
+ *   les fonctions Edge dans un projet multi-services. Trois déploiements
+ *   consécutifs ont échoué sur `EDGE_RUNTIME_UNSUPPORTED_IN_SERVICES` alors que
+ *   la compilation, elle, réussissait — l'erreur ne survient qu'à la mise en
+ *   production des artefacts.
  */
 
 /** Chemins accessibles sans session. */
@@ -60,7 +69,7 @@ function isPublic(pathname: string): boolean {
  *   lesquelles sont lentes, lesquelles échouent, et pour quelle organisation.
  *   Publiée, elle offrirait cette carte au premier venu. Elles ne sont donc
  *   ouvertes qu'au porteur d'un jeton explicite — et le contrôle est refait
- *   dans la route elle-même (`routeSupervision`) : le middleware est la
+ *   dans la route elle-même (`routeSupervision`) : le proxy est la
  *   première porte, pas la seule.
  */
 const CHEMINS_SUPERVISION = new Set<string>(["/api/metrics", "/api/observability/alertes"]);
@@ -72,10 +81,15 @@ async function hasher(valeur: string): Promise<Uint8Array> {
 /**
  * Compare deux secrets sans fuite par le temps.
  *
- * ⚠️ Le middleware s'exécute dans le moteur Edge : `node:crypto` n'y est pas
- *   disponible. On passe par Web Crypto, et la comparaison porte sur des
- *   **condensats de longueur fixe** — comparer les secrets eux-mêmes
- *   laisserait inférer leur longueur du temps de réponse.
+ * ⚠️ La comparaison porte sur des **condensats de longueur fixe**, jamais sur
+ *   les secrets eux-mêmes : les comparer directement laisserait inférer leur
+ *   longueur du temps de réponse.
+ *
+ *   Web Crypto est employé plutôt que `node:crypto` parce qu'il existe dans
+ *   les deux moteurs : ce fichier a été écrit pour le moteur Edge et tourne
+ *   désormais sous Node.js, où `crypto.subtle` est également disponible. Ce
+ *   code est donc indifférent au moteur d'exécution — c'est une raison de ne
+ *   pas y toucher sans nécessité.
  */
 async function jetonSupervisionValide(request: NextRequest): Promise<boolean> {
   const attendu = process.env.GF_METRICS_TOKEN?.trim();
@@ -227,14 +241,14 @@ const CHEMINS_SECRETS = new Set([
 ]);
 
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname, search } = request.nextUrl;
 
   if (isStatic(pathname)) return NextResponse.next();
 
   // ---------------------------------------------------------------- P1-06
   // L'identifiant est attribué une fois pour toutes à l'entrée : le reste du
-  // middleware n'a plus à y penser, et les réponses d'erreur le portent aussi —
+  // proxy n'a plus à y penser, et les réponses d'erreur le portent aussi —
   // c'est précisément là qu'il sert.
   const { id: idRequete, entetes } = identifiantDeRequete(request);
   const suite = () => NextResponse.next({ request: { headers: entetes } });
