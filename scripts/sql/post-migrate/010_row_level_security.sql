@@ -38,7 +38,7 @@ declare
   t text;
   tables text[] := array[
     'gf_organizations','gf_users','gf_suppliers','gf_products','gf_shipments','gf_plots',
-    'gf_documents','gf_due_diligence_statements','gf_compliance_tasks','gf_audit_logs',
+    'gf_documents','gf_document_versions','gf_due_diligence_statements','gf_compliance_tasks','gf_audit_logs',
     'parcel_audits'
   ];
 begin

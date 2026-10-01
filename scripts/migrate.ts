@@ -66,7 +66,25 @@ async function appliquerPostMigration(): Promise<number> {
 
   for (const fichier of fichiers) {
     const chemin = join(POST_MIGRATE_FOLDER, fichier);
-    const sql = readFileSync(chemin, "utf-8");
+    const brut = readFileSync(chemin, "utf-8");
+
+    // ⚠️ Les commandes `\` sont des commandes de **psql**, pas du SQL. Le
+    //   pilote les envoie telles quelles au moteur, qui répond « syntax error
+    //   at or near "\" » — constaté sur `021` et `022`, qui commençaient par
+    //   `\set ON_ERROR_STOP on`. Elles sont retirées, et signalées : les
+    //   retirer en silence laisserait croire que la garde demandée est
+    //   active, alors qu'elle ne l'est pas.
+    const meta = brut.split("\n").filter((l) => l.trimStart().startsWith("\\"));
+    if (meta.length > 0) {
+      console.log(`  · ${fichier} : ${meta.length} commande(s) psql ignorée(s) `
+        + `(${meta.map((m) => m.trim()).join(", ")}) — le pilote arrête la `
+        + `première erreur venue, la garde est donc assurée par lui.`);
+    }
+    const sql = brut
+      .split("\n")
+      .filter((l) => !l.trimStart().startsWith("\\"))
+      .join("\n");
+
     // Le pool exécute le fichier en une requête simple : les blocs `$$` et les
     // scripts multi-instructions sont donc acceptés tels quels.
     await pool.query(sql);

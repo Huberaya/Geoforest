@@ -8,6 +8,42 @@
       "when": 1790792154360,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790802898489,
+      "tag": "0001_producer_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790861473605,
+      "tag": "0002_document_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790861892885,
+      "tag": "0003_document_versions_scan_moteur",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790862236398,
+      "tag": "0004_document_mime_mismatch",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790877836891,
+      "tag": "0005_tracabilite",
+      "breakpoints": true
     }
-  ]
+  ],
+  "prevId": "0004_document_mime_mismatch"
 }
