@@ -18,6 +18,10 @@ const COLORS: Record<MapStatus, { stroke: string; fill: string; label: string }>
   COMPLIANT: { stroke: "#16a34a", fill: "#22c55e", label: "Conforme EUDR" },
   NON_COMPLIANT: { stroke: "#dc2626", fill: "#ef4444", label: "Déforestation post-2020" },
   INVALID_GEOMETRY: { stroke: "#d97706", fill: "#f59e0b", label: "Géométrie invalide" },
+    // ⚠️ L'entrée « WARNING » venue de l'autre branche est retirée : aucun
+    //   chemin du produit ne produit ce statut. La conserver afficherait un
+    //   état qui n'existe pas — le défaut même que l'audit a corrigé. Elle
+    //   reviendra le jour où une analyse de buffer existera réellement.
   PENDING: { stroke: "#0f766e", fill: "#14b8a6", label: "En attente d'audit" },
   // Gris neutre : absence de verdict, à ne pas confondre avec une conformité.
   SIMULATED_NON_PROBATIVE: { stroke: "#ea580c", fill: "#fdba74", label: "Simulé — non probant" },
