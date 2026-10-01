@@ -10,6 +10,14 @@ import {
   type OperatorInfo,
 } from "./types";
 
+/**
+ * ⚠️ FORMAT INTERNE GEOFOREST — CE N'EST PAS UN MESSAGE TRACES-NT (P0-06).
+ *
+ * Les espaces de noms ci-dessous ont été définis par ce projet ; ils ne sont
+ * publiés par aucune autorité. Le fichier produit est un **brouillon de DDS**
+ * destiné à un usage interne ou à une reprise manuelle. Il ne constitue en
+ * aucun cas une déclaration déposée auprès du système d'information EUDR.
+ */
 export const NS_SUBMISSION = "http://ec.europa.eu/tracesnt/certificate/eudr/submission/v1";
 export const NS_MODEL = "http://ec.europa.eu/tracesnt/certificate/eudr/model/v1";
 export const NS_GFT = "https://geoforest-trace.eu/schema/verification/v1";
@@ -51,6 +59,32 @@ function featureCollection(row: ParcelAuditRow): Record<string, unknown> {
   };
 }
 
+/** Mention insérée dans chaque brouillon produit. */
+export const DRAFT_NOTICE =
+  "BROUILLON INTERNE GEOFOREST — ni déposé ni transmis au système d'information EUDR. " +
+  "Format interne, non reconnu par TRACES-NT. Aucune valeur de déclaration.";
+
+/**
+ * Identité du producteur, telle qu'elle doit figurer dans la déclaration.
+ *
+ * P1-16 — avant, le nœud `producers` recevait `row.operatorName`. Le
+ * producteur et l'opérateur sont deux rôles distincts ; les confondre fait
+ * désigner par la déclaration une entité qui n'a pas produit la marchandise.
+ *
+ * ⚠️ Aucune valeur de repli n'est appliquée ici. Un producteur inconnu est
+ * renvoyé comme `null` : c'est à l'appelant de décider — refuser l'export ou
+ * le demander à l'opérateur. Substituer l'opérateur en silence est le défaut
+ * que l'on corrige, on ne le réintroduit pas par une porte dérobée.
+ */
+export function producteurDe(row: ParcelAuditRow): { name: string; country: string } | null {
+  const name = (row as { producerName?: string | null }).producerName;
+  if (!name || name.trim().length < 2) return null;
+  return {
+    name: name.trim(),
+    country: ((row as { producerCountry?: string | null }).producerCountry ?? row.countryCode ?? "XX").toUpperCase(),
+  };
+}
+
 export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, options: TracesOptions): Record<string, unknown> {
   const reference = options.internalReference || buildReference(row.id);
   const fc = featureCollection(row);
@@ -59,8 +93,20 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
   const hsCode = row.hsCode || COMMODITY_HS_CODES[commodity] || "";
   const satellite = (row.satellite ?? {}) as { source?: string };
 
+  // Un producteur non déclaré produit un nœud vide et un avertissement
+  // explicite : jamais le nom de l'opérateur à la place.
+  const producteur = producteurDe(row);
+  const producers = producteur
+    ? [{ country: producteur.country, name: producteur.name }]
+    : [{ country: row.countryCode ?? "XX", name: "" }];
+  const avertissements: string[] = producteur
+    ? []
+    : ["Producteur non déclaré : le nœud producers est vide. Une déclaration sans " +
+       "producteur est incomplète et serait refusée par le SI EUDR."];
+
   return {
     schema: { submission: NS_SUBMISSION, model: NS_MODEL, verification: NS_GFT },
+    notice: DRAFT_NOTICE,
     generated_at: new Date().toISOString(),
     operator_type: "OPERATOR",
     operator: {
@@ -81,17 +127,15 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
           hs_heading: hsCode,
           description_of_goods: COMMODITY_LABELS[commodity] ?? row.commodity,
           goods_measure: { net_weight_kg: options.netWeightKg, supplementary_unit: null },
-          producers: [
-            {
-              country: row.countryCode,
-              name: row.operatorName,
-              geometry_geojson_base64: geojsonB64,
-              geometry_geojson: fc,
-            },
-          ],
+          producers: producers.map((p) => ({
+            ...p,
+            geometry_geojson_base64: geojsonB64,
+            geometry_geojson: fc,
+          })),
         },
       ],
       geolocation_confidential: false,
+      producer_warnings: avertissements,
     },
     verification: {
       provider: "GeoForest Trace",
@@ -102,7 +146,7 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       harvest_date: row.harvestDate,
       geometry_type: row.geometryType,
       area_ha: Number(row.areaHa.toFixed(4)),
-      geometry_rule: row.areaHa >= EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED",
+      geometry_rule: row.areaHa > EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED",
       deforestation_detected_post_cutoff: !row.compliant,
       loss_year: row.lossYear,
       confidence_score: row.confidenceScore,
@@ -152,6 +196,7 @@ export function buildTracesXml(row: ParcelAuditRow, operator: OperatorInfo, opti
 
   const lines: string[] = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+  lines.push(`<!-- ${DRAFT_NOTICE} -->`);
   lines.push(
     `<eudr:SubmitStatementRequest xmlns:eudr="${NS_SUBMISSION}" xmlns:model="${NS_MODEL}" xmlns:gft="${NS_GFT}" generatedAt="${d.generated_at}" messageId="${randomUUID()}">`,
   );

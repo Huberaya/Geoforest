@@ -1,99 +1,56 @@
-import { db } from "@/db";
+import { lireCorpsJson } from "@/lib/api/body";
 import { shipments, suppliers, products } from "@/db/schema";
 import type { Commodity, Shipment } from "@/lib/eudr/types";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { guard } from "@/lib/auth/guard";
+import { logAction } from "@/lib/api/audit-log";
 
 export const dynamic = "force-dynamic";
 
-const SEEDED_SHIPMENTS: Shipment[] = [
-  {
-    id: "ship-01",
-    reference: "LOT-2026-CAC-0891",
-    supplierId: "supp-01",
-    supplierName: "Coopérative Cacaoyère de Divo (COOPADI)",
-    productId: "prod-01",
-    productName: "Fèves de Cacao Brutes Grade 1",
-    commodity: "cocoa",
-    netWeightKg: 25000,
-    harvestDate: "2026-08-15",
-    customsDeclarationRef: "IM4-2026-FR-09128",
-    status: "READY",
-    plotsCount: 4,
-    createdAt: "2026-08-18T10:00:00Z",
-  },
-  {
-    id: "ship-02",
-    reference: "LOT-2026-CAF-0412",
-    supplierId: "supp-04",
-    supplierName: "Coopérative Caféière Huila (ASOCAFE)",
-    productId: "prod-02",
-    productName: "Café Arabica Lavé Supérieur",
-    commodity: "coffee",
-    netWeightKg: 18500,
-    harvestDate: "2026-09-01",
-    customsDeclarationRef: "IM4-2026-FR-09884",
-    status: "AUDITED",
-    plotsCount: 3,
-    createdAt: "2026-09-04T14:30:00Z",
-  },
-  {
-    id: "ship-03",
-    reference: "LOT-2026-PALM-0105",
-    supplierId: "supp-02",
-    supplierName: "PT Sawit Riau Lestari",
-    productId: "prod-03",
-    productName: "Huile de Palme Brute CPO Durable",
-    commodity: "palm_oil",
-    netWeightKg: 50000,
-    harvestDate: "2026-09-10",
-    customsDeclarationRef: null,
-    status: "IN_PREPARATION",
-    plotsCount: 2,
-    createdAt: "2026-09-12T09:15:00Z",
-  },
-];
 
-export async function GET() {
+export const GET = guard("shipment:read")(async (_request: Request, _ctx, { tx, organizationId }) => {
+  const rows = await tx
+    .select({
+      shipment: shipments,
+      supplier: suppliers,
+      product: products,
+    })
+    .from(shipments)
+    .leftJoin(
+      suppliers,
+      and(eq(shipments.supplierId, suppliers.id), eq(suppliers.organizationId, organizationId)),
+    )
+    .leftJoin(
+      products,
+      and(eq(shipments.productId, products.id), eq(products.organizationId, organizationId)),
+    )
+    .where(eq(shipments.organizationId, organizationId))
+    .orderBy(desc(shipments.createdAt));
+
+  const result: Shipment[] = rows.map(({ shipment: s, supplier: sup, product: p }) => ({
+    id: s.id,
+    reference: s.reference,
+    supplierId: s.supplierId,
+    supplierName: sup?.name ?? undefined,
+    productId: s.productId,
+    productName: p?.name ?? undefined,
+    netWeightKg: s.netWeightKg,
+    harvestDate: s.harvestDate,
+    customsDeclarationRef: s.customsDeclarationRef,
+    status: s.status as "IN_PREPARATION" | "AUDITED" | "READY" | "SHIPPED",
+    createdAt: s.createdAt.toISOString(),
+  }));
+
+  return NextResponse.json(result);
+});
+
+export const POST = guard("shipment:write")(async (request: Request, _ctx, { tx, organizationId, session }) => {
+  // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
+  const lecture = await lireCorpsJson(request);
+  if (!lecture.ok) return lecture.response;
   try {
-    const rows = await db
-      .select({
-        shipment: shipments,
-        supplier: suppliers,
-        product: products,
-      })
-      .from(shipments)
-      .leftJoin(suppliers, eq(shipments.supplierId, suppliers.id))
-      .leftJoin(products, eq(shipments.productId, products.id))
-      .orderBy(desc(shipments.createdAt));
-
-    if (rows && rows.length > 0) {
-      const result: Shipment[] = rows.map(({ shipment: s, supplier: sup, product: p }) => ({
-        id: s.id,
-        reference: s.reference,
-        supplierId: s.supplierId,
-        supplierName: sup?.name ?? "Fournisseur non lié",
-        productId: s.productId,
-        productName: p?.name ?? "Produit non lié",
-        commodity: (p?.commodity ?? sup?.commodity ?? "cocoa") as Commodity,
-        netWeightKg: s.netWeightKg,
-        harvestDate: s.harvestDate,
-        customsDeclarationRef: s.customsDeclarationRef,
-        status: s.status as "IN_PREPARATION" | "AUDITED" | "READY" | "SHIPPED",
-        plotsCount: 1,
-        createdAt: s.createdAt.toISOString(),
-      }));
-      return NextResponse.json(result);
-    }
-  } catch {
-    // Fallback seeded list
-  }
-  return NextResponse.json(SEEDED_SHIPMENTS);
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
+    const body = lecture.value as Record<string, unknown>;
     if (!body.reference || !body.harvestDate) {
       return NextResponse.json({ detail: "Référence et date de récolte requises" }, { status: 422 });
     }
@@ -101,18 +58,18 @@ export async function POST(request: Request) {
     const newShipment: Shipment = {
       id: crypto.randomUUID(),
       reference: String(body.reference).trim().toUpperCase(),
-      supplierId: body.supplierId ?? null,
-      productId: body.productId ?? null,
+      supplierId: body.supplierId ? String(body.supplierId) : null,
+      productId: body.productId ? String(body.productId) : null,
       netWeightKg: Number(body.netWeightKg) || 0,
       harvestDate: String(body.harvestDate),
       customsDeclarationRef: body.customsDeclarationRef ? String(body.customsDeclarationRef).trim() : null,
       status: "IN_PREPARATION",
-      plotsCount: body.plotsCount || 1,
+      plotsCount: Number(body.plotsCount) || 1,
       createdAt: new Date().toISOString(),
     };
 
-    try {
-      await db.insert(shipments).values({
+    await tx.insert(shipments).values({
+        organizationId,
         id: newShipment.id,
         reference: newShipment.reference,
         supplierId: newShipment.supplierId,
@@ -122,12 +79,28 @@ export async function POST(request: Request) {
         customsDeclarationRef: newShipment.customsDeclarationRef,
         status: newShipment.status,
       });
-    } catch (e) {
-      console.warn("DB insert shipment fallback:", e);
-    }
+
+    // P1-10 — id. Un lot expédié est une pièce d'un dossier de diligence :
+    // son absence du journal rendrait la chaîne de traçabilité incomplète
+    // précisément là où elle compte.
+    await logAction(tx, organizationId, {
+      userEmail: session.user.email,
+      acteurId: session.user.id,
+      acteurRole: session.user.role,
+      action: "CREATE",
+      entityType: "SHIPMENT",
+      entityId: newShipment.id,
+      apres: newShipment as unknown as Record<string, unknown>,
+    });
 
     return NextResponse.json(newShipment, { status: 201 });
-  } catch {
-    return NextResponse.json({ detail: "Corps JSON invalide" }, { status: 400 });
+  } catch (error) {
+    // Un corps JSON illisible est une erreur client ; toute autre erreur
+    // (contrainte de base, indisponibilité) est propagée : elle ne doit pas
+    // être déguisée en 400 ni avalée (cf. P0-07).
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ detail: "Corps JSON invalide" }, { status: 400 });
+    }
+    throw error;
   }
-}
+});

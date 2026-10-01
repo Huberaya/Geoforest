@@ -1,84 +1,42 @@
-import { db } from "@/db";
+import { lireCorpsJson } from "@/lib/api/body";
 import { products } from "@/db/schema";
 import { COMMODITY_HS_CODES, type Commodity, type Product } from "@/lib/eudr/types";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { guard } from "@/lib/auth/guard";
+import { logAction } from "@/lib/api/audit-log";
 
 export const dynamic = "force-dynamic";
 
-const SEEDED_PRODUCTS: Product[] = [
-  {
-    id: "prod-01",
-    name: "Fèves de Cacao Brutes Grade 1",
-    sku: "CAC-CI-G1",
-    commodity: "cocoa",
-    hsCode: "1801",
-    countryOfOrigin: "CI",
-    annualVolumeKg: 450000,
-    status: "ACTIVE",
-    createdAt: "2026-08-01T10:00:00Z",
-  },
-  {
-    id: "prod-02",
-    name: "Café Arabica Lavé Supérieur",
-    sku: "CAF-CO-SUP",
-    commodity: "coffee",
-    hsCode: "0901",
-    countryOfOrigin: "CO",
-    annualVolumeKg: 280000,
-    status: "ACTIVE",
-    createdAt: "2026-08-05T11:00:00Z",
-  },
-  {
-    id: "prod-03",
-    name: "Huile de Palme Brute CPO Durable",
-    sku: "PALM-ID-CPO",
-    commodity: "palm_oil",
-    hsCode: "1511",
-    countryOfOrigin: "ID",
-    annualVolumeKg: 1200000,
-    status: "ACTIVE",
-    createdAt: "2026-08-15T09:30:00Z",
-  },
-  {
-    id: "prod-04",
-    name: "Graines de Soja Non-OGM",
-    sku: "SOY-BR-NON-GMO",
-    commodity: "soya",
-    hsCode: "1201",
-    countryOfOrigin: "BR",
-    annualVolumeKg: 850000,
-    status: "ACTIVE",
-    createdAt: "2026-09-02T14:00:00Z",
-  },
-];
 
-export async function GET() {
-  try {
-    const rows = await db.select().from(products).orderBy(desc(products.createdAt));
-    if (rows && rows.length > 0) {
-      const result: Product[] = rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        sku: r.sku,
-        commodity: r.commodity as Commodity,
-        hsCode: r.hsCode,
-        countryOfOrigin: r.countryOfOrigin,
-        annualVolumeKg: r.annualVolumeKg ?? 0,
-        status: r.status as "ACTIVE" | "INACTIVE",
-        createdAt: r.createdAt.toISOString(),
-      }));
-      return NextResponse.json(result);
-    }
-  } catch {
-    // Fallback seeded list
-  }
-  return NextResponse.json(SEEDED_PRODUCTS);
-}
+export const GET = guard("product:read")(async (_request: Request, _ctx, { tx, organizationId }) => {
+  const rows = await tx
+    .select()
+    .from(products)
+    .where(eq(products.organizationId, organizationId))
+    .orderBy(desc(products.createdAt));
 
-export async function POST(request: Request) {
+  const result: Product[] = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    sku: r.sku,
+    commodity: r.commodity as Commodity,
+    hsCode: r.hsCode,
+    countryOfOrigin: r.countryOfOrigin,
+    annualVolumeKg: r.annualVolumeKg ?? 0,
+    status: r.status as "ACTIVE" | "INACTIVE",
+    createdAt: r.createdAt.toISOString(),
+  }));
+
+  return NextResponse.json(result);
+});
+
+export const POST = guard("product:write")(async (request: Request, _ctx, { tx, organizationId, session }) => {
+  // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
+  const lecture = await lireCorpsJson(request);
+  if (!lecture.ok) return lecture.response;
   try {
-    const body = await request.json();
+    const body = lecture.value as Record<string, unknown>;
     if (!body.name || !body.commodity) {
       return NextResponse.json({ detail: "Nom et matière première requis" }, { status: 422 });
     }
@@ -96,8 +54,8 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    try {
-      await db.insert(products).values({
+    await tx.insert(products).values({
+        organizationId,
         id: newProduct.id,
         name: newProduct.name,
         sku: newProduct.sku,
@@ -107,12 +65,27 @@ export async function POST(request: Request) {
         annualVolumeKg: newProduct.annualVolumeKg,
         status: newProduct.status,
       });
-    } catch (e) {
-      console.warn("DB insert product fallback:", e);
-    }
+
+    // P1-10 — aucune création ne doit échapper au journal (cf. la lacune
+    // mesurée sur les fournisseurs).
+    await logAction(tx, organizationId, {
+      userEmail: session.user.email,
+      acteurId: session.user.id,
+      acteurRole: session.user.role,
+      action: "CREATE",
+      entityType: "PRODUCT",
+      entityId: newProduct.id,
+      apres: newProduct as unknown as Record<string, unknown>,
+    });
 
     return NextResponse.json(newProduct, { status: 201 });
-  } catch {
-    return NextResponse.json({ detail: "Corps JSON invalide" }, { status: 400 });
+  } catch (error) {
+    // Un corps JSON illisible est une erreur client ; toute autre erreur
+    // (contrainte de base, indisponibilité) est propagée : elle ne doit pas
+    // être déguisée en 400 ni avalée (cf. P0-07).
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ detail: "Corps JSON invalide" }, { status: 400 });
+    }
+    throw error;
   }
-}
+});
