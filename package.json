@@ -2,32 +2,47 @@
   "name": "nextjs-postgresql-template",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "audit:sec": "npm audit --audit-level=high",
     "build": "next build",
-    "start": "next start",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:push": "drizzle-kit push --force",
+    "db:rollback": "tsx scripts/rollback.ts",
+    "db:tenancy": "psql -h 127.0.0.1 -U postgres -d app_db -f scripts/sql/post-migrate/010_row_level_security.sql",
+    "dev": "next dev",
     "lint": "eslint .",
+    "seed:auth": "tsx scripts/seed-auth.ts",
+    "start": "next start",
+    "test:eudr": "tsx scripts/check-eudr-rules.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "overrides": {
+    "esbuild": "^0.25.12"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
+    "jose": "^6.2.12",
     "leaflet": "^1.9.4",
-    "next": "16.2.6",
+    "next": "16.3.8",
     "pg": "8.20.0",
+    "qrcode": "^1.5.4",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.6",
-    "postcss": "8.5.8",
+    "eslint-config-next": "16.3.8",
+    "postcss": "8.5.28",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"
   }

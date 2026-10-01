@@ -25,7 +25,11 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# ⚠️ Ancré à la racine : la règle `lib/` (sans slash initial) s'appliquait à
+# n'importe quel niveau d'arborescence et masquait donc `src/lib/` tout entier —
+# 34 fichiers de code, dont l'authentification et le journal d'audit, étaient
+# invisibles pour git. Le dépôt poussé n'aurait pas compilé.
+/lib/
 lib64/
 parts/
 sdist/
