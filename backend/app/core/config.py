@@ -45,6 +45,8 @@ class Settings:
     eudr_polygon_threshold_ha: float = 4.0
     # Précision minimale des coordonnées (6 décimales ≈ 11 cm à l'équateur).
     eudr_min_coordinate_decimals: int = 6
+    # Le systeme d'information EUDR tronque les coordonnees a 6 decimales.
+    eudr_is_coordinate_decimals: int = 6
 
     # --- Global Forest Watch ---
     gfw_api_key: str = field(default_factory=lambda: os.getenv("GFW_API_KEY", ""))
@@ -61,6 +63,12 @@ class Settings:
     )
     # Si False (ou si aucune clé), on utilise le moteur de scoring déterministe.
     gfw_live_enabled: bool = field(default_factory=lambda: _env_bool("GFW_LIVE_ENABLED", True))
+    # Version du jeu de données GFW : consignée avec chaque analyse pour qu'un
+    # résultat ancien reste reproductible.
+    gfw_dataset_version: str = field(default_factory=lambda: os.getenv("GFW_DATASET_VERSION", "latest"))
+    # Moteur de démonstration : désactivé par défaut. Quand il est actif, les
+    # résultats sont estampillés « simulés » et ne rendent aucun verdict (P0-04).
+    gfw_demo_mode: bool = field(default_factory=lambda: _env_bool("GFW_DEMO_MODE", False))
 
     # --- Persistance ---
     database_path: Path = field(

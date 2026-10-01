@@ -13,8 +13,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -127,22 +128,6 @@ def _stable_fraction(seed: str) -> float:
     return int(digest[:8], 16) / 0xFFFFFFFF
 
 
-def _extract_simulated_loss_year(geometry: Dict[str, Any]) -> Optional[int]:
-    """Permet aux jeux de démonstration d'imposer une année de perte via `properties.simulated_loss_year`."""
-    props = geometry.get("properties") if isinstance(geometry, dict) else None
-    if isinstance(props, dict) and props.get("simulated_loss_year") is not None:
-        try:
-            return int(props["simulated_loss_year"])
-        except (TypeError, ValueError):
-            return None
-    if geometry.get("type") == "FeatureCollection":
-        for feature in geometry.get("features") or []:
-            year = _extract_simulated_loss_year(feature)
-            if year is not None:
-                return year
-    return None
-
-
 def _to_shapely(geometry: Dict[str, Any]) -> BaseGeometry:
     gtype = geometry.get("type")
     if gtype == "Feature":
@@ -174,14 +159,14 @@ def _analysis_polygon(geom: BaseGeometry) -> Dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- Moteur déterministe
-def deterministic_check(geom: BaseGeometry, harvest_date: date, forced_loss_year: Optional[int] = None) -> Dict[str, Any]:
+def deterministic_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     centroid = geom.centroid
     lon, lat = centroid.x, centroid.y
     iso2, country_name, country_risk = resolve_country(lon, lat)
     seed = f"{round(lon, 4)}:{round(lat, 4)}"
     jitter = _stable_fraction(seed)
 
-    loss_year: Optional[int] = forced_loss_year
+    loss_year: Optional[int] = None
     loss_fraction = 0.0
     tree_cover = round(35.0 + jitter * 40.0, 1)
     hotspot_label: Optional[str] = None
@@ -194,7 +179,7 @@ def deterministic_check(geom: BaseGeometry, harvest_date: date, forced_loss_year
                 tree_cover = spot.tree_cover_2000_pct
                 hotspot_label = spot.label
                 break
-    elif forced_loss_year is not None:
+    else:
         loss_fraction = 0.25
         hotspot_label = "Année de perte simulée (mode démonstration)"
 
@@ -231,14 +216,24 @@ def deterministic_check(geom: BaseGeometry, harvest_date: date, forced_loss_year
     if harvest_date <= settings.eudr_cutoff_date:
         details += " Récolte antérieure à la date butoir : hors champ temporel EUDR."
 
+    # P0-04 : un moteur de démonstration ne rend PAS de verdict. Les valeurs
+    # renvoyées sont présentées pour ce qu'elles sont : un jeu d'essai.
     return {
-        "compliant": compliant,
+        "compliant": None,
         "loss_year": loss_year,
-        "confidence_score": min(confidence, 1.0),
+        "confidence_score": None,
         "risk_level": risk_level,
         "country_code": iso2,
+        "country_name": country_name,
         "country_risk": country_risk,
-        "source": "deterministic-mock (Hansen/GFW rules engine)",
+        "source": "simulated",
+        "is_probative": False,
+        "evidence": None,
+        "disclaimer": (
+            "Analyse simulée — résultat non probant. Aucune donnée satellite n'a été "
+            "consultée : ce résultat ne peut pas servir de preuve de conformité au "
+            "règlement (UE) 2023/1115."
+        ),
         "loss_area_ha": loss_area,
         "tree_cover_2000_pct": tree_cover,
         "details": details,
@@ -246,27 +241,53 @@ def deterministic_check(geom: BaseGeometry, harvest_date: date, forced_loss_year
 
 
 # --------------------------------------------------------------------------- Moteur live GFW
-def _gfw_query(analysis_geometry: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Interroge GFW Data API : pertes annuelles (ha) sur l'emprise, densité 2000 >= 30 %."""
-    url = f"{settings.gfw_api_url.rstrip('/')}/dataset/{settings.gfw_dataset}/latest/query"
-    sql = (
-        "SELECT umd_tree_cover_loss__year, SUM(area__ha) AS area__ha "
-        "FROM results WHERE umd_tree_cover_density_2000__threshold = 30 "
-        "GROUP BY umd_tree_cover_loss__year ORDER BY umd_tree_cover_loss__year"
-    )
+GFW_SQL = (
+    "SELECT umd_tree_cover_loss__year, SUM(area__ha) AS area__ha "
+    "FROM results WHERE umd_tree_cover_density_2000__threshold = 30 "
+    "GROUP BY umd_tree_cover_loss__year ORDER BY umd_tree_cover_loss__year"
+)
+
+
+def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Interroge GFW Data API : pertes annuelles (ha) sur l'emprise, densité 2000 >= 30 %.
+
+    Retourne les lignes **et** la trace d'exécution, consignée avec l'audit pour
+    qu'un résultat ancien reste reproductible.
+    """
+    version = settings.gfw_dataset_version
+    # L'API expose la ressource sous /query/json. L'ancien chemin /query
+    # renvoyait une redirection 307 : on appelle directement la bonne URL.
+    url = f"{settings.gfw_api_url.rstrip('/')}/dataset/{settings.gfw_dataset}/{version}/query/json"
     response = requests.post(
         url,
         headers={"x-api-key": settings.gfw_api_key, "Content-Type": "application/json"},
-        data=json.dumps({"sql": sql, "geometry": analysis_geometry}),
+        data=json.dumps({"sql": GFW_SQL, "geometry": analysis_geometry}),
         timeout=settings.gfw_timeout_seconds,
     )
-    response.raise_for_status()
+    if not response.ok:
+        raise requests.HTTPError(
+            f"GFW HTTP {response.status_code} — {response.text[:200]}", response=response
+        )
     payload = response.json()
-    return list(payload.get("data") or [])
+    # Version réellement servie, déduite de l'URL finale après redirection.
+    served = version
+    match = re.search(r"/dataset/[^/]+/([^/]+)/", response.url or "")
+    if match:
+        served = match.group(1)
+    evidence = {
+        "provider": "Global Forest Watch (World Resources Institute)",
+        "dataset": settings.gfw_dataset,
+        "dataset_version": served,
+        "endpoint": url,
+        "sql": GFW_SQL,
+        "geometry_type": analysis_geometry.get("type", "Unknown"),
+        "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    return list(payload.get("data") or []), evidence
 
 
 def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
-    rows = _gfw_query(_analysis_polygon(geom))
+    rows, evidence = _gfw_query(_analysis_polygon(geom))
     centroid = geom.centroid
     iso2, country_name, country_risk = resolve_country(centroid.x, centroid.y)
 
@@ -292,11 +313,18 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
             "confidence_score": confidence,
             "risk_level": "HIGH",
             "country_code": iso2,
+            "country_name": country_name,
             "country_risk": country_risk,
-            "source": "gfw-live (umd_tree_cover_loss)",
+            "source": "gfw-live",
+            "is_probative": True,
+            "evidence": evidence,
+            "disclaimer": None,
             "loss_area_ha": loss_area,
             "tree_cover_2000_pct": None,
-            "details": f"GFW : {loss_area} ha de perte détectés à partir de {loss_year} (post-2020) sur {area_ha:.2f} ha.",
+            "details": (
+                f"GFW {evidence['dataset_version']} : {loss_area} ha de perte de couvert détectés à partir de "
+                f"{loss_year} (post-2020) sur {area_ha:.2f} ha. Données Hansen/UMD, seuil de densité 30 %."
+            ),
         }
 
     historic_year = max((int(r["umd_tree_cover_loss__year"]) for r in all_rows), default=None)
@@ -306,33 +334,85 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
         "confidence_score": 0.95,
         "risk_level": country_risk,
         "country_code": iso2,
+        "country_name": country_name,
         "country_risk": country_risk,
-        "source": "gfw-live (umd_tree_cover_loss)",
+        "source": "gfw-live",
+        "is_probative": True,
+        "evidence": evidence,
+        "disclaimer": None,
         "loss_area_ha": loss_area,
         "tree_cover_2000_pct": None,
         "details": (
-            f"GFW : aucune perte significative post-2020 ({loss_area} ha). Pays : {country_name}, benchmark UE : {country_risk}."
+            f"GFW {evidence['dataset_version']} : aucune perte significative post-2020 ({loss_area} ha). "
+            f"Pays : {country_name}, benchmark UE : {country_risk}."
         ),
     }
 
 
 # --------------------------------------------------------------------------- API publique
+def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
+    """Résultat d'une analyse qui n'a pas pu être menée.
+
+    Il n'y a **pas de repli silencieux** vers le moteur déterministe (P0-04) :
+    une indisponibilité est un fait que l'on déclare, pas un verdict que l'on
+    remplace par une estimation.
+    """
+    centroid = geom.centroid
+    iso2, country_name, country_risk = resolve_country(centroid.x, centroid.y)
+    return {
+        "compliant": None,
+        "loss_year": None,
+        "confidence_score": None,
+        "risk_level": country_risk,
+        "country_code": iso2,
+        "country_name": country_name,
+        "country_risk": country_risk,
+        "source": "unavailable",
+        "is_probative": False,
+        "evidence": None,
+        "disclaimer": (
+            "Analyse non disponible — aucun verdict de conformité n'a été établi. "
+            "Aucune conclusion ne doit en être tirée pour un dossier EUDR."
+        ),
+        "loss_area_ha": 0.0,
+        "tree_cover_2000_pct": None,
+        "details": (
+            f"Analyse satellite impossible : {reason}. "
+            f"Pays déduit des coordonnées : {country_name} ({iso2})."
+        ),
+    }
+
+
 def check_deforestation_risk(geometry: Dict[str, Any], harvest_date: str) -> Dict[str, Any]:
     """Évalue le risque de déforestation post-2020 sur une géométrie GeoJSON.
 
+    Trois issues, et une seule étant probante :
+      1. accès GFW configuré et disponible   → verdict fondé sur des données réelles ;
+      2. accès GFW configuré mais défaillant → **aucun verdict** (jamais de repli
+         silencieux vers une simulation : c'est l'objet même de P0-04) ;
+      3. non configuré                        → simulation seulement si le mode
+         démonstration est explicitement activé, sinon aucun verdict.
+
     :param geometry: Geometry / Feature / FeatureCollection GeoJSON (WGS84).
     :param harvest_date: date de récolte ISO 8601 (YYYY-MM-DD).
-    :return: dict conforme à `SatelliteCheckResult` :
-             {compliant, loss_year, confidence_score, risk_level, ...}
+    :return: dict conforme à `SatelliteCheckResult`.
     """
     parsed_date = date.fromisoformat(harvest_date)
     geom = _to_shapely(geometry)
-    forced_year = _extract_simulated_loss_year(geometry)
 
-    if settings.gfw_live_available and forced_year is None:
+    if settings.gfw_live_available:
         try:
             return live_check(geom, parsed_date)
         except (requests.RequestException, ValueError, KeyError) as exc:
-            logger.warning("GFW live indisponible (%s) — repli sur le moteur déterministe", exc)
+            logger.error("GFW direct impossible — aucun verdict émis : %s", exc)
+            return _unavailable_result(geom, str(exc))
 
-    return deterministic_check(geom, parsed_date, forced_year)
+    if settings.gfw_demo_mode:
+        logger.warning("Mode démonstration activé : résultat simulé, non probant.")
+        return deterministic_check(geom, parsed_date)
+
+    return _unavailable_result(
+        geom,
+        "aucune source de données satellite configurée (GFW_API_KEY absente) "
+        "et mode démonstration désactivé",
+    )

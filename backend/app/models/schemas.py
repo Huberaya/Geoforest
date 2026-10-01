@@ -9,7 +9,15 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 RiskLevel = Literal["LOW", "STANDARD", "HIGH"]
-AuditStatus = Literal["COMPLIANT", "NON_COMPLIANT", "INVALID_GEOMETRY"]
+# Un audit non probant n'est ni conforme ni non conforme : c'est un troisième
+# état, distinct, qui interdit toute conclusion (P0-04).
+AuditStatus = Literal[
+    "COMPLIANT",
+    "NON_COMPLIANT",
+    "INVALID_GEOMETRY",
+    "SIMULATED_NON_PROBATIVE",
+    "ANALYSIS_UNAVAILABLE",
+]
 
 
 class Commodity(str, Enum):
@@ -121,14 +129,37 @@ class GeometryValidationResult(BaseModel):
     normalized_geometry: Optional[Dict[str, Any]] = None
 
 
+class AnalysisEvidence(BaseModel):
+    """Trace d'exécution d'une analyse probante (reproductibilité)."""
+
+    provider: str
+    dataset: str
+    dataset_version: str
+    endpoint: str
+    sql: str
+    geometry_type: str
+    retrieved_at: str
+
+
 class SatelliteCheckResult(BaseModel):
-    compliant: bool
+    """Résultat d'analyse satellite.
+
+    `compliant` vaut None dès que l'analyse n'est pas probante : l'absence de
+    verdict est une information, elle ne doit pas être comblée par défaut
+    (P0-04).
+    """
+
+    compliant: Optional[bool] = None
     loss_year: Optional[int] = None
-    confidence_score: float = Field(..., ge=0, le=1)
+    confidence_score: Optional[float] = Field(None, ge=0, le=1)
     risk_level: RiskLevel
     country_code: str
+    country_name: str = ""
     country_risk: RiskLevel
-    source: str
+    source: Literal["gfw-live", "simulated", "unavailable"]
+    is_probative: bool = False
+    evidence: Optional[AnalysisEvidence] = None
+    disclaimer: Optional[str] = None
     loss_area_ha: float = 0.0
     tree_cover_2000_pct: Optional[float] = None
     details: str = ""

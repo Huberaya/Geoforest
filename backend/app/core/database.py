@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 import threading
 from contextlib import contextmanager
 from pathlib import Path
@@ -63,9 +64,10 @@ class Database:
                     id, created_at, operator_name, operator_eori, commodity, hs_code,
                     harvest_date, geometry_json, geometry_type, area_ha, vertex_count,
                     centroid_lon, centroid_lat, country_code, country_risk,
-                    compliant, loss_year, confidence_score, risk_level, status,
+                    compliant, loss_year, confidence_score, analysis_source,
+                    analysis_probative, analysis_evidence, risk_level, status,
                     validation_json, satellite_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.id,
@@ -83,9 +85,12 @@ class Database:
                     record.centroid_lat,
                     record.country_code,
                     record.country_risk,
-                    1 if record.compliant else 0,
+                    None if record.compliant is None else (1 if record.compliant else 0),
                     record.loss_year,
                     record.confidence_score,
+                    record.analysis_source,
+                    1 if record.analysis_probative else 0,
+                    json.dumps(record.analysis_evidence) if record.analysis_evidence else None,
                     record.risk_level,
                     record.status,
                     json.dumps(record.validation),
@@ -107,11 +112,14 @@ class Database:
             rows = cur.fetchall()
         return [self._row_to_record(row) for row in rows]
 
-    def mark_exported(self, audit_id: str, reference: str) -> None:
+    def mark_draft_generated(self, audit_id: str, reference: str) -> None:
         with self.cursor() as cur:
             cur.execute(
-                "UPDATE parcel_audits SET status = 'EXPORTED', traces_reference = ? WHERE id = ?",
-                (reference, audit_id),
+                # P0-06 : générer un fichier n'est pas transmettre une déclaration.
+                # Le statut d'analyse (COMPLIANT / NON_COMPLIANT / …) est conservé :
+                # l'écraser par « EXPORTED » effaçait l'information utile.
+                "UPDATE parcel_audits SET draft_reference = ?, draft_generated_at = ? WHERE id = ?",
+                (reference, datetime.now(timezone.utc).isoformat(timespec="seconds"), audit_id),
             )
 
     @staticmethod
@@ -133,14 +141,19 @@ class Database:
             centroid_lat=data["centroid_lat"],
             country_code=data["country_code"],
             country_risk=data["country_risk"],
-            compliant=bool(data["compliant"]),
+            # compliant peut être NULL : « pas de verdict » ≠ « non conforme ».
+            compliant=(None if data["compliant"] is None else bool(data["compliant"])),
             loss_year=data["loss_year"],
             confidence_score=data["confidence_score"],
+            analysis_source=data.get("analysis_source", "unavailable"),
+            analysis_probative=bool(data.get("analysis_probative", 0)),
+            analysis_evidence=(json.loads(data["analysis_evidence"]) if data.get("analysis_evidence") else None),
+            draft_reference=data.get("draft_reference"),
+            draft_generated_at=data.get("draft_generated_at"),
             risk_level=data["risk_level"],
             status=data["status"],
             validation=json.loads(data["validation_json"]),
             satellite=json.loads(data["satellite_json"]),
-            traces_reference=data.get("traces_reference"),
         )
 
 

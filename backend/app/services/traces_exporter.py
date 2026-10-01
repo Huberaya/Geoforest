@@ -1,6 +1,9 @@
-"""Export des dossiers de diligence raisonnée (DDS) vers TRACES-NT (EUDR).
+"""Export des BROUILLONS de dossiers de diligence raisonnée (DDS).
 
-Le document XML produit suit la structure du service de soumission EUDR de TRACES-NT
+P0-06 : les espaces de noms ci-dessous ont été définis par ce projet ; ils ne
+sont publiés par aucune autorité. Le document produit est un brouillon interne,
+à usage de reprise manuelle. Ce n'est ni un message TRACES-NT, ni une
+déclaration déposée auprès du système d'information EUDR.
 (`SubmitStatementRequest`, namespaces `http://ec.europa.eu/tracesnt/certificate/eudr/...`) :
   * opérateur (nom, EORI, adresse),
   * activité (IMPORT / EXPORT / DOMESTIC) et pays,
@@ -27,6 +30,12 @@ NS_MODEL = "http://ec.europa.eu/tracesnt/certificate/eudr/model/v1"
 NS_GFT = "https://geoforest-trace.eu/schema/verification/v1"
 
 NSMAP = {"eudr": NS_SUBMISSION, "model": NS_MODEL, "gft": NS_GFT}
+
+# Mention insérée dans chaque brouillon produit.
+DRAFT_NOTICE = (
+    "BROUILLON INTERNE GEOFOREST — ni déposé ni transmis au système "
+    "d'information EUDR. Format interne, non reconnu par TRACES-NT."
+)
 
 
 def _q(ns: str, tag: str) -> str:
@@ -77,6 +86,7 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
     verification_status = "VERIFIED_COMPLIANT" if record.compliant and record.status != "INVALID_GEOMETRY" else "VERIFIED_NON_COMPLIANT"
 
     return {
+        "notice": DRAFT_NOTICE,
         "schema": {"submission": NS_SUBMISSION, "model": NS_MODEL, "verification": NS_GFT},
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "operator_type": "OPERATOR",
@@ -122,7 +132,7 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
             "harvest_date": record.harvest_date,
             "geometry_type": record.geometry_type,
             "area_ha": round(record.area_ha, 4),
-            "geometry_rule": "POLYGON_REQUIRED" if record.area_ha >= settings.eudr_polygon_threshold_ha else "POINT_ALLOWED",
+            "geometry_rule": "POLYGON_REQUIRED" if record.area_ha > settings.eudr_polygon_threshold_ha else "POINT_ALLOWED",
             "deforestation_detected_post_cutoff": not record.compliant,
             "loss_year": record.loss_year,
             "confidence_score": record.confidence_score,
@@ -139,7 +149,7 @@ def export_traces_json(record: ParcelAuditRecord, operator: Dict[str, Any], opti
 
 
 def export_traces_xml(record: ParcelAuditRecord, operator: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> bytes:
-    """Génère le XML `SubmitStatementRequest` prêt pour TRACES-NT (UTF-8, indenté)."""
+    """Génère le XML de brouillon (format interne GeoForest)."""
     data = _dds_payload(record, operator, options or {})
 
     root = etree.Element(_q(NS_SUBMISSION, "SubmitStatementRequest"), nsmap=NSMAP)

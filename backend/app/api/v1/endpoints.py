@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.core.config import settings
 from app.core.database import Database, get_db
@@ -34,6 +34,16 @@ def _summary_text(status_value: str, validation: Dict[str, Any], satellite: Dict
         return f"Dossier rejeté : {first}"
     assert satellite is not None
     area = validation["area_ha"]
+    if status_value == "ANALYSIS_UNAVAILABLE":
+        return (
+            f"Aucun verdict : l'analyse satellite n'a pas abouti. Ce dossier n'emporte aucune "
+            f"présomption de conformité (parcelle de {area:.2f} ha)."
+        )
+    if status_value == "SIMULATED_NON_PROBATIVE":
+        return (
+            f"Résultat simulé, non probant : aucune donnée satellite n'a été consultée. "
+            f"Ce dossier ne peut pas servir de preuve de conformité (parcelle de {area:.2f} ha)."
+        )
     if status_value == "NON_COMPLIANT":
         return (
             f"NON CONFORME EUDR : déforestation détectée en {satellite['loss_year']} "
@@ -41,7 +51,9 @@ def _summary_text(status_value: str, validation: Dict[str, Any], satellite: Dict
         )
     return (
         f"CONFORME EUDR : aucune déforestation post-{settings.eudr_cutoff_date.year} détectée "
-        f"(parcelle de {area:.2f} ha, risque {satellite['risk_level']}, confiance {satellite['confidence_score']:.0%})."
+        f"(parcelle de {area:.2f} ha, risque {satellite['risk_level']}"
+        + (f", confiance {satellite['confidence_score']:.0%}" if satellite.get("confidence_score") is not None else "")
+        + ")."
     )
 
 
@@ -50,7 +62,7 @@ def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
         version=settings.app_version,
-        gfw_mode="live" if settings.gfw_live_available else "deterministic-mock",
+        gfw_mode="live" if settings.gfw_live_available else ("demo-simule" if settings.gfw_demo_mode else "indisponible"),
     )
 
 
@@ -61,8 +73,19 @@ def health() -> HealthResponse:
     tags=["audit"],
     summary="Audit EUDR complet d'une parcelle (GIS + satellite)",
 )
-def audit_parcel(payload: ParcelAuditRequest, db: Database = Depends(get_db)) -> ParcelAuditResponse:
-    validation = validate_geometry(payload.geojson, payload.declared_area_ha)
+def audit_parcel(
+    payload: ParcelAuditRequest,
+    request: Request,
+    db: Database = Depends(get_db),
+) -> ParcelAuditResponse:
+    # Le texte brut est conservé : la précision des coordonnées doit être mesurée
+    # sur les littéraux du fichier, pas sur les valeurs parsées (cf. P0-05).
+    try:
+        raw_text = request.scope["geoforest_raw_body"].decode("utf-8")
+    except (KeyError, AttributeError):
+        raw_text = None
+
+    validation = validate_geometry(payload.geojson, payload.declared_area_ha, raw_text)
     audit_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     hs_code = COMMODITY_HS_CODES[payload.commodity.value]
@@ -70,9 +93,19 @@ def audit_parcel(payload: ParcelAuditRequest, db: Database = Depends(get_db)) ->
 
     satellite: Dict[str, Any] | None = None
     if validation["valid"]:
-        # On passe le GeoJSON d'origine pour préserver d'éventuelles propriétés de démonstration.
+        # Aucun argument ne provient des propriétés du fichier : le verdict ne
+        # peut pas être influencé par le déposant (cf. P0-03).
         satellite = check_deforestation_risk(payload.geojson, payload.harvest_date.isoformat())
-        status_value = "COMPLIANT" if satellite["compliant"] else "NON_COMPLIANT"
+        # Aucun verdict n'est inventé : si l'analyse n'est pas probante, le
+        # statut le dit. `compliant is None` ne devient jamais « NON_COMPLIANT ».
+        if satellite["compliant"] is None:
+            status_value = (
+                "SIMULATED_NON_PROBATIVE"
+                if satellite.get("source") == "simulated"
+                else "ANALYSIS_UNAVAILABLE"
+            )
+        else:
+            status_value = "COMPLIANT" if satellite["compliant"] else "NON_COMPLIANT"
     else:
         status_value = "INVALID_GEOMETRY"
 
@@ -93,10 +126,14 @@ def audit_parcel(payload: ParcelAuditRequest, db: Database = Depends(get_db)) ->
         centroid_lat=float(centroid[1]),
         country_code=(satellite or {}).get("country_code", "XX"),
         country_risk=(satellite or {}).get("country_risk", "STANDARD"),
-        compliant=bool(satellite and satellite["compliant"]),
+        compliant=(satellite["compliant"] if satellite else None),
         loss_year=(satellite or {}).get("loss_year"),
-        confidence_score=float((satellite or {}).get("confidence_score", 0.0)),
+        # None = aucune confiance calculable ; 0.0 serait lu comme une mesure.
+        confidence_score=(satellite or {}).get("confidence_score"),
         risk_level=(satellite or {}).get("risk_level", "HIGH"),
+        analysis_source=(satellite or {}).get("source", "unavailable"),
+        analysis_probative=bool((satellite or {}).get("is_probative", False)),
+        analysis_evidence=(satellite or {}).get("evidence"),
         status=status_value,
         validation=validation,
         satellite=satellite or {},
@@ -164,6 +201,19 @@ def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) 
             status_code=409,
             detail="Impossible d'exporter un dossier dont la géométrie est invalide : corrigez la parcelle puis relancez l'audit.",
         )
+    # P0-04 : une analyse simulée ou indisponible ne peut pas alimenter une
+    # déclaration de diligence raisonnée. Le contrôle est serveur : l'interface
+    # n'est pas une barrière.
+    if not record.analysis_probative:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Export refusé : l'analyse de cette parcelle est une simulation de démonstration, sans valeur probante."
+                if record.analysis_source == "simulated"
+                else "Export refusé : aucune analyse satellite n'a pu être obtenue pour cette parcelle. "
+                "Aucune déclaration ne peut être établie sans données réelles."
+            ),
+        )
 
     operator: Dict[str, Any]
     if payload.operator is not None:
@@ -184,7 +234,7 @@ def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) 
         "country_of_activity": payload.country_of_activity.upper(),
     }
     reference = payload.internal_reference or build_reference(record.id)
-    db.mark_exported(record.id, reference)
+    db.mark_draft_generated(record.id, reference)
 
     filename = f"DDS_{reference}"
     if payload.format == "json":

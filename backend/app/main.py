@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.endpoints import router as v1_router
@@ -32,6 +32,19 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+@app.middleware("http")
+async def keep_raw_body(request: Request, call_next):
+    """Conserve le corps brut avant tout parsing.
+
+    La précision des coordonnées GeoJSON doit être mesurée sur les littéraux du
+    fichier reçu : `json.loads` transforme `-5.500000` en `-5.5` et détruit
+    l'information (cf. P0-05). Sans cette copie, elle serait irrécupérable.
+    """
+    if request.method in ("POST", "PUT", "PATCH"):
+        request.scope["geoforest_raw_body"] = await request.body()
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,

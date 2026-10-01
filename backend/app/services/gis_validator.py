@@ -12,8 +12,9 @@ Règles appliquées :
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from pyproj import Geod
 from shapely.geometry import MultiPoint, MultiPolygon, Point, Polygon, mapping, shape
@@ -66,16 +67,50 @@ def _decimals(value: Any) -> int:
     return 0 if frac == "0" else len(frac)
 
 
-def _extract_prop_min_decimals(obj: Any) -> Optional[int]:
-    """Extrait la précision déclarée dans les propriétés si elle existe."""
-    if isinstance(obj, dict):
-        props = obj.get("properties") or {}
-        if isinstance(props, dict):
-            for k in ("min_decimals", "raw_min_decimals", "precision_decimals"):
-                val = props.get(k)
-                if isinstance(val, (int, float)) and not math.isnan(val):
-                    return int(val)
-    return None
+def min_decimals_from_json_text(text: str) -> Optional[int]:
+    """Nombre de décimales réellement écrites dans le fichier source.
+
+    ⚠️ La mesure ne peut pas se faire sur les valeurs parsées : ``json.loads``
+    transforme ``-5.500000`` en ``-5.5``, ce qui détruit l'information de
+    précision et provoquait 92 % de faux rejets (P0-05). On lit donc les
+    littéraux du texte d'origine, à l'intérieur des seuls tableaux
+    "coordinates".
+    """
+    minimum: Optional[int] = None
+    index = text.find('"coordinates"')
+
+    while index != -1:
+        colon = text.find(":", index)
+        if colon == -1:
+            break
+        start = colon + 1
+        while start < len(text) and text[start].isspace():
+            start += 1
+        if start >= len(text) or text[start] != "[":
+            break
+
+        depth = 0
+        end = start
+        while end < len(text):
+            if text[end] == "[":
+                depth += 1
+            elif text[end] == "]":
+                depth -= 1
+                if depth == 0:
+                    break
+            end += 1
+
+        for literal in re.findall(r"-?\d+(?:\.\d+)?", text[start : end + 1]):
+            decimals = len(literal.split(".")[1]) if "." in literal else 0
+            minimum = decimals if minimum is None else min(minimum, decimals)
+
+        index = text.find('"coordinates"', end)
+
+    return minimum
+
+
+def _decimals_from_values(positions: Sequence[Tuple[float, float]]) -> int:
+    return min(min(_decimals(lon), _decimals(lat)) for lon, lat in positions)
 
 
 @dataclass
@@ -152,7 +187,8 @@ def geodesic_area_ha(geom: BaseGeometry) -> float:
     return abs(area_m2) / 10_000.0
 
 
-def _round_coords(coords: Any, decimals: int = 8) -> Any:
+def _round_coords(coords: Any, decimals: Optional[int] = None) -> Any:
+    decimals = decimals if decimals is not None else settings.eudr_is_coordinate_decimals
     if isinstance(coords, (list, tuple)):
         if coords and all(isinstance(c, (int, float)) for c in coords):
             return [round(float(c), decimals) for c in coords]
@@ -163,15 +199,27 @@ def _round_coords(coords: Any, decimals: int = 8) -> Any:
 def _round_geometry(geom: BaseGeometry, decimals: int = 8) -> Dict[str, Any]:
     """Sérialise en GeoJSON avec un arrondi stable (8 décimales ≈ 1 mm)."""
     raw = mapping(geom)
-    return {"type": raw["type"], "coordinates": _round_coords(raw["coordinates"], decimals)}
+    return {"type": raw["type"], "coordinates": _round_coords(raw["coordinates"], decimals or settings.eudr_is_coordinate_decimals)}
 
 
 # --------------------------------------------------------------------------- API
-def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float] = None) -> Dict[str, Any]:
+def validate_geometry(
+    geojson: Dict[str, Any],
+    declared_area_ha: Optional[float] = None,
+    raw_text: Optional[str] = None,
+) -> Dict[str, Any]:
     """Valide une géométrie GeoJSON de parcelle contre les règles EUDR.
 
     Gère à la fois les parcelles uniques et les lots multi-parcelles avec
     application de la règle des 4 ha par parcelle individuelle.
+
+    Args:
+        declared_area_ha: surface déclarée par l'opérateur (saisie en base,
+            jamais issue du fichier déposé — cf. P0-03).
+        raw_text: texte JSON d'origine. Indispensable pour mesurer la précision
+            sans la détruire (cf. P0-05). S'il est absent, la précision est
+            mesurée sur les valeurs parsées : le résultat est alors inexact et
+            accompagné de l'avertissement PRECISION_APPROXIMATED.
     """
     errors: List[Dict[str, str]] = []
     warnings: List[Dict[str, str]] = []
@@ -213,8 +261,6 @@ def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float]
 
     # 2. Collecte des coordonnées et vérification précision ------------------
     all_positions: List[Tuple[float, float]] = []
-    overall_prop_decimals = _extract_prop_min_decimals(geojson)
-
     for item in plot_items:
         coords = item.geometry.get("coordinates")
         pos = list(_iter_positions(coords))
@@ -247,10 +293,27 @@ def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float]
         )
         return result
 
-    # Précision (avec protection contre la perte de zéros)
-    min_decimals = min(min(_decimals(lon), _decimals(lat)) for lon, lat in all_positions)
-    if overall_prop_decimals is not None:
-        min_decimals = max(min_decimals, overall_prop_decimals)
+    # Précision mesurée sur le texte source quand il est fourni (exact),
+    # sinon sur les valeurs parsées (approximation signalée).
+    min_decimals = _decimals_from_values(all_positions)
+    if raw_text:
+        from_text = min_decimals_from_json_text(raw_text)
+        if from_text is not None:
+            min_decimals = from_text
+        else:
+            warnings.append(
+                {
+                    "code": "PRECISION_APPROXIMATED",
+                    "message": "Précision mesurée sur les valeurs parsées : le texte source n'a pas permis de l'établir.",
+                }
+            )
+    else:
+        warnings.append(
+            {
+                "code": "PRECISION_APPROXIMATED",
+                "message": "Texte source absent : la précision est mesurée sur les valeurs parsées et peut être sous-estimée.",
+            }
+        )
 
     result["min_decimals_found"] = min_decimals
     if min_decimals < settings.eudr_min_coordinate_decimals:
@@ -310,27 +373,22 @@ def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float]
 
         # 4. Surface & règle des 4 ha PAR PARCELLE INDIVIDUELLE (art. 9(1)(d))
         if is_point:
-            # Surface de cette parcelle point
-            plot_dec_area = None
-            for k in ("area_ha", "declared_area_ha", "area"):
-                val = item.properties.get(k)
-                if isinstance(val, (int, float)) and val > 0:
-                    plot_dec_area = float(val)
-                    break
-            if plot_dec_area is None:
-                plot_dec_area = per_point_declared_area
-
+            # P0-03 : la surface d'un point est une DONNÉE DÉCLARATIVE. Elle ne
+            # peut provenir que de la saisie de l'opérateur, jamais d'une
+            # propriété du fichier GeoJSON : un fichier est une pièce fournie
+            # par un tiers et n'est pas une source de vérité.
+            plot_dec_area = per_point_declared_area
             effective_plot_area = plot_dec_area or 0.0
             plot_areas.append(effective_plot_area)
 
-            if effective_plot_area >= settings.eudr_polygon_threshold_ha:
+            if effective_plot_area > settings.eudr_polygon_threshold_ha:
                 has_polygon_required = True
                 name_str = item.properties.get("name") or f"Parcelle #{item.feature_index + 1}"
                 errors.append(
                     {
                         "code": "POLYGON_REQUIRED",
                         "message": (
-                            f"{name_str} : surface {effective_plot_area:.2f} ha ≥ {settings.eudr_polygon_threshold_ha} ha. "
+                            f"{name_str} : surface {effective_plot_area:.2f} ha > {settings.eudr_polygon_threshold_ha} ha. "
                             "L'EUDR exige un polygone (art. 9(1)(d)), un point n'est pas suffisant."
                         ),
                     }
@@ -345,7 +403,7 @@ def validate_geometry(geojson: Dict[str, Any], declared_area_ha: Optional[float]
         else:
             poly_area = geodesic_area_ha(sh_geom)
             plot_areas.append(poly_area)
-            if poly_area >= settings.eudr_polygon_threshold_ha:
+            if poly_area > settings.eudr_polygon_threshold_ha:
                 has_polygon_required = True
 
         norm_g = _round_geometry(sh_geom)
