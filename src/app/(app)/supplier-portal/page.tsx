@@ -1,13 +1,16 @@
 "use client";
 
 import { COMMODITIES, COMMODITY_LABELS, type Commodity } from "@/lib/eudr/types";
+import { ApiError, submitSupplierDossier, type SupplierSubmission } from "@/lib/api";
 import Link from "next/link";
 import { useState } from "react";
 
 export default function SupplierPortalPage() {
   const [step, setStep] = useState(1);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<SupplierSubmission | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -49,9 +52,40 @@ export default function SupplierPortalPage() {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  /**
+   * P0-06 : le dépôt écrit réellement en base. Avant ce chantier, l'écran
+   * affichait « Déclaration transmise avec succès » sans le moindre appel
+   * réseau, avec une référence de dossier inventée.
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setError(null);
+    setSending(true);
+    try {
+      const submission = await submitSupplierDossier({
+        companyName: form.companyName,
+        country: form.country,
+        eori: form.eori,
+        contactName: form.contactName,
+        phone: form.phone,
+        commodity: form.commodity,
+        estimatedVolumeKg: form.estimatedVolumeKg,
+        plotName: form.plotName,
+        plotCoordinates: form.plotCoordinates,
+        plotAreaHa: form.plotAreaHa,
+        documentTitle: form.documentTitle,
+        documentExpiry: form.documentExpiry,
+      });
+      setResult(submission);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Enregistrement impossible : le serveur n'a pas répondu. Votre dossier n'a PAS été enregistré.",
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -79,7 +113,7 @@ export default function SupplierPortalPage() {
         </div>
 
         {/* Progress Bar (5 Steps) */}
-        {!submitted && (
+        {!result && (
           <div className="my-6">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 mb-2">
               <span>Étape {step} sur 5</span>
@@ -101,31 +135,41 @@ export default function SupplierPortalPage() {
         )}
 
         {/* Wizard Form */}
-        {submitted ? (
+        {result ? (
           <div className="py-8 text-center space-y-4">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-3xl">
-              ✓
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-3xl">
+              📝
             </div>
-            <h2 className="text-lg font-bold text-slate-900">Déclaration transmise avec succès !</h2>
+            <h2 className="text-lg font-bold text-slate-900">Brouillon enregistré — non transmis</h2>
             <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-              Vos coordonnées parcellaires et documents ont été enregistrés et intégrés au dossier de diligence raisonnée de <strong>GeoForest Agrobusiness SAS</strong>.
+              Vos informations sont enregistrées dans l&apos;espace de <strong>GeoForest Agrobusiness SAS</strong>.
+              Elles constituent un <strong>brouillon</strong> : <strong>aucune déclaration n&apos;a été déposée</strong>
+              {" "}auprès du système d&apos;information EUDR.
             </p>
+
+            <div className="rounded-xl bg-amber-50 border border-amber-300 p-3.5 text-left text-xs text-amber-900 leading-relaxed">
+              ⚠️ {result.transmission_notice}
+            </div>
+
             <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 text-left text-xs space-y-1.5 font-mono">
-              <div>Réf dossier : <strong>DDR-2026-SUPP-9812</strong></div>
+              <div>Réf. brouillon : <strong>{result.draft_reference}</strong></div>
               <div>Parcelle : {form.plotName} ({form.plotAreaHa} ha)</div>
               <div>Coordonnées : {form.plotCoordinates}</div>
-              <div>Horodatage : {new Date().toLocaleString("fr-FR")}</div>
+              <div>Statut : <strong>{result.transmission_status === "NOT_TRANSMITTED" ? "NON TRANSMIS" : result.transmission_status}</strong></div>
+              <div>Horodatage : {new Date(result.created_at).toLocaleString("fr-FR")}</div>
             </div>
+
             <div className="pt-2">
               <Link
                 href="/suppliers"
                 className="inline-block rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500"
               >
-                Retour à l'espace Entreprise
+                Retour à l’espace Entreprise
               </Link>
             </div>
           </div>
         ) : (
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Step 1 : Entreprise */}
             {step === 1 && (
@@ -246,7 +290,7 @@ export default function SupplierPortalPage() {
                     {gpsLoading ? "Acquisition GPS en cours..." : "📍 Capturer ma position GPS actuelle"}
                   </button>
                   <p className="text-[10px] text-emerald-800">
-                    Précision attendue : ≥ 6 décimales WGS84 (requis par l'article 9 EUDR).
+                    Précision attendue : ≥ 6 décimales WGS84 (requis par l’article 9 EUDR).
                   </p>
                 </div>
 
@@ -291,7 +335,7 @@ export default function SupplierPortalPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date d'expiration *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date d’expiration *</label>
                   <input
                     type="date"
                     required
@@ -303,7 +347,7 @@ export default function SupplierPortalPage() {
                 <div className="rounded-xl border-2 border-dashed border-slate-200 p-6 text-center hover:bg-slate-50">
                   <div className="text-2xl mb-1">📄</div>
                   <div className="text-xs font-semibold text-slate-800">Sélectionner ou prendre une photo du document</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">PDF, PNG, JPG jusqu'à 15 Mo</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">PDF, PNG, JPG jusqu’à 15 Mo</div>
                 </div>
               </div>
             )}
@@ -311,7 +355,7 @@ export default function SupplierPortalPage() {
             {/* Step 5 : Vérification */}
             {step === 5 && (
               <div className="space-y-3.5">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">5. Récapitulatif & Déclaration d'honneur</h2>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">5. Récapitulatif & Déclaration d’honneur</h2>
                 <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 text-xs space-y-2">
                   <div><strong>Fournisseur :</strong> {form.companyName} ({form.country})</div>
                   <div><strong>Produit :</strong> {COMMODITY_LABELS[form.commodity]} ({form.estimatedVolumeKg} kg)</div>
@@ -320,7 +364,7 @@ export default function SupplierPortalPage() {
                   <div><strong>Document :</strong> {form.documentTitle} (Expire le {form.documentExpiry})</div>
                 </div>
                 <div className="rounded-xl bg-amber-50 p-3 border border-amber-200 text-xs text-amber-900 leading-relaxed">
-                  ✓ Je certifie sur l'honneur que ces parcelles n'ont subi aucune déforestation après le 31 décembre 2020 et que la récolte respecte la législation nationale applicable.
+                  ✓ Je certifie sur l’honneur que ces parcelles n’ont subi aucune déforestation après le 31 décembre 2020 et que la récolte respecte la législation nationale applicable.
                 </div>
               </div>
             )}
@@ -350,12 +394,25 @@ export default function SupplierPortalPage() {
               ) : (
                 <button
                   type="submit"
-                  className="rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm"
+                  disabled={sending}
+                  className="rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm disabled:opacity-60"
                 >
-                  Confirmer et Envoyer ➔
+                  {sending ? "Enregistrement en cours…" : "Confirmer et enregistrer le brouillon"}
                 </button>
               )}
             </div>
+
+            {error && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-800 leading-relaxed">
+                ✕ {error}
+              </div>
+            )}
+
+            <p className="text-[10px] leading-relaxed text-slate-400">
+              L&apos;envoi enregistre un <strong>brouillon</strong> dans l&apos;espace de l&apos;opérateur. Il ne déclare
+              rien auprès d&apos;une autorité : le dépôt d&apos;une déclaration de diligence raisonnée dans le
+              système d&apos;information EUDR est une étape distincte, réalisée par l&apos;opérateur.
+            </p>
           </form>
         )}
       </div>

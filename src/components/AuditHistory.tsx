@@ -13,12 +13,17 @@ const STATUS_BADGE: Record<AuditSummary["status"], string> = {
   COMPLIANT: "bg-emerald-100 text-emerald-800",
   NON_COMPLIANT: "bg-red-100 text-red-800",
   INVALID_GEOMETRY: "bg-amber-100 text-amber-800",
+  // Volontairement ni vert ni rouge : ces deux états ne sont pas des verdicts.
+  SIMULATED_NON_PROBATIVE: "bg-orange-100 text-orange-900",
+  ANALYSIS_UNAVAILABLE: "bg-slate-200 text-slate-700",
 };
 
 const STATUS_LABEL: Record<AuditSummary["status"], string> = {
   COMPLIANT: "Conforme",
   NON_COMPLIANT: "Non conforme",
   INVALID_GEOMETRY: "Invalide",
+  SIMULATED_NON_PROBATIVE: "Simulé — non probant",
+  ANALYSIS_UNAVAILABLE: "Analyse indisponible",
 };
 
 export default function AuditHistory({ audits, loading, selectedId, onSelect }: AuditHistoryProps) {

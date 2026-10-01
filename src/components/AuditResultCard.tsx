@@ -86,7 +86,7 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
           </svg>
         </div>
         <p className="mt-3 text-sm font-semibold text-slate-700">Bilan d&apos;audit</p>
-        <p className="mt-1 text-xs text-slate-500">Le badge de conformité, la surface calculée et l&apos;export TRACES-NT apparaîtront ici.</p>
+        <p className="mt-1 text-xs text-slate-500">Le badge de conformité, la surface calculée et le brouillon de DDS apparaîtront ici.</p>
       </div>
     );
   }
@@ -97,9 +97,21 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
       ? { text: "CONFORME EUDR", cls: "bg-emerald-600 text-white", icon: "✓" }
       : status === "NON_COMPLIANT"
         ? { text: "NON CONFORME", cls: "bg-red-600 text-white", icon: "✕" }
-        : { text: "GÉOMÉTRIE INVALIDE", cls: "bg-amber-500 text-white", icon: "!" };
+        : status === "SIMULATED_NON_PROBATIVE"
+          ? { text: "ANALYSE SIMULÉE — NON PROBANT", cls: "bg-slate-600 text-white", icon: "⚠" }
+          : status === "ANALYSIS_UNAVAILABLE"
+            ? { text: "ANALYSE INDISPONIBLE", cls: "bg-slate-500 text-white", icon: "?" }
+            : { text: "GÉOMÉTRIE INVALIDE", cls: "bg-amber-500 text-white", icon: "!" };
 
-  const exportable = status !== "INVALID_GEOMETRY";
+  // P0-04 : un résultat simulé ou absent ne part pas en déclaration TRACES.
+  // Seule une analyse probante, appuyée sur des données réelles, est exportable.
+  const exportable = status === "COMPLIANT" || status === "NON_COMPLIANT";
+  const provenance =
+    satellite?.source === "gfw-live"
+      ? { text: "Données GFW (Hansen/UMD)", cls: "bg-emerald-50 text-emerald-800 ring-emerald-200" }
+      : satellite?.source === "simulated"
+        ? { text: "Simulation — aucune donnée satellite", cls: "bg-orange-50 text-orange-800 ring-orange-300" }
+        : { text: "Aucune analyse obtenue", cls: "bg-slate-100 text-slate-700 ring-slate-300" };
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5">
@@ -127,9 +139,11 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
 
       {satellite && (
         <div className="space-y-2 rounded-xl border border-slate-100 p-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Analyse satellite</span>
-            <span className="font-mono text-[10px] text-slate-400">{satellite.source}</span>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${provenance.cls}`}>
+              {provenance.text}
+            </span>
           </div>
           <div className="flex flex-wrap gap-2">
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.country_risk]}`}>
@@ -138,9 +152,11 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
               Risque parcelle : {RISK_LABELS[satellite.risk_level]}
             </span>
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
-              Confiance {Math.round(satellite.confidence_score * 100)} %
-            </span>
+            {satellite.confidence_score !== null && (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
+                Confiance {Math.round(satellite.confidence_score * 100)} %
+              </span>
+            )}
             {satellite.loss_year && (
               <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${satellite.loss_year > 2020 ? "bg-red-100 text-red-800 ring-red-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>
                 Perte de couvert : {satellite.loss_year}
@@ -149,6 +165,20 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
             )}
           </div>
           <p className="text-xs leading-relaxed text-slate-600">{satellite.details}</p>
+
+          {satellite.disclaimer && (
+            <p className="rounded-lg bg-orange-50 px-3 py-2 text-xs font-medium leading-relaxed text-orange-900 ring-1 ring-inset ring-orange-300">
+              ⚠️ {satellite.disclaimer}
+            </p>
+          )}
+
+          {satellite.evidence && (
+            <p className="font-mono text-[10px] leading-relaxed text-slate-500">
+              {satellite.evidence.provider} · {satellite.evidence.dataset} {satellite.evidence.dataset_version} ·
+              géométrie {satellite.evidence.geometry_type} · relevé le{" "}
+              {new Date(satellite.evidence.retrieved_at).toLocaleString("fr-FR")}
+            </p>
+          )}
         </div>
       )}
 
@@ -189,14 +219,26 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           )}
-          Télécharger le dossier TRACES-NT (XML)
+          {exporting === "xml" ? "Génération…" : "Télécharger le brouillon de DDS (XML interne)"}
         </button>
-        <button type="button" disabled={!exportable || exporting !== null} onClick={() => void handleExport("json")} className="w-full rounded-lg py-1.5 text-xs font-medium text-slate-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:text-slate-300">
-          {exporting === "json" ? "Génération…" : "Version JSON du DDS"}
-        </button>
+        <div className="flex gap-2">
+          <button type="button" disabled={!exportable || exporting !== null} onClick={() => void handleExport("json")} className="flex-1 rounded-lg py-1.5 text-xs font-medium text-slate-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:text-slate-300">
+            {exporting === "json" ? "Génération…" : "Version JSON (interne)"}
+          </button>
+          <button type="button" disabled={!exportable || exporting !== null} onClick={() => void handleExport("geojson")} className="flex-1 rounded-lg py-1.5 text-xs font-medium text-slate-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:text-slate-300">
+            {exporting === "geojson" ? "Génération…" : "📍 Géolocalisation EUDR-IS (GeoJSON)"}
+          </button>
+        </div>
         {status === "NON_COMPLIANT" && <p className="text-[11px] leading-snug text-red-700">Le DDS sera marqué <span className="font-mono">VERIFIED_NON_COMPLIANT</span> : la mise sur le marché de l&apos;UE est interdite (art. 3 EUDR).</p>}
-        {!exportable && <p className="text-[11px] text-slate-500">Corrigez la géométrie puis relancez l&apos;audit pour débloquer l&apos;export.</p>}
-        {exportedRef && <p className="text-[11px] text-emerald-700">Téléchargé : <span className="font-mono">{exportedRef}</span></p>}
+        {/* P0-06 : générer un fichier n'est pas déposer une déclaration. */}
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600 ring-1 ring-inset ring-slate-200">
+          Ces fichiers sont des <strong>brouillons au format interne GeoForest</strong> — à l&apos;exception du
+          GeoJSON, conforme au format de géolocalisation publié par le SI EUDR.
+          <strong> Aucun téléchargement ne transmet quoi que ce soit :</strong> le dépôt d&apos;une
+          déclaration dans le système d&apos;information EUDR reste à réaliser par l&apos;opérateur.
+        </p>
+        {!exportable && <p className="text-[11px] text-slate-500">L&apos;export exige une analyse probante : sans données satellite réelles, aucun brouillon n&apos;est produit.</p>}
+        {exportedRef && <p className="text-[11px] text-emerald-700">Brouillon généré (non transmis) : <span className="font-mono">{exportedRef}</span></p>}
         {exportError && <p className="text-[11px] text-red-700">{exportError}</p>}
       </div>
     </div>

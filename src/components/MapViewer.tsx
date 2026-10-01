@@ -19,6 +19,9 @@ const COLORS: Record<MapStatus, { stroke: string; fill: string; label: string }>
   NON_COMPLIANT: { stroke: "#dc2626", fill: "#ef4444", label: "Déforestation post-2020" },
   INVALID_GEOMETRY: { stroke: "#d97706", fill: "#f59e0b", label: "Géométrie invalide" },
   PENDING: { stroke: "#0f766e", fill: "#14b8a6", label: "En attente d'audit" },
+  // Gris neutre : absence de verdict, à ne pas confondre avec une conformité.
+  SIMULATED_NON_PROBATIVE: { stroke: "#ea580c", fill: "#fdba74", label: "Simulé — non probant" },
+  ANALYSIS_UNAVAILABLE: { stroke: "#64748b", fill: "#cbd5e1", label: "Analyse indisponible" },
 };
 
 export default function MapViewer({ geometry, status, areaHa, lossYear }: MapViewerProps) {

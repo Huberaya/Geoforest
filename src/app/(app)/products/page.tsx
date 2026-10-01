@@ -118,7 +118,7 @@ export default function ProductsPage() {
       {/* Company Products Table */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900">Références produits de l'entreprise ({products.length})</h2>
+          <h2 className="text-sm font-bold text-slate-900">Références produits de l’entreprise ({products.length})</h2>
           <span className="text-xs text-slate-400">Traçabilité douanière active</span>
         </div>
         <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
@@ -246,7 +246,7 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pays d'origine *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pays d’origine *</label>
                   <input
                     type="text"
                     required

@@ -1,18 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+
+export interface ShellUser {
+  name: string;
+  email: string;
+  role: string;
+  roleLabel: string;
+  organizationName: string | null;
+}
 
 interface AppShellProps {
   children: ReactNode;
+  /** Utilisateur authentifié — fourni par le layout serveur (jamais par le client). */
+  user: ShellUser;
 }
 
 interface NavItem {
   label: string;
   href: string;
   icon: string;
-  badge?: string;
+  /**
+   * Compteur affiché en regard de l'entrée. `badgeFrom` désigne la route dont
+   * le compteur est calculé côté serveur (`/api/v1/nav/counts`). Sans valeur
+   * calculée, aucun badge n'est affiché : un badge annonçait auparavant
+   * « 2 critiques » et « 3 à revoir » alors que la base était vide (P0-09).
+   */
+  badgeFrom?: string;
   badgeColor?: "red" | "amber" | "emerald" | "slate";
 }
 
@@ -23,21 +39,57 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Lots / Expéditions", href: "/shipments", icon: "🚚" },
   { label: "Parcelles", href: "/plots", icon: "🗺️" },
   { label: "Analyses", href: "/analyses", icon: "🛰️" },
-  { label: "Documents", href: "/documents", icon: "📁", badge: "3 à revoir", badgeColor: "amber" },
-  { label: "Risques", href: "/risks", icon: "⚠️", badge: "2 critiques", badgeColor: "red" },
+  { label: "Documents", href: "/documents", icon: "📁", badgeFrom: "/documents", badgeColor: "amber" },
+  { label: "Risques", href: "/risks", icon: "⚠️", badgeFrom: "/risks", badgeColor: "red" },
   { label: "Diligence raisonnée", href: "/due-diligence", icon: "📋" },
   { label: "Déclarations TRACES", href: "/declarations", icon: "🏛️" },
-  { label: "Alertes", href: "/alerts", icon: "🔔", badge: "2", badgeColor: "red" },
+  { label: "Alertes", href: "/alerts", icon: "🔔" },
   { label: "Rapports", href: "/reports", icon: "📑" },
   { label: "Audit Log", href: "/audit-logs", icon: "📜" },
   { label: "Paramètres", href: "/settings", icon: "⚙️" },
 ];
 
-export default function AppShell({ children }: AppShellProps) {
+export default function AppShell({ children, user }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [actionCenterOpen, setActionCenterOpen] = useState(false);
-  const [selectedOrg, setSelectedOrg] = useState("GeoForest Agrobusiness SAS (FR)");
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [navCounts, setNavCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/nav/counts", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { counts?: Record<string, number> };
+        if (!cancelled && body.counts) setNavCounts(body.counts);
+      } catch {
+        /* Un badge manquant n'est pas une erreur fonctionnelle. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  const initials = user.name
+    .split(" ")
+    .map((part) => part[0] ?? "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/v1/auth/logout", { method: "POST", credentials: "same-origin" });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
@@ -54,20 +106,14 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Organisation Selector */}
+        {/* Organisation active — issue de la session */}
         <div className="p-3 border-b border-slate-100 bg-slate-50/50">
-          <label className="block text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">
+          <span className="block text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">
             Organisation active
-          </label>
-          <select
-            value={selectedOrg}
-            onChange={(e) => setSelectedOrg(e.target.value)}
-            className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          >
-            <option>GeoForest Agrobusiness SAS (FR)</option>
-            <option>Coopérative Cacao San Pedro (CI)</option>
-            <option>BioForets Import SA (DE)</option>
-          </select>
+          </span>
+          <div className="w-full truncate rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800">
+            {user.organizationName ?? "Aucune organisation rattachée"}
+          </div>
         </div>
 
         {/* Navigation Items */}
@@ -90,7 +136,7 @@ export default function AppShell({ children }: AppShellProps) {
                   </span>
                   <span>{item.label}</span>
                 </div>
-                {item.badge && (
+                {item.badgeFrom && (navCounts[item.badgeFrom] ?? 0) > 0 && (
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       item.badgeColor === "red"
@@ -100,7 +146,7 @@ export default function AppShell({ children }: AppShellProps) {
                           : "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    {item.badge}
+                    {navCounts[item.badgeFrom!]}
                   </span>
                 )}
               </Link>
@@ -154,18 +200,29 @@ export default function AppShell({ children }: AppShellProps) {
               className="flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 transition-all animate-pulse"
             >
               <span className="inline-block h-2 w-2 rounded-full bg-white" />
-              <span>CENTRE D'ACTIONS (3)</span>
+              <span>CENTRE D’ACTIONS (3)</span>
             </button>
 
-            {/* User Badge */}
+            {/* User Badge — données réelles de la session */}
             <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-[10px]">
-                CD
+              <div
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-[10px]"
+                aria-hidden="true"
+              >
+                {initials || "?"}
               </div>
               <div className="hidden text-left sm:block">
-                <div className="font-semibold text-slate-800 leading-tight">Claire Delaunay</div>
-                <div className="text-[10px] text-slate-500">Resp. Conformité</div>
+                <div className="font-semibold text-slate-800 leading-tight">{user.name}</div>
+                <div className="text-[10px] text-slate-500">{user.roleLabel}</div>
               </div>
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                disabled={loggingOut}
+                className="ml-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-60"
+              >
+                {loggingOut ? "…" : "Se déconnecter"}
+              </button>
             </div>
           </div>
         </header>
@@ -194,7 +251,11 @@ export default function AppShell({ children }: AppShellProps) {
                     className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
                   >
                     <span>{item.icon} {item.label}</span>
-                    {item.badge && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] text-rose-700 font-semibold">{item.badge}</span>}
+                    {item.badgeFrom && (navCounts[item.badgeFrom] ?? 0) > 0 && (
+                      <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] text-rose-700 font-semibold">
+                        {navCounts[item.badgeFrom]}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </nav>
@@ -211,8 +272,8 @@ export default function AppShell({ children }: AppShellProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-lg">⚡</span>
                   <div>
-                    <h2 className="font-bold text-sm">Centre d'Actions Prioritaires</h2>
-                    <p className="text-[11px] text-slate-300">Ce que vous devez traiter aujourd'hui</p>
+                    <h2 className="font-bold text-sm">Centre d’Actions Prioritaires</h2>
+                    <p className="text-[11px] text-slate-300">Ce que vous devez traiter aujourd’hui</p>
                   </div>
                 </div>
                 <button
@@ -234,7 +295,7 @@ export default function AppShell({ children }: AppShellProps) {
                   </div>
                   <h3 className="font-semibold text-xs text-rose-950">Alerte Déforestation — Parcelle Riau-04 (Indonésie)</h3>
                   <p className="text-xs text-rose-800 leading-relaxed">
-                    Perte de couvert forestier détectée en 2022 (après le 31/12/2020). Risque élevé d'infraction EUDR.
+                    Perte de couvert forestier détectée en 2022 (après le 31/12/2020). Risque élevé d’infraction EUDR.
                   </p>
                   <div className="pt-1 flex gap-2">
                     <Link

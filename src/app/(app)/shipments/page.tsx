@@ -80,7 +80,7 @@ export default function ShipmentsPage() {
       {/* Traceability Flow Banner */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-          Chaîne d'imputabilité EUDR (Article 9 & 10)
+          Chaîne d’imputabilité EUDR (Article 9 & 10)
         </h2>
         <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-center">
           <div className="flex-1 rounded-xl bg-slate-50 p-3 border border-slate-100">

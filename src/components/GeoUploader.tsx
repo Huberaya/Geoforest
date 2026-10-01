@@ -120,6 +120,12 @@ export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: Geo
 
   const [operatorName, setOperatorName] = useState("Café Import SAS");
   const [eori, setEori] = useState("FR12345678901234");
+  // P1-16 — le producteur est un rôle distinct de l'opérateur. La case
+  // « identique à l'opérateur » existe pour que la coïncidence soit un choix
+  // explicite de l'utilisateur, jamais une supposition du code.
+  const [producerName, setProducerName] = useState("");
+  const [producerCountry, setProducerCountry] = useState("");
+  const [producerIsOperator, setProducerIsOperator] = useState(false);
   const [commodity, setCommodity] = useState<Commodity>("coffee");
   const [harvestDate, setHarvestDate] = useState(() => {
     const d = new Date();
@@ -172,7 +178,10 @@ export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: Geo
 
   const loadDemo = (sample: DemoSample) => {
     setCommodity(sample.commodity);
-    applyParsed({ geojson: sample.geojson, format: "GeoJSON", featureCount: 1 }, `démo — ${sample.label}`);
+    applyParsed(
+      { geojson: sample.geojson, geojsonText: JSON.stringify(sample.geojson), format: "GeoJSON", featureCount: 1 },
+      `démo — ${sample.label}`,
+    );
   };
 
   const reset = () => {
@@ -190,9 +199,16 @@ export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: Geo
     const declared = declaredArea.trim() === "" ? null : Number(declaredArea.replace(",", "."));
     await onSubmit({
       geojson: parsed.geojson,
+      // P1-16 — la précision du fichier doit atteindre le serveur intacte.
+      geojsonText: parsed.geojsonText,
       commodity,
       harvest_date: harvestDate,
       operator: { name: operatorName.trim(), eori: eori.trim(), country: eori.trim().slice(0, 2).toUpperCase() },
+      producer: producerIsOperator
+        ? { same_as_operator: true }
+        : producerName.trim().length >= 2
+          ? { name: producerName.trim(), country: producerCountry.trim().toUpperCase() }
+          : null,
       declared_area_ha: declared,
       parcel_reference: parcelRef.trim() || null,
     });
@@ -319,6 +335,44 @@ export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: Geo
         <div>
           <label className={labelClass} htmlFor="eori">N° EORI</label>
           <input id="eori" required pattern="[A-Za-z]{2}[A-Za-z0-9 ]{1,15}" title="Code pays (2 lettres) + 1 à 15 caractères alphanumériques" value={eori} onChange={(e) => setEori(e.target.value.toUpperCase())} className={`${inputClass} font-mono uppercase`} placeholder="FR12345678901234" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelClass} htmlFor="producer">Producteur</label>
+          <input
+            id="producer"
+            value={producerIsOperator ? operatorName : producerName}
+            onChange={(e) => setProducerName(e.target.value)}
+            disabled={producerIsOperator}
+            className={inputClass}
+            placeholder={producerIsOperator ? "Identique à l'opérateur" : "Raison sociale du producteur"}
+          />
+          <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-600">
+            <input
+              type="checkbox"
+              checked={producerIsOperator}
+              onChange={(e) => setProducerIsOperator(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300"
+            />
+            Le producteur est identique à l&apos;opérateur
+          </label>
+          <p className="mt-1 text-[10px] leading-snug text-slate-500">
+            L&apos;opérateur met la marchandise sur le marché ; le producteur
+            l&apos;a produite. S&apos;ils diffèrent, la déclaration doit nommer
+            le producteur réel — l&apos;export est refusé tant qu&apos;il
+            n&apos;est pas renseigné.
+          </p>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="producerCountry">Pays du producteur (ISO 2)</label>
+          <input
+            id="producerCountry"
+            value={producerIsOperator ? eori.trim().slice(0, 2).toUpperCase() : producerCountry}
+            onChange={(e) => setProducerCountry(e.target.value.toUpperCase())}
+            disabled={producerIsOperator}
+            maxLength={2}
+            className={`${inputClass} font-mono uppercase`}
+            placeholder="ET"
+          />
         </div>
         <div>
           <label className={labelClass} htmlFor="commodity">Matière première</label>
