@@ -100,3 +100,68 @@ vercel --prod
 
 ### Déploiement Continu via GitHub Actions :
 Chaque push sur la branche `main` déclenche le pipeline CI/CD validant les tests Python (Pytest 29/29), le typage TypeScript et la compilation Next.js avant le déploiement sur Vercel.
+
+## 5. Stockage des pièces justificatives
+
+### Pourquoi le disque est impossible en production
+
+L'adaptateur disque écrit sous `GF_STORAGE_DIR` (ou `var/storage`). Sur
+l'hébergeur, le système de fichiers est en **lecture seule** : la création du
+répertoire échoue (`ENOENT … mkdir '/var/task/var'`). Le composant `stockage`
+passe alors `indisponible`, composant critique ⇒ `/api/health` répond **503**.
+C'est voulu : un dépôt qui rendrait « OK » sans rien conserver ferait croire à
+une preuve archivée qui n'existe pas.
+
+⚠️ Pointer `GF_STORAGE_DIR` vers `/tmp` a été écarté. Le système de fichiers
+temporaire est insaisissable : l'écriture réussirait, le téléchargement
+suivant réussirait — et la pièce aurait disparu au redémarrage, sans laisser
+plus de trace qu'une preuve jamais déposée. Un faux succès, ici, coûte plus
+qu'une panne franche.
+
+### Configuration
+
+Renseigner les variables (Vercel → Settings → Environment Variables) :
+
+| Variable | Exemple | Remarque |
+|---|---|---|
+| `S3_ENDPOINT` | `https://s3.fr-par.scw.cloud` | Adresse **régionale**, sans le compartiment |
+| `S3_BUCKET` | `geoforest-pieces` | Préfixé à l'hôte par l'adaptateur |
+| `S3_REGION` | `fr-par` | `us-east-1` par défaut ; une région fausse ⇒ 403, pas d'erreur explicite |
+| `S3_ACCESS_KEY_ID` | — | Clé d'accès au compartiment |
+| `S3_SECRET_ACCESS_KEY` | — | À marquer `Sensitive` |
+| `S3_FORCE_PATH_STYLE` | `false` | `true` seulement si le service l'exige (MinIO) |
+
+### Droits que doit avoir la clé — les trois, sans exception
+
+La sonde de santé **écrit, relit puis supprime** un objet à chaque appel
+(`src/lib/alerting/regles.ts`). Ce n'est pas un excès de zèle : monter un
+compartiment ne prouve pas qu'on peut y écrire, et un stockage qui rendrait
+« ok » sans jamais rien conserver serait pire qu'une panne. La clé doit donc
+disposer de `s3:PutObject`, `s3:GetObject` **et** `s3:DeleteObject`.
+
+⚠️ Deux conséquences à connaître avant de s'étonner :
+
+- une clé limitée à l'écriture et à la lecture laisse le composant
+  `stockage` à `indisponible`, donc `/api/health` à 503 — la suppression fait
+  partie du contrôle, et son échec est traité comme une panne ;
+- chaque appel de `/api/health` effectue trois requêtes. Sur un service à
+  cohérence *éventuelle* (certains MinIO ou Ceph anciens), la relecture peut
+  ne pas voir l'objet qui vient d'être écrit : la sonde bascule alors par
+  intermittence. Choisir un service à cohérence immédiate après écriture, ce
+  qui est le cas d'AWS, Scaleway, OVH et R2.
+
+### Vérification — obligatoire avant de déclarer le stockage opérationnel
+
+```bash
+S3_ENDPOINT=… S3_BUCKET=… S3_REGION=… S3_ACCESS_KEY_ID=… S3_SECRET_ACCESS_KEY=… \
+  npx tsx scripts/verifier-stockage-s3.ts
+```
+
+Le script écrit un objet, le relit et compare le condensat, contrôle l'absence,
+la taille, une URL signée acceptée puis refusée pour une autre organisation,
+puis supprime l'objet. Il sort en erreur au premier échec.
+
+⚠️ Ce n'est qu'après une exécution intégralement conforme que la marque
+`stockageS3.valide` peut passer à `true` : elle signifie « éprouvé sur une
+instance réelle », et une signature juste ne dit rien de l'accès au
+compartiment, de la région ni des droits de la clé.

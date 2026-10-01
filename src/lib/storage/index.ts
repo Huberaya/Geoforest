@@ -144,6 +144,14 @@ export const stockageDisque: Stockage = {
  */
 export const stockageS3: Stockage = {
   nom: "s3",
+  // ⚠️ « valide » ne dit pas « le code a l'air juste », mais « éprouvé sur une
+  //   instance réelle ». État au 2 octobre 2026 : la signature a été confrontée
+  //   à l'implémentation de référence aws4 sur six cas, et l'aller-retour
+  //   complet a réussi contre un serveur qui vérifie chaque signature — dans
+  //   les deux styles d'adressage. Il reste à le faire sur un compartiment
+  //   réel : ni la région, ni les droits de la clé, ni la cohérence du service
+  //   ne se devinent depuis ici. La marque ne bougera qu'après
+  //   `scripts/verifier-stockage-s3.ts` exécuté en production.
   valide: false,
 
   async ecrire(organisationId, contenu, extension) {
