@@ -60,6 +60,14 @@ const dbAdmin = drizzle(pool);
 /** Cinq ans, jours bissextiles compris (365,25 × 5). */
 const RETENTION_DEFAUT_JOURS = 1826;
 
+/**
+ * Ancienneté au-delà de laquelle une fenêtre de tentative de connexion
+ * est périmée. Sans rapport avec la rétention des preuves : c'est de
+ * l'état de limitation de débit, qui ne vaut plus rien une fois la
+ * fenêtre refermée.
+ */
+const FENETRES_PERIMEES_HEURES = 24;
+
 const TABLES = [
   "gf_suppliers",
   "gf_products",
@@ -134,13 +142,34 @@ async function main(): Promise<void> {
   );
   const journauxPérimes = Number((journaux[0] as { n: number } | undefined)?.n ?? 0);
   console.log(`  ${journauxPérimes.toString().padStart(6)}  gf_audit_logs (journal, ${jours} jour(s) révolus)`);
+
+  // -------------------------------------------------------------------------
+  // ⚠️ P1-10b — pourquoi les fenêtres de connexion sont purgées ici.
+  //   `clearLoginFailures()` remet le compteur d'échecs à zéro au lieu de
+  //   supprimer la ligne : le rôle applicatif n'a plus `DELETE` sur aucune
+  //   table, et c'est voulu. Les fenêtres abandonnées — des échecs jamais
+  //   suivis d'une réussite — ne sont donc plus jamais reprises et
+  //   s'accumuleraient sans fin. Leur nettoyage passe par ce script, seul
+  //   habilité à supprimer, et sous le même refus par défaut.
+  // -------------------------------------------------------------------------
+  const limiteFenetres = new Date(Date.now() - FENETRES_PERIMEES_HEURES * 3_600_000);
+  const { rows: fenetres } = await dbAdmin.execute(
+    sql.raw(
+      `select count(*)::int as n from gf_login_attempts where last_attempt_at <` +
+        ` '${limiteFenetres.toISOString()}'::timestamptz`,
+    ),
+  );
+  const fenetresPerimees = Number((fenetres[0] as { n: number } | undefined)?.n ?? 0);
+  console.log(
+    `  ${fenetresPerimees.toString().padStart(6)}  gf_login_attempts (fenêtres de connexion de plus de ${FENETRES_PERIMEES_HEURES} h)`
+  );
   console.log("");
 
   if (!appliquer) {
     console.log(
-      total + journauxPérimes === 0
+      total + journauxPérimes + fenetresPerimees === 0
         ? "  Rien à purger : aucune ligne n'a atteint la durée de rétention."
-        : `  ${total + journauxPérimes} ligne(s) périmée(s). Relancer avec --appliquer pour effectuer la purge.`,
+        : `  ${total + journauxPérimes + fenetresPerimees} ligne(s) périmée(s). Relancer avec --appliquer pour effectuer la purge.`,
     );
     return;
   }
@@ -161,6 +190,7 @@ async function main(): Promise<void> {
                    limite: limite.toISOString(),
                    lignesPerimees: total,
                    journauxPerimes: journauxPérimes,
+                   fenetresPerimees,
                    tables: TABLES,
                  })}::jsonb)`,
     ),
@@ -182,6 +212,13 @@ async function main(): Promise<void> {
     ),
   );
   console.log(`  ${String(purges ?? 0).padStart(6)}  gf_audit_logs — purgée`);
+
+  const { rowCount: fenetresPurgees } = await dbAdmin.execute(
+    sql.raw(
+      `delete from gf_login_attempts where last_attempt_at < '${limiteFenetres.toISOString()}'::timestamptz`,
+    ),
+  );
+  console.log(`  ${String(fenetresPurgees ?? 0).padStart(6)}  gf_login_attempts — purgée`);
 
   // ⚠️ La ligne de purge est conservée : elle est la seule trace qu'une
   //   destruction a eu lieu, et la seule réponse possible à « pourquoi ce

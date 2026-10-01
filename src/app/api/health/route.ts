@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { verifierRoleApplication } from "@/db/controle-role";
 import { sonderTout, type EtatComposant } from "@/lib/alerting/regles";
 import { journal } from "@/lib/observability/journal";
 import { disponibiliteSecondes, noterJauges } from "@/lib/observability/metriques";
@@ -32,6 +33,40 @@ const CRITIQUES = new Set(["base", "stockage"]);
 export async function GET() {
   const debut = Date.now();
   const composants = await sonderTout();
+
+  // P1-10b — le rôle de connexion est sondé comme un composant à part entière.
+  //
+  // ⚠️ Un rôle qui contourne la RLS ne provoque aucune erreur ailleurs : les
+  //   pages s'affichent, les écritures réussissent, rien ne distingue une
+  //   application cloisonnée d'une application qui voit toutes les
+  //   organisations. La sonde est le seul endroit où cette mesure est faite en
+  //   continu — `src/instrumentation.ts` la fait une fois, au démarrage.
+  const debutRole = Date.now();
+  const role = await verifierRoleApplication().catch(() => null);
+  if (role) {
+    composants.push({
+      nom: "role_base",
+      // ⚠️ « degrade » et pas « indisponible », et le piège est dans le modèle
+      //   de cette sonde : un composant qui n'est pas dans `CRITIQUES` et qui
+      //   est marqué « indisponible » ne remonte ni dans `alertes` ni dans le
+      //   statut global — il serait invisible. Constaté à l'exécution le
+      //   02/10/2026. « degrade » émet l'alerte et dégrade le statut ; un
+      //   déploiement qui préfère retirer l'instance du pool dispose de
+      //   `GF_HEALTH_STRICT=1`, qui met « degrade » à 503.
+      etat: role.ok ? "ok" : "degrade",
+      detail: role.ok
+        ? `Rôle « ${role.role} » : RLS appliquée, aucun droit de destruction`
+        : role.messages.join(" | "),
+      mesure: {
+        role: role.role,
+        superutilisateur: role.superutilisateur,
+        contourne_rls: role.contourneRls,
+        tables_sans_cloisonnement: role.tablesSansCloisonnement.length,
+        droits_destruction: role.droitsDestruction.length,
+      },
+      dureeMs: Date.now() - debutRole,
+    });
+  }
 
   const critiquesEnPanne = composants.filter(
     (c) => CRITIQUES.has(c.nom) && c.etat === "indisponible",

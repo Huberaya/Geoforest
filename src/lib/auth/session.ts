@@ -391,8 +391,26 @@ export async function registerLoginFailure(
   return { blocked: true, retryAfterSeconds: Math.max(1, Math.ceil((retryAt - Date.now()) / 1000)) };
 }
 
+/**
+ * Remise à zéro du compteur d'échecs d'une fenêtre, après une réussite.
+ *
+ * ⚠️ P1-10b — cette fonction supprimait la ligne (`delete`). Or le rôle
+ *   applicatif s'est vu retirer `DELETE` sur **toutes** les tables, sans
+ *   exception : sous ce rôle, l'instruction était refusée et la **connexion
+ *   échouait** — une panne qui n'apparaît qu'en production, puisque le
+ *   développement local se connecte en superutilisateur.
+ *
+ * La remise à zéro passe donc par une mise à jour. La ligne subsiste, ce qui
+ * est un renseignement de plus : la date de la dernière réussite. Le ménage
+ * des fenêtres abandonnées — des échecs jamais suivis d'une réussite — relève
+ * de `scripts/purge-retention.ts`, seul habilité à supprimer.
+ */
 export async function clearLoginFailures(windowKey: string): Promise<void> {
-  await db.delete(loginAttempts).where(eq(loginAttempts.windowKey, windowKey));
+  const maintenant = new Date();
+  await db
+    .update(loginAttempts)
+    .set({ attempts: 0, firstAttemptAt: maintenant, lastAttemptAt: maintenant })
+    .where(eq(loginAttempts.windowKey, windowKey));
 }
 
 /** Verrouillage du compte après MAX_FAILED_LOGINS échecs consécutifs. */
