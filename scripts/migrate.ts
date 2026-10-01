@@ -149,30 +149,66 @@ async function verifierCoherenceRegistre(nbEnregistrees: number): Promise<void> 
 }
 
 async function verifierCloisonnement(): Promise<void> {
-  const { rows } = await pool.query<{ total: string; protegees: string }>(
+  // ⚠️ Le périmètre est désormais explicite, et c'est une correction issue
+  //   d'un incident réel. La vérification comptait **toutes** les tables du
+  //   schéma `public`. Sur une base partagée — Neon héberge également le
+  //   schéma du backend FastAPI, soit 37 tables dont nous ne sommes pas
+  //   propriétaires — elle échouait pour des tables étrangères. Or un blocage
+  //   injustifié est un blocage qu'on contourne en urgence, ce qui est pire
+  //   que pas de contrôle du tout.
+  //
+  //   Sont donc exigées les tables créées par NOS migrations — celles
+  //   qu'administre le rôle qui joue la migration. Les autres sont
+  //   **signalées**, jamais passées sous silence, mais ne font pas échouer la
+  //   commande : nous n'avons ni la charge ni le droit de poser des politiques
+  //   sur des tables dont un autre outil est propriétaire.
+  const { rows } = await pool.query<{ total: string; protegees: string; manquantes: string }>(
     `select count(*) as total,
-            count(*) filter (where rowsecurity) as protegees
+            count(*) filter (where rowsecurity) as protegees,
+            coalesce(string_agg(tablename, ', ') filter (where not rowsecurity), '') as manquantes
        from pg_tables
       where schemaname = 'public'
+        and tableowner = current_user
         and tablename <> all($1::text[])`,
     [EXCLUES_RLS],
   );
   const total = Number(rows[0]?.total ?? 0);
   const protegees = Number(rows[0]?.protegees ?? 0);
+  const manquantes = rows[0]?.manquantes ?? "";
+
+  const { rows: etrangeres } = await pool.query<{ n: string; liste: string }>(
+    `select count(*) as n,
+            coalesce(string_agg(tablename, ', '), '') as liste
+       from pg_tables
+      where schemaname = 'public'
+        and tableowner <> current_user
+        and not rowsecurity
+        and tablename <> all($1::text[])`,
+    [EXCLUES_RLS],
+  );
+  const autres = Number(etrangeres[0]?.n ?? 0);
 
   const { rows: politiques } = await pool.query<{ n: string }>(
     "select count(*) as n from pg_policies where schemaname = 'public'",
   );
 
   console.log(
-    `  · RLS : ${protegees}/${total} table(s) protégée(s) · ${politiques[0]?.n ?? 0} politique(s)` +
-      ` · hors périmètre (justifié) : ${EXCLUES_RLS.join(", ")}`,
+    `  · RLS : ${protegees}/${total} de nos tables protégée(s) · ` +
+      `${politiques[0]?.n ?? 0} politique(s) · exclues (justifié) : ${EXCLUES_RLS.join(", ")}`,
   );
+  if (autres > 0) {
+    // ⚠️ Signalé, pas ignoré : ces tables échappent au cloisonnement, et il
+    //   vaut mieux le savoir au moment où l'on migre qu'au moment d'un incident.
+    console.log(
+      `  · ⚠️ ${autres} table(s) d'un autre propriétaire, hors de notre ` +
+        `périmètre, sans RLS : ${(etrangeres[0]?.liste ?? "").slice(0, 160)}`,
+    );
+  }
 
   if (total > 0 && protegees < total) {
     console.error(
-      `🔴 ${total - protegees} table(s) sans RLS : le cloisonnement n'est pas complet. ` +
-        `La migration est considérée comme échouée.`,
+      `🔴 ${total - protegees} de nos tables sont sans RLS (${manquantes}) : ` +
+        `le cloisonnement n'est pas complet. La migration est considérée comme échouée.`,
     );
     process.exit(1);
   }

@@ -74,7 +74,15 @@ begin
   end if;
 end $$;
 
-grant connect on database app_db to geoforest_app;
+-- ⚠️ Le nom de la base était écrit en dur (« app_db »). Le script s'exécute
+--   après CHAQUE migration et sur CHAQUE environnement : sur Neon la base
+--   s'appelle « neondb », et l'ordre échouait — constaté le 01/10/2026, la
+--   migration s'arrêtait juste après l'application des six migrations, RLS
+--   non posée. Le nom est donc résolu à l'exécution.
+do $connexion$
+begin
+  execute format('grant connect on database %I to geoforest_app', current_database());
+end $connexion$;
 grant usage on schema public to geoforest_app;
 grant select, insert, update, delete on all tables in schema public to geoforest_app;
 grant usage, select on all sequences in schema public to geoforest_app;
