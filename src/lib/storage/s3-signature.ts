@@ -8,10 +8,13 @@
  *      référence `aws4`, hors du dépôt et sans réseau, sur six cas : GET, PUT
  *      avec corps, DELETE, hôte contenant déjà le compartiment, style chemin
  *      avec port explicite, et une clé piège (espaces, accents, `+`, `&`, `~`).
- *      Les en-têtes `Authorization` coïncident au caractère près. Trois défauts
+ *      Les en-têtes `Authorization` coïncident au caractère près. Quatre défauts
  *      ont été trouvés et corrigés à cette occasion : le compartiment absent de
- *      l'URL en style hôte, `content-length` envoyé sans être signé, et un
- *      encodage des clés qui produisait `%E9` au lieu de `%C3%A9`.
+ *      l'URL en style hôte ; `content-length` envoyé sans être signé ; un
+ *      encodage des clés qui produisait `%E9` au lieu de `%C3%A9` ; et le chemin
+ *      de l'adresse du service purement et simplement perdu, ce qui rendait
+ *      Supabase — dont l'adresse se termine par `/storage/v1/s3` —
+ *      inutilisable de façon silencieuse.
  *   2. Aucun **aller-retour réel** n'a encore eu lieu. Aussi longtemps que
  *      `stockageS3.valide` reste à `false`, cet adaptateur n'est pas réputé
  *      opérationnel : une signature juste ne dit rien de l'accès au
@@ -132,11 +135,22 @@ export async function signerEtEnvoyer(
   //
   //   Si l'hôte contient déjà le compartiment — configuration où l'adresse est
   //   donnée complète — on ne le préfixe pas une seconde fois.
+  // ⚠️ Le point-virgule qui manquait : l'adresse du service peut contenir un
+  //   chemin. Supabase en est l'exemple — `https://projet.supabase.co/storage/v1/s3`
+  //   — et MinIO derrière un mandataire aussi. Ce préfixe faisait partie de la
+  //   requête envoyée mais disparaissait de l'URL reconstruite : la requête
+  //   partait vers la racine du service, où rien ne répond. Il est maintenant
+  //   conservé, et il entre dans la signature puisque la signature porte sur
+  //   l'URI envoyée.
+  const prefixe = url.pathname.replace(/\/+$/, "");
   const hoteCible =
     cfg.pathStyle || url.hostname.startsWith(`${cfg.bucket}.`)
       ? url.host
       : `${cfg.bucket}.${url.host}`;
-  const uri = cfg.pathStyle ? `/${cfg.bucket}/${uriEncode(cle, false)}` : `/${uriEncode(cle, false)}`;
+  const uri =
+    `${prefixe}` +
+    `${cfg.pathStyle ? `/${uriEncode(cfg.bucket, false)}` : ""}` +
+    `/${uriEncode(cle, false)}`;
   const cible = `${url.protocol}//${hoteCible}${uri}`;
 
   const maintenant = new Date();

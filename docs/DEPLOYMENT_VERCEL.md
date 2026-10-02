@@ -129,7 +129,35 @@ Renseigner les variables (Vercel → Settings → Environment Variables) :
 | `S3_REGION` | `fr-par` | `us-east-1` par défaut ; une région fausse ⇒ 403, pas d'erreur explicite |
 | `S3_ACCESS_KEY_ID` | — | Clé d'accès au compartiment |
 | `S3_SECRET_ACCESS_KEY` | — | À marquer `Sensitive` |
-| `S3_FORCE_PATH_STYLE` | `false` | `true` seulement si le service l'exige (MinIO) |
+| `S3_FORCE_PATH_STYLE` | `false` | `true` dès que l'adresse contient un chemin (Supabase, MinIO) |
+
+⚠️ **Règle décisive pour le style d'adressage.** Dès que `S3_ENDPOINT` contient un
+chemin, il faut le style chemin. Supabase en est le cas typique : son adresse
+se termine par `/storage/v1/s3`, et le compartiment ne peut pas être un
+sous-domaine d'une adresse qui désigne déjà un sous-chemin. Le préfixe est
+conservé et il entre dans la signature.
+
+### Supabase Storage
+
+Supabase expose un protocole S3 utilisable tel quel, à trois conditions :
+
+| Variable | Valeur |
+|---|---|
+| `S3_ENDPOINT` | `https://<ref-projet>.storage.supabase.co/storage/v1/s3` |
+| `S3_BUCKET` | le compartiment créé dans le tableau de bord |
+| `S3_REGION` | la région du projet, telle qu'affichée dans le tableau de bord |
+| `S3_FORCE_PATH_STYLE` | `true` — obligatoire |
+
+Les clés se crèent dans **Storage → S3 Access** ; elles sont distinctes des clés
+d'API et de la clé `service_role`. Le suffixe `/storage/v1/s3` fait partie de
+l'adresse et ne doit pas être retiré.
+
+⚠️ **L'offre gratuite ne convient pas à une production.** Un projet gratuit est
+**mis en pause après une semaine d'inactivité** : le stockage cesse de répondre,
+le composant `stockage` passe `indisponible` et la santé repasse à 503. La taille
+maximale par fichier y est de **50 Mo**, et l'espace de **1 Go**. L'offre Pro
+lève la mise en pause et porte la limite à 100 Go. À vérifier sur
+https://supabase.com/pricing avant de choisir.
 
 ### Droits que doit avoir la clé — les trois, sans exception
 
