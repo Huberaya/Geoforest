@@ -123,6 +123,44 @@ export const loginAttempts = pgTable(
 );
 
 /**
+ * 2 quater. Idempotence des écritures (P1-11)
+ *
+ * Une même soumission rejouée — double clic, double onglet, reprise après une
+ * coupure réseau — ne doit produire qu'une seule ressource. La requête est
+ * revendiquée ici avant d'être exécutée, et la réponse obtenue y est consignée
+ * pour être servie à nouveau, à l'identique, aux requêtes jumelles.
+ */
+export const idempotence = pgTable(
+  "gf_idempotence",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    /** Utilisateur à l'origine de la requête, quand il est connu. */
+    utilisateurId: uuid("utilisateur_id"),
+    /** Portée : méthode et motif de route, par exemple « POST /api/v1/audits ». */
+    portee: text("portee").notNull(),
+    /** Clé fournie par le client (`Idempotency-Key`), ou empreinte dérivée. */
+    cle: text("cle").notNull(),
+    /** Condensat du corps : détecte une clé réutilisée avec un autre contenu. */
+    empreinteCorps: text("empreinte_corps").notNull(),
+    /** « en_cours » pendant l'exécution, « termine » une fois la réponse connue. */
+    etat: text("etat").notNull(),
+    statutHttp: integer("statut_http"),
+    typeContenu: text("type_contenu"),
+    corpsReponse: text("corps_reponse"),
+    creeLe: timestamp("cree_le", { withTimezone: true }).notNull().defaultNow(),
+    expireLe: timestamp("expire_le", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    // ⚠️ L'unicité est le verrou : c'est elle qui empêche deux requêtes
+    //   jumelles d'entrer ensemble. Sans contrainte en base, deux transactions
+    //   concurrentes pourraient chacune « ne rien trouver » et créer deux fois
+    //   la même ressource — c'est précisément le défaut mesuré.
+    unique("uq_gf_idempotence_portee_cle").on(table.organizationId, table.portee, table.cle),
+    index("idx_gf_idempotence_expiration").on(table.expireLe),
+  ],
+);
+/**
  * 3. Fournisseurs (Suppliers)
  */
 export const suppliers = pgTable(

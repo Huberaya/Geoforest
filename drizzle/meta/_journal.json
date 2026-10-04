@@ -43,6 +43,13 @@
       "when": 1790877836891,
       "tag": "0005_tracabilite",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791135581646,
+      "tag": "0006_idempotence",
+      "breakpoints": true
     }
   ],
   "prevId": "0004_document_mime_mismatch"

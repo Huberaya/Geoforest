@@ -10,6 +10,7 @@ import { withTenant, type TenantTx } from "@/lib/tenant";
 import { dansContexte, motifDeRoute, contexteCourant } from "@/lib/observability/contexte";
 import { journal } from "@/lib/observability/journal";
 import { enregistrerRequete, noterJauges } from "@/lib/observability/metriques";
+import { avecIdempotence, methodeProtegee } from "@/lib/idempotence";
 
 export interface GuardedContext {
   /** Session validée (utilisateur, organisation, permissions). */
@@ -48,7 +49,8 @@ export function guard<C = { params?: Promise<Record<string, string>> }>(
   return (handler: Handler<C>): RouteHandler =>
     (async (request: NextRequest, context: unknown): Promise<Response> => {
       const debut = Date.now();
-      const route = motifDeRoute(new URL(request.url).pathname);
+      const chemin = new URL(request.url).pathname;
+    const route = motifDeRoute(chemin);
       // ⚠️ L'identifiant proposé par le client est réutilisé **s'il a la forme
       // attendue** (cf. `dansContexte`) — jamais recopié tel quel.
       const propose = request.headers.get("x-request-id");
@@ -68,9 +70,25 @@ export function guard<C = { params?: Promise<Record<string, string>> }>(
           }
           organisation = organizationId;
 
-          return await withTenant(organizationId, async (tx) =>
-            handler(request, context as C, { session, tx, organizationId }),
-          );
+          // P1-11 — les méthodes qui modifient l'état sont exécutées sous
+          //   idempotence : une même soumission rejouée ne produit qu'une
+          //   seule ressource, et la requête jumelle reçoit la réponse de la
+          //   première. Les lectures passent directement.
+          const executer = (): Promise<Response> =>
+            withTenant(organizationId, async (tx) =>
+              handler(request, context as C, { session, tx, organizationId }),
+            );
+
+          return methodeProtegee(request.method)
+            ? await avecIdempotence({
+                request,
+                route,
+                chemin,
+                organizationId,
+                utilisateurId: session.user.id,
+                operation: executer,
+              })
+            : await executer();
         } catch (error) {
           if (isAuthError(error)) return authErrorResponse(error);
           // P0-07 : une base injoignable se déclare. On ne la déguise ni en 200
@@ -134,7 +152,8 @@ export function publicRoute<C = { params?: Promise<Record<string, string>> }>(
 ): RouteHandler {
   return (async (request: NextRequest, context: unknown): Promise<Response> => {
     const debut = Date.now();
-    const route = motifDeRoute(new URL(request.url).pathname);
+    const chemin = new URL(request.url).pathname;
+    const route = motifDeRoute(chemin);
     const propose = request.headers.get("x-request-id");
 
     const reponse = await dansContexte({ route, requestId: propose, debut }, async () => {
