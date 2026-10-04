@@ -101,7 +101,7 @@ function summaryText(status: AuditStatus, validation: GeometryValidationResult, 
   }
   // ⚠️ On n'arrive ici que si l'analyse est probante : le statut COMPLIANT
   //   n'est posé que dans ce cas. Toute autre situation est traitée plus haut.
-  return `[FIN] CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${area} ha, risque ${satellite?.risk_level}, confiance ${Math.round((satellite?.confidence_score ?? 0) * 100)} %).`;
+  return `CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${area} ha, risque ${satellite?.risk_level}, confiance ${Math.round((satellite?.confidence_score ?? 0) * 100)} %).`;
 }
 
 export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, organizationId, session }): Promise<NextResponse> => {
