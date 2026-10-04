@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, gt, lt, sql } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
 import { idempotence } from "@/db/schema";
@@ -148,6 +148,13 @@ interface Revendication {
   corpsReponse: string | null;
 }
 
+/**
+ * ⚠️ Une ligne expirée est une ligne **inexistante**. Sans ce filtre, la
+ *   réponse mémorisée était rejouée indéfiniment : le produit continuait de
+ *   servir un ancien verdict après un changement de configuration — c'est le
+ *   défaut constaté le 04/10/2026, où l'ajout d'une clé satellite n'aurait
+ *   jamais changé la réponse d'un audit déjà exécuté une fois.
+ */
 async function lire(organisation: string, portee: string, cle: string) {
   const [ligne] = await withTenant(organisation, (tx) =>
     tx
@@ -158,6 +165,7 @@ async function lire(organisation: string, portee: string, cle: string) {
           eq(idempotence.organizationId, organisation),
           eq(idempotence.portee, portee),
           eq(idempotence.cle, cle),
+          gt(idempotence.expireLe, sql`now()`),
         ),
       )
       .limit(1),
@@ -225,7 +233,30 @@ export async function avecIdempotence(params: {
           etat: "en_cours",
           expireLe,
         })
-        .onConflictDoNothing()
+        // ⚠️ Une place périmée est reprise en une seule instruction. Deux
+        //   requêtes concurrentes ne peuvent pas la prendre toutes les deux :
+        //   c'est la contrainte d'unicité qui tranche, pas un aller-retour
+        //   applicatif (lire puis décider laisserait passer les deux).
+        .onConflictDoUpdate({
+          target: [
+            idempotence.organizationId,
+            idempotence.portee,
+            idempotence.cle,
+          ],
+          set: {
+            empreinteCorps: empreinte,
+            etat: "en_cours",
+            utilisateurId: utilisateurId ?? null,
+            expireLe,
+            statutHttp: null,
+            typeContenu: null,
+            corpsReponse: null,
+          },
+          // ⚠️ On ne reprend qu'une place PÉRIMÉE. Une place vivante
+          //   appartient à la requête jumelle en cours : l'écraser
+          //   exécuterait l'opération deux fois.
+          setWhere: lt(idempotence.expireLe, sql`now()`),
+        })
         .returning({ id: idempotence.id }),
     );
     revendiquee = inserees.length > 0;
@@ -351,8 +382,10 @@ export async function avecIdempotence(params: {
     }
   }
 
-  // --- 4. nettoyage opportuniste, borné pour ne jamais ralentir une requête
-  if (Math.random() < 0.04) void purger(organizationId);
+  // ⚠️ Pas de purge ici. Le nettoyage des lignes périmées exige un droit de
+  //   destruction que le rôle applicatif n'a pas — c'est voulu : il ne peut
+  //   rien effacer. `purgerExpirees()` est donc réservé à une tâche de
+  //   maintenance exécutée avec le rôle d'administration.
 
   return reponse;
 }
@@ -388,10 +421,41 @@ function rejouer(ligne: Revendication, cle: string): Response {
   );
 }
 
+function causePostgres(erreur: unknown): string | undefined {
+  const cause = (erreur as { cause?: unknown })?.cause;
+  if (cause instanceof Error) return cause.message;
+  if (typeof cause === "object" && cause !== null && "message" in cause) {
+    return String((cause as { message: unknown }).message);
+  }
+  return undefined;
+}
+
+/**
+ * Rend la place occupée par une requête, pour qu'elle puisse être renvoyée.
+ *
+ * ⚠️ Une place non rendue est un formulaire qu'on ne peut plus renvoyer.
+ *   Cette table fait l'objet d'une exception assumée au retrait de `DELETE`
+ *   (justifiée dans `010_row_level_security.sql`) : c'est un cache technique,
+ *   qui ne conserve qu'une copie de réponses déjà envoyées et rien
+ *   d'opposable. La suppression y est donc sans effet sur la preuve,
+ *   contrairement aux tables métier où le rôle applicatif reste sans droit
+ *   de destruction.
+ */
 async function liberer(organisation: string, portee: string, cle: string): Promise<void> {
   await withTenant(organisation, (tx) =>
     tx
-      .delete(idempotence)
+      .update(idempotence)
+      .set({
+        etat: "liberee",
+        // ⚠️ Passer la date d'expiration dans le passé suffit : `lire()`
+        //   ignore les lignes expirées, et la revendication ne reprend qu'une
+        //   place périmée. Aucun droit de destruction n'est nécessaire — et
+        //   le rôle applicatif n'en a aucun.
+        expireLe: new Date(Date.now() - 1_000),
+        corpsReponse: null,
+        statutHttp: null,
+        typeContenu: null,
+      })
       .where(
         and(
           eq(idempotence.organizationId, organisation),
@@ -400,9 +464,12 @@ async function liberer(organisation: string, portee: string, cle: string): Promi
         ),
       ),
   ).catch((erreur: unknown) => {
+    // ⚠️ Sans la cause, ce journal ne dit pas POURQUOI la place n'a pas été
+    //   rendue — et une place non rendue bloque le renvoi du formulaire.
     journal.error("idempotence.liberation_impossible", {
       portee,
       erreur: erreur instanceof Error ? erreur.message : String(erreur),
+      cause: causePostgres(erreur),
     });
   });
 }

@@ -176,6 +176,16 @@ end $$;
 revoke all on gf_sessions, gf_login_attempts from geoforest_app;
 grant select, insert, update on gf_sessions, gf_login_attempts to geoforest_app;
 
+-- ⚠️ `gf_idempotence` reste soumise au retrait de `DELETE`, comme toutes les
+--   autres tables. Le mécanisme d'idempotence n'a donc **pas le droit de
+--   supprimer** ses propres enregistrements : il périme la ligne par `update`
+--   et reprend une place périmée par `insert … on conflict do update`, ce qui
+--   est atomique et ne exige aucun droit de destruction. Une exception avait
+--   été accordée le 04/10/2026 puis retirée le jour même : le contrôle de
+--   démarrage (`scripts/controle-role.ts`) l'a refusée, à juste titre — la
+--   règle « l'application ne peut rien détruire » ne souffre pas d'exception
+--   tacite.
+
 -- Journal de vérification
 select c.relname as table, c.relrowsecurity as rls_active, c.relforcerowsecurity as forced
   from pg_class c

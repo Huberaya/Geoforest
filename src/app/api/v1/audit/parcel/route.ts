@@ -76,15 +76,32 @@ function parseProducteur(raw: unknown): { producer: { name: string | null; count
   return { producer: { name, country: rawCountry } };
 }
 
+/**
+ * ⚠️ Le résumé est la phrase la plus lue du produit — celle qu'on recopie dans
+ *   un courriel. Elle ne doit jamais affirmer une conformité qui n'a pas été
+ *   établie. Sans analyse probante, il n'y a **aucun verdict**, et surtout pas
+ *   un verdict favorable : c'est le défaut trouvé lors de la revue GO/NO-GO du
+ *   04/10/2026 — le bandeau disait « ANALYSE INDISPONIBLE » pendant que le
+ *   résumé affirmait « CONFORME EUDR ». Les formulations sont alignées sur
+ *   celles de `GET /api/v1/audits/{id}`, qui n'avaient pas le défaut.
+ */
 function summaryText(status: AuditStatus, validation: GeometryValidationResult, satellite: SatelliteCheckResult | null): string {
   if (status === "INVALID_GEOMETRY") {
     return `Dossier rejeté : ${validation.errors[0]?.message ?? "géométrie invalide"}`;
   }
   const area = validation.area_ha.toFixed(2);
+  if (status === "ANALYSIS_UNAVAILABLE") {
+    return `Aucun verdict : l'analyse satellite n'a pas abouti. Ce dossier n'emporte aucune présomption de conformité (parcelle de ${area} ha).`;
+  }
+  if (status === "SIMULATED_NON_PROBATIVE") {
+    return `Résultat simulé, non probant : aucune donnée satellite n'a été consultée. Ce dossier ne peut pas servir de preuve de conformité (parcelle de ${area} ha).`;
+  }
   if (status === "NON_COMPLIANT" && satellite) {
     return `NON CONFORME EUDR : déforestation détectée en ${satellite.loss_year} (après le 31/12/2020) sur une parcelle de ${area} ha.`;
   }
-  return `CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${area} ha, risque ${satellite?.risk_level}, confiance ${Math.round((satellite?.confidence_score ?? 0) * 100)} %).`;
+  // ⚠️ On n'arrive ici que si l'analyse est probante : le statut COMPLIANT
+  //   n'est posé que dans ce cas. Toute autre situation est traitée plus haut.
+  return `[FIN] CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${area} ha, risque ${satellite?.risk_level}, confiance ${Math.round((satellite?.confidence_score ?? 0) * 100)} %).`;
 }
 
 export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, organizationId, session }): Promise<NextResponse> => {
