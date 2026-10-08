@@ -55,7 +55,7 @@ pendant cet audit : verrouillage de compte, limitation de débit, expiration et 
   - jeton correct → la garde est franchie.
 - `/health` reste public.
 - Tests : `backend/tests/test_backend_auth.py` (14 cas collectés) ; `test_eudr_pipeline.py` passe désormais un jeton de test explicite.
-- Le client TypeScript (`src/lib/api.ts`) appelle FastAPI si `NEXT_PUBLIC_API_URL` est défini. Une variable `NEXT_PUBLIC_*` est publique : si un appel navigateur porte le jeton, il est exposé. **Rien dans le code n'interdit encore cet usage** (blocage B9).
+- Le client TypeScript (`src/lib/api.ts`) appelle FastAPI si `NEXT_PUBLIC_API_URL` est défini. Une variable `NEXT_PUBLIC_*` est publique : si un appel navigateur porte le jeton, il est exposé. **Corrigé le 08/10/2026** : le navigateur n'appelle plus que les routes Next ; le rewrite `/fastapi/*` et `NEXT_PUBLIC_API_URL` ont été supprimés (cf. `BLOCKERS_RESOLUTION_REPORT.md`, B9).
 
 ## 6. Points ouverts
 

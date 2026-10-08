@@ -119,7 +119,7 @@ Ce qui est acquis : les corrections P0 qui permettaient de présenter une fausse
 | **B6** | Stockage S3 jamais exécuté | Tests d'écriture, lecture, suppression sur S3 réel, ou retrait de l'option | Exploitant |
 | **B7** | Aucune soumission TRACES | Décider du périmètre : export seul (à présenter comme tel) ou intégration officielle à construire | Produit + conformité |
 | **B8** | Scénarios E2E à recouper avec le brief | Comparer la liste officielle des `E2E-001` à `E2E-008` au harnais ; combler les écarts (portail fournisseur notamment). **Le détail de ces scénarios n'était pas disponible dans le contexte de cette passe.** | Produit |
-| **B9** | Le client TypeScript appelle FastAPI si `NEXT_PUBLIC_API_URL` est défini ; une variable publique ne doit pas porter le jeton | Interdire l'appel navigateur au service FastAPI, ou le faire passer par une route serveur | Front |
+| **B9** | *Corrigé le 08/10/2026* : le client pouvait appeler FastAPI via `NEXT_PUBLIC_API_URL` | Appels navigateur limités aux routes Next ; rewrite supprimé ; preuves dans `BLOCKERS_RESOLUTION_REPORT.md` | Front |
 
 ## 6. Dépendances et configuration
 
