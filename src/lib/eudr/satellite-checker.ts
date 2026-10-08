@@ -389,7 +389,7 @@ const GFW_HOTE_OFFICIEL = "data-api.globalforestwatch.org";
  * trace affirmant une provenance fausse. C'est exactement ce que la
  * traçabilité EUDR a pour objet d'empêcher.
  */
-function nommerFournisseur(baseUrl: string): { provider: string; officiel: boolean } {
+export function nommerFournisseur(baseUrl: string): { provider: string; officiel: boolean } {
   let host = baseUrl.toLowerCase();
   try {
     host = new URL(baseUrl).host.toLowerCase();
@@ -478,7 +478,13 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     .filter((r) => r.year > 0);
   const post = parsed.filter((r) => r.year > EUDR_CUTOFF_YEAR);
   const lossArea = Number(post.reduce((acc, r) => acc + r.area, 0).toFixed(4));
-  const significant = lossArea >= Math.max(0.01, areaHa * 0.005);
+  // ------------------------------------------------------------ P0 (recette 2026-10-08)
+  // Aucune tolérance. L'ancien seuil (0,5 % de la parcelle, au moins 0,01 ha)
+  // transformait une perte réelle mais faible en « CONFORME » : 0,4 ha de
+  // déforestation post-2020 sur 100 ha passaient pour conformes. Toute surface
+  // de perte post-2020 détectée est donc non conforme ; l'éventuelle erreur
+  // de détection se corrige par revue humaine, pas par un seuil silencieux.
+  const significant = lossArea > 0;
 
   if (significant) {
     const lossYear = Math.min(...post.map((r) => r.year));
@@ -500,7 +506,7 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
         params: {
           jeu_de_donnees: evidence.dataset_version,
           fournisseur: evidence.provider,
-          seuil_significativite_ha: Number(Math.max(0.01, areaHa * 0.005).toFixed(4)),
+          seuil_significativite_ha: 0,
           date_butoir: EUDR_CUTOFF_DATE,
         },
         limits: LIMITES_METHODE_COUVERT,
@@ -533,7 +539,7 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
       params: {
         jeu_de_donnees: evidence.dataset_version,
         fournisseur: evidence.provider,
-        seuil_significativite_ha: Number(Math.max(0.01, areaHa * 0.005).toFixed(4)),
+        seuil_significativite_ha: 0,
         date_butoir: EUDR_CUTOFF_DATE,
       },
       limits: LIMITES_METHODE_COUVERT,
@@ -577,6 +583,18 @@ export async function checkDeforestationRisk(
   harvestDate: string,
 ): Promise<SatelliteCheckResult> {
   if (gfwConfigured()) {
+    // ------------------------------------------------------------ P0 (recette 2026-10-08)
+    // Un verdict « probant » ne peut venir que du service officiel. Un point
+    // d'accès configuré ailleurs (cache, miroir, banc d'essai) n'a pas de
+    // valeur de preuve : il ne produit donc AUCUN verdict, plutôt qu'un
+    // « conforme » qui aurait l'apparence d'une donnée GFW.
+    const base = (process.env.GFW_API_URL ?? "https://data-api.globalforestwatch.org").replace(/\/$/, "");
+    if (!nommerFournisseur(base).officiel) {
+      return unavailableResult(
+        geometry,
+        `source satellite non officielle (${new URL(base).host}) : aucune preuve ne peut en être tirée`,
+      );
+    }
     try {
       return await liveCheck(geometry);
     } catch (err) {

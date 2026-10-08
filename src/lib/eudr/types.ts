@@ -535,6 +535,7 @@ export interface PlotDetail extends Plot {
     analysisProbative: boolean | null;
     createdAt: string;
   }>;
+  /** plot_id : rattachement fiable · reference : analyses antérieures sans plot_id · aucune_reference : aucune analyse rattachée. */
   audits_linked_by: string;
 }
 

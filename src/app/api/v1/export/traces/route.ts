@@ -55,6 +55,26 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     );
   }
 
+  // ------------------------------------------------------------ P0 (recette 2026-10-08)
+  // Une parcelle dont la déforestation post-2020 est établie ne peut pas faire
+  // l'objet d'une déclaration de conformité : son export est BLOQUÉ, pas
+  // simplement signalé. Le brouillon ne doit pas pouvoir servir de véhicule à
+  // une mise sur le marché d'une marchandise non conforme (art. 3 du règlement).
+  if (row.status === "NON_COMPLIANT" || row.compliant === false) {
+    return NextResponse.json(
+      {
+        detail:
+          `Export bloqué : la parcelle présente une déforestation post-2020` +
+          (row.lossYear ? ` (perte détectée en ${row.lossYear})` : "") +
+          `. Aucune déclaration ne peut être établie pour cette parcelle en l'état. ` +
+          `Mitigation et revue humaine requises.`,
+        blocked: true,
+        analysis_status: row.status,
+        compliant: false,
+      },
+      { status: 409 },
+    );
+  }
   let operator: OperatorInfo = {
     name: row.operatorName,
     eori: row.operatorEori,

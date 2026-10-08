@@ -4,6 +4,7 @@ import { DOCUMENT_CATEGORIES, type ComplianceDocument, type DocumentCategory } f
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { can } from "@/lib/auth/roles";
 import { actionSuppression, logAction } from "@/lib/api/audit-log";
 
 export const dynamic = "force-dynamic";
@@ -104,10 +105,39 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("document:write"
     patch.expiryDate = expiry || null;
   }
   if (body.status !== undefined) {
-    if (!["VALID", "EXPIRED", "TO_VERIFY", "REJECTED"].includes(str(body.status))) {
+    const nouveau = str(body.status);
+    if (!["VALID", "EXPIRED", "TO_VERIFY", "REJECTED"].includes(nouveau)) {
       return NextResponse.json({ detail: "Statut invalide" }, { status: 422 });
     }
-    patch.status = str(body.status);
+    // ------------------------------------------------------- P0 (recette 2026-10-08)
+    // « VALID » est une certification de conformité, pas une saisie. Avant ce
+    // correctif, tout détenteur de document:write — dont le rôle fournisseur —
+    // pouvait se valider lui-même, y compris pour une pièce sans fichier : le
+    // moteur de readiness l'aurait comptée comme preuve.
+    if (nouveau === "VALID") {
+      if (!can(session.user.role, "dds:validate")) {
+        return NextResponse.json(
+          { detail: "Seule la conformité peut valider une pièce justificative." },
+          { status: 403 },
+        );
+      }
+      const [piece] = await tx
+        .select({ storageKey: documents.storageKey, sha256: documents.sha256, scanStatus: documents.scanStatus })
+        .from(documents)
+        .where(and(eq(documents.id, id), eq(documents.organizationId, organizationId)))
+        .limit(1);
+      if (!piece) return NextResponse.json({ detail: "Document introuvable" }, { status: 404 });
+      if (!piece.storageKey || !piece.sha256) {
+        return NextResponse.json(
+          { detail: "Validation refusée : aucune pièce n'est déposée (fichier et condensat SHA-256 requis)." },
+          { status: 422 },
+        );
+      }
+      if (piece.scanStatus === "INFECTED") {
+        return NextResponse.json({ detail: "Validation refusée : la pièce est signalée infectée." }, { status: 422 });
+      }
+    }
+    patch.status = nouveau;
   }
   if (body.notes !== undefined) patch.notes = str(body.notes) || null;
   if (body.supplierId !== undefined) {

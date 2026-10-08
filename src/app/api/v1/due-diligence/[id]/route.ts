@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { logAction } from "@/lib/api/audit-log";
+import { aujourdhuiIso, chargerDossier, recalculerDossier } from "@/lib/eudr/readiness-db";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +52,20 @@ export const GET = guard<{ params: Promise<{ id: string }> }>("dds:read")(async 
     .from(complianceTasks)
     .where(and(eq(complianceTasks.organizationId, organizationId), eq(complianceTasks.diligenceId, id)))
     .orderBy(complianceTasks.createdAt);
-
+  // P0 (recette 2026-10-08) — la readiness est calculée à partir des faits
+  // rattachés, jamais lue dans un champ saisi à la main.
+  const charge = await chargerDossier(tx, organizationId, id, aujourdhuiIso());
   return NextResponse.json({
+    readiness: charge
+      ? {
+          etat: charge.resultat.etat,
+          completude: charge.resultat.completude,
+          risque: charge.resultat.risque,
+          blocages: charge.resultat.blocages,
+          manquants: charge.resultat.manquants,
+          explication: charge.resultat.explication,
+        }
+      : null,
     id: row.dds.id,
     reference: row.dds.reference,
     title: row.dds.title,
@@ -114,18 +127,19 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
     if (str(body.title).length < 2) return NextResponse.json({ detail: "Intitulé trop court" }, { status: 422 });
     patch.title = str(body.title);
   }
-  if (body.riskLevel !== undefined) {
-    if (!["LOW", "STANDARD", "HIGH", "CRITICAL"].includes(str(body.riskLevel))) {
-      return NextResponse.json({ detail: "Niveau de risque invalide" }, { status: 422 });
-    }
-    patch.riskLevel = str(body.riskLevel);
-  }
-  if (body.completenessScore !== undefined) {
-    const score = Number(body.completenessScore);
-    if (!Number.isFinite(score) || score < 0 || score > 100) {
-      return NextResponse.json({ detail: "Complétude invalide (0-100)" }, { status: 422 });
-    }
-    patch.completenessScore = Math.round(score);
+  // ------------------------------------------------------------ P0 (recette 2026-10-08)
+  // Le niveau de risque et la complétude sont CALCULÉS à partir des analyses et
+  // des pièces rattachées. Les accepter en saisie permettait d'afficher un
+  // dossier « risque LOW, complétude 100 % » sans aucune donnée derrière.
+  if (body.riskLevel !== undefined || body.completenessScore !== undefined) {
+    return NextResponse.json(
+      {
+        detail:
+          "Le niveau de risque et la complétude sont calculés à partir des parcelles analysées et des pièces " +
+          "rattachées : ils ne se saisissent pas. Consultez GET /api/v1/due-diligence/{id} (readiness).",
+      },
+      { status: 409 },
+    );
   }
   if (body.netWeightKg !== undefined) {
     const weight = Number(body.netWeightKg);
@@ -159,6 +173,28 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
         { status: 409 },
       );
     }
+    if (next === "READY_FOR_DECLARATION") {
+      // ---------------------------------------------------------- P0 : porte de sortie
+      // Le passage à « prêt pour déclaration » exige une revue humaine (le dossier
+      // est en UNDER_REVIEW) ET un moteur sans blocage ni donnée manquante.
+      const charge = await chargerDossier(tx, organizationId, id, aujourdhuiIso());
+      if (!charge) return NextResponse.json({ detail: "Dossier introuvable" }, { status: 404 });
+      if (charge.resultat.etat !== "READY_FOR_REVIEW") {
+        return NextResponse.json(
+          {
+            detail:
+              `Passage refusé : le dossier n'est pas prêt (état « ${charge.resultat.etat} »). ` +
+              charge.resultat.explication,
+            readiness: {
+              etat: charge.resultat.etat,
+              blocages: charge.resultat.blocages,
+              manquants: charge.resultat.manquants,
+            },
+          },
+          { status: 409 },
+        );
+      }
+    }
     patch.status = next;
   }
 
@@ -178,6 +214,8 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
     .where(and(eq(dueDiligenceStatements.id, id), eq(dueDiligenceStatements.organizationId, organizationId)))
     .returning();
   if (!row) return NextResponse.json({ detail: "Dossier introuvable" }, { status: 404 });
+  // Les champs calculés suivent toujours les faits, après chaque modification.
+  await recalculerDossier(tx, organizationId, id, aujourdhuiIso());
 
   await logAction(tx, organizationId, {
     userEmail: session.user.email,
@@ -191,12 +229,16 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
     details: { fields: Object.keys(patch).filter((k) => k !== "updatedAt") },
   });
 
+  const relu = await chargerDossier(tx, organizationId, id, aujourdhuiIso());
   return NextResponse.json({
     id: row.id,
     reference: row.reference,
     status: row.status as DdsStatus,
-    riskLevel: row.riskLevel as RiskLevel,
-    completenessScore: row.completenessScore,
+    riskLevel: relu?.dds.riskLevel ?? (row.riskLevel as RiskLevel),
+    completenessScore: relu?.dds.completenessScore ?? row.completenessScore,
+    readiness: relu
+      ? { etat: relu.resultat.etat, blocages: relu.resultat.blocages, manquants: relu.resultat.manquants }
+      : null,
     updatedAt: row.updatedAt.toISOString(),
     transmissionStatus: "NOT_TRANSMITTED",
     allowed_transitions: TRANSITIONS[row.status as DdsStatus] ?? [],

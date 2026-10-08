@@ -234,6 +234,22 @@ async function creerSansPiece(
     return NextResponse.json({ detail: "Date d'expiration invalide (AAAA-MM-JJ)" }, { status: 422 });
   }
 
+  // ------------------------------------------------------------ P0 (recette 2026-10-08)
+  // Ce chemin ne reçoit AUCUN fichier. Accepter une URL libre (`fileUrl`) ou une
+  // taille déclarée revenait à enregistrer une pièce qui n'existe pas : le
+  // document paraissait justifié alors qu'aucun octet n'était conservé ni
+  // empreinté. La pièce ne compte qu'une fois déposée (multipart, ou
+  // POST /api/v1/documents/{id}/file) avec son condensat SHA-256.
+  if (body.fileUrl !== undefined && body.fileUrl !== null && body.fileUrl !== "") {
+    return NextResponse.json(
+      {
+        detail:
+          "fileUrl n'est pas une pièce justificative : une adresse ne prouve rien. " +
+          "Déposez le fichier lui-même (multipart/form-data, ou POST /api/v1/documents/{id}/file).",
+      },
+      { status: 422 },
+    );
+  }
   const hasFile = typeof body.fileName === "string" && body.fileName.trim().length > 0;
 
   const lien = await resoudreLien(tx, organizationId, str(body.supplierId), str(body.plotId));
@@ -247,9 +263,10 @@ async function creerSansPiece(
       plotId: lien.plotId,
       title,
       category,
+      // Métadonnées seulement : aucun stockage, donc ni URL ni taille de fichier.
       fileName: hasFile ? str(body.fileName) : "—",
-      fileUrl: str(body.fileUrl) || null,
-      fileSize: Number.isFinite(Number(body.fileSize)) ? Number(body.fileSize) : 0,
+      fileUrl: null,
+      fileSize: 0,
       expiryDate: expiry || null,
       status: "TO_VERIFY",
       notes: str(body.notes) || null,
@@ -264,7 +281,7 @@ async function creerSansPiece(
       entityType: "DOCUMENT",
       entityId: row.id,
       apres: row as unknown as Record<string, unknown>,
-      details: { title, category, fileStored: false },
+      details: { title, category, fileStored: false, declaredFileName: hasFile },
     });
 
   return NextResponse.json(

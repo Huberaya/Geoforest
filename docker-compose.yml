@@ -8,7 +8,9 @@ services:
     container_name: geoforest-db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # P0 (recette 2026-10-08) : aucun mot de passe par défaut. Renseigné par
+      # l'environnement d'exécution (fichier .env non versionné).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}
       POSTGRES_DB: app_db
     ports:
       - "5432:5432"
@@ -42,7 +44,10 @@ services:
       dockerfile: Dockerfile
     container_name: geoforest-frontend
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
+      # L'application se connecte avec le rôle geoforest_app, soumis à la RLS.
+      # Le superutilisateur ne sert qu'aux migrations (DATABASE_URL_ADMIN).
+      DATABASE_URL: postgresql://geoforest_app:${GF_APP_DB_PASSWORD:?définir GF_APP_DB_PASSWORD}@db:5432/app_db
+      DATABASE_URL_ADMIN: postgresql://postgres:${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}@db:5432/app_db
       # Laisser vide pour utiliser les routes API Next.js intégrées (PostgreSQL),
       # ou pointer vers le backend FastAPI : http://localhost:8000
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}

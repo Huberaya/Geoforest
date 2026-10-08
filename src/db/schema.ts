@@ -611,10 +611,30 @@ export const parcelAudits = pgTable(
     /** Accusé de réception du SI EUDR — NULL tant qu'aucune transmission réelle n'a eu lieu. */
     transmittedAt: timestamp("transmitted_at", { withTimezone: true }),
     transmissionAck: jsonb("transmission_ack"),
+    /**
+     * P0 (recette 2026-10-08) — rattachement de l'analyse à la parcelle du
+     * registre. Sans ce lien, l'analyse et la parcelle vivaient côte à côte :
+     * la parcelle restait « PENDING » indéfiniment et le dossier ne pouvait
+     * pas savoir quelles parcelles avaient été analysées.
+     */
+    plotId: uuid("plot_id"),
+    /**
+     * P0 (recette 2026-10-08) — rattachement de l'analyse au dossier de
+     * diligence. Le contrôle de complétude et de readiness ne porte que sur
+     * les analyses rattachées à ce dossier.
+     */
+    dueDiligenceId: uuid("due_diligence_id"),
   },
   (table) => [
     index("idx_parcel_audits_created_at").on(table.createdAt),
     index("idx_parcel_audits_org_created").on(table.organizationId, table.createdAt),
+    // Clés composites tenant-safe, comme le reste du schéma. Pas de `onDelete`
+    // « set null » : sur une clé composite il remettrait aussi organization_id à
+    // NULL (colonne NOT NULL). Les suppressions sont de toute façon logiques.
+    foreignKey({ columns: [table.plotId, table.organizationId], foreignColumns: [plots.id, plots.organizationId], name: "fk_gf_parcel_audits_plot_tenant" }),
+    foreignKey({ columns: [table.dueDiligenceId, table.organizationId], foreignColumns: [dueDiligenceStatements.id, dueDiligenceStatements.organizationId], name: "fk_gf_parcel_audits_dds_tenant" }),
+    index("idx_parcel_audits_dds").on(table.organizationId, table.dueDiligenceId),
+    index("idx_parcel_audits_plot").on(table.organizationId, table.plotId),
   ],
 );
 

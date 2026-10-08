@@ -1,5 +1,5 @@
 import { lireCorpsJson } from "@/lib/api/body";
-import { parcelAudits } from "@/db/schema";
+import { dueDiligenceStatements, parcelAudits, plots } from "@/db/schema";
 import { logAction } from "@/lib/api/audit-log";
 import { validateGeometry } from "@/lib/eudr/gis-validator";
 import { checkDeforestationRisk } from "@/lib/eudr/satellite-checker";
@@ -16,6 +16,8 @@ import {
 } from "@/lib/eudr/types";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { and, eq, isNull } from "drizzle-orm";
+import { aujourdhuiIso, recalculerDossier } from "@/lib/eudr/readiness-db";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +76,22 @@ function parseProducteur(raw: unknown): { producer: { name: string | null; count
   const rawCountry = typeof o.country === "string" ? o.country.trim().toUpperCase() : "";
   if (!/^[A-Z]{2}$/.test(rawCountry)) return { error: "producer.country : code pays ISO à 2 lettres requis" };
   return { producer: { name, country: rawCountry } };
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * P0 (recette 2026-10-08) — statut de la parcelle DÉDUIT de l'analyse.
+ *
+ * Une analyse non probante ne pose jamais COMPLIANT : la parcelle reste PENDING
+ * (aucun verdict), et son risque reprend celui de l'analyse. La parcelle suit la
+ * dernière analyse rattachée ; l'historique complet reste dans parcel_audits.
+ */
+function statutParcelle(status: AuditStatus): string {
+  if (status === "COMPLIANT") return "COMPLIANT";
+  if (status === "NON_COMPLIANT") return "NON_COMPLIANT";
+  if (status === "INVALID_GEOMETRY") return "INVALID_GEOMETRY";
+  return "PENDING";
 }
 
 /**
@@ -137,6 +155,43 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       ? { name: operator.name, country: operator.country }
       : parsedProducer.producer;
   const parcelReference = typeof body.parcel_reference === "string" ? body.parcel_reference.slice(0, 100) : null;
+
+  // P0 (recette 2026-10-08) — rattachements optionnels, vérifiés dans le tenant
+  // AVANT l'appel satellite : une référence étrangère ou inexistante échoue ici,
+  // sans consommer d'analyse ni créer de ligne orpheline.
+  const plotIdBrut = typeof body.plot_id === "string" && body.plot_id.trim() !== "" ? body.plot_id.trim() : null;
+  const ddsIdBrut =
+    typeof body.due_diligence_id === "string" && body.due_diligence_id.trim() !== "" ? body.due_diligence_id.trim() : null;
+  if (plotIdBrut !== null && !UUID_PATTERN.test(plotIdBrut)) return badRequest("plot_id invalide");
+  if (ddsIdBrut !== null && !UUID_PATTERN.test(ddsIdBrut)) return badRequest("due_diligence_id invalide");
+  if (plotIdBrut) {
+    const [parcelle] = await tx
+      .select({ id: plots.id })
+      .from(plots)
+      .where(and(eq(plots.id, plotIdBrut), eq(plots.organizationId, organizationId), isNull(plots.deletedAt)))
+      .limit(1);
+    if (!parcelle) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
+  }
+  if (ddsIdBrut) {
+    const [dossier] = await tx
+      .select({ id: dueDiligenceStatements.id, status: dueDiligenceStatements.status })
+      .from(dueDiligenceStatements)
+      .where(
+        and(
+          eq(dueDiligenceStatements.id, ddsIdBrut),
+          eq(dueDiligenceStatements.organizationId, organizationId),
+          isNull(dueDiligenceStatements.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!dossier) return NextResponse.json({ detail: "Dossier introuvable" }, { status: 404 });
+    if (dossier.status === "DECLARED" || dossier.status === "READY_FOR_DECLARATION") {
+      return NextResponse.json(
+        { detail: "Dossier figé : repassez-le en revue avant de lui rattacher une analyse." },
+        { status: 409 },
+      );
+    }
+  }
 
   const validation = validateGeometry(geojson as GeoJsonInput, {
     declaredAreaHa: declaredArea,
@@ -216,12 +271,32 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         status,
         validation,
         satellite,
+        plotId: plotIdBrut || null,
+        dueDiligenceId: ddsIdBrut || null,
       })
       .returning({ id: parcelAudits.id, createdAt: parcelAudits.createdAt });
 
     if (row) {
       rowId = row.id;
       createdAt = row.createdAt;
+    }
+
+    // Le registre de parcelles suit le verdict : sans cette écriture, la parcelle
+    // restait « PENDING » indéfiniment, quelle que soit l'analyse faite.
+    if (plotIdBrut) {
+      await tx
+        .update(plots)
+        .set({
+          status: statutParcelle(status),
+          riskLevel: satellite?.risk_level ?? "HIGH",
+          lossYear: status === "NON_COMPLIANT" ? (satellite?.loss_year ?? null) : null,
+          confidenceScore: satellite?.confidence_score ?? null,
+          lastAuditAt: createdAt,
+        })
+        .where(and(eq(plots.id, plotIdBrut), eq(plots.organizationId, organizationId)));
+    }
+    if (ddsIdBrut) {
+      await recalculerDossier(tx, organizationId, ddsIdBrut, aujourdhuiIso());
     }
   } catch (err) {
     // P0-07 : un audit qui n'est pas enregistré ne peut pas être rendu comme

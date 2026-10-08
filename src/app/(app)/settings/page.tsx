@@ -42,7 +42,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const submit = async (e: React.FormEvent) => {

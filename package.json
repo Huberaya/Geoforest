@@ -11,9 +11,14 @@
     "db:tenancy": "psql -h 127.0.0.1 -U postgres -d app_db -f scripts/sql/post-migrate/010_row_level_security.sql",
     "dev": "next dev",
     "lint": "eslint .",
-    "seed:auth": "tsx scripts/seed-auth.ts",
+    "seed:auth": "tsx --conditions=react-server scripts/seed-auth.ts",
     "start": "next start",
-    "test:eudr": "tsx scripts/check-eudr-rules.ts",
+    "test": "npm run test:unit && npm run test:backend",
+    "test:backend": "cd backend && python3 -m pytest -q",
+    "test:db": "tsx --conditions=react-server scripts/check-sql-limits.ts && tsx --conditions=react-server scripts/verifier-role.ts",
+    "test:e2e": "tsx --conditions=react-server scripts/e2e/parcours.ts",
+    "test:eudr": "tsx --conditions=react-server scripts/check-eudr-rules.ts",
+    "test:unit": "tsx --conditions=react-server scripts/check-eudr-rules.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts",
     "typecheck": "tsc --noEmit"
   },
   "overrides": {

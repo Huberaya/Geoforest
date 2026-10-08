@@ -10,7 +10,7 @@
  *             sinon 92 % des GeoJSON valides à 6 décimales sont rejetés.
  */
 import { validateGeometry, minDecimalsFromJsonText } from "../src/lib/eudr/gis-validator";
-import { checkDeforestationRisk, deterministicCheck } from "../src/lib/eudr/satellite-checker";
+import { checkDeforestationRisk, deterministicCheck, nommerFournisseur } from "../src/lib/eudr/satellite-checker";
 import { buildEudrIsGeoJson, toEudrIsGeometry } from "../src/lib/eudr/eudr-is-geojson";
 import type { GeoJsonInput } from "../src/lib/eudr/types";
 
@@ -317,6 +317,56 @@ function testDeterministicEngine(): void {
   check("deux appels identiques donnent le même verdict", JSON.stringify(a) === JSON.stringify(b));
 }
 
+/**
+ * P0 (recette 2026-10-08) — garde-fous de la source satellite.
+ * Aucun appel réseau : chaque cas choisi retourne avant toute requête.
+ */
+async function testSourceSatellite(): Promise<void> {
+  section("Source satellite — garde-fous (recette 2026-10-08)");
+  const cles = ["GFW_API_KEY", "GFW_API_URL", "GFW_DEMO_MODE"] as const;
+  const sauvegarde: Record<string, string | undefined> = {};
+  for (const k of cles) sauvegarde[k] = process.env[k];
+  const restaurer = () => {
+    for (const k of cles) {
+      if (sauvegarde[k] === undefined) delete process.env[k];
+      else process.env[k] = sauvegarde[k];
+    }
+  };
+
+  try {
+    // 1. Ni clé ni mode démonstration : aucun verdict.
+    delete process.env.GFW_API_KEY;
+    process.env.GFW_DEMO_MODE = "false";
+    const sansSource = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("sans source ni démo : aucun verdict", sansSource.compliant === null, `compliant=${sansSource.compliant}`);
+    check("sans source ni démo : source unavailable", sansSource.source === "unavailable", sansSource.source);
+    check("sans source ni démo : non probant", sansSource.is_probative === false);
+
+    // 2. Clé présente mais hôte non officiel : aucun verdict, pas d'appel réseau.
+    process.env.GFW_API_KEY = "cle-de-test-non-reelle";
+    process.env.GFW_API_URL = "https://miroir.example.org/api";
+    const miroir = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("hôte non officiel : aucun verdict", miroir.compliant === null, `compliant=${miroir.compliant}`);
+    check("hôte non officiel : source unavailable", miroir.source === "unavailable", miroir.source);
+    check("hôte non officiel : détail nommé", miroir.details.includes("miroir.example.org"));
+
+    // 3. Mode démonstration : résultat simulé, jamais probant, jamais « conforme » établi.
+    delete process.env.GFW_API_KEY;
+    process.env.GFW_DEMO_MODE = "true";
+    const demo = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("démo : source simulée", demo.source === "simulated", demo.source);
+    check("démo : non probante", demo.is_probative === false);
+    check("démo : jamais compliant=true", demo.compliant !== true, `compliant=${demo.compliant}`);
+
+    // 4. Identification de l'hôte officiel.
+    check("hôte officiel reconnu", nommerFournisseur("https://data-api.globalforestwatch.org").officiel === true);
+    check("sous-domaine usurpé refusé", nommerFournisseur("https://data-api.globalforestwatch.org.evil.example").officiel === false);
+    check("chemin trompeur refusé", nommerFournisseur("https://evil.example/data-api.globalforestwatch.org").officiel === false);
+  } finally {
+    restaurer();
+  }
+}
+
 async function main(): Promise<void> {
   console.log("=" .repeat(70));
   console.log("CHANTIER P0-03 / P0-05 — règles EUDR du moteur TypeScript");
@@ -328,6 +378,7 @@ async function main(): Promise<void> {
   testEudrIsGeoJson();
   testFourHectares();
   testDeterministicEngine();
+  await testSourceSatellite();
 
   console.log(`\n${passed}/${passed + failures.length} contrôles réussis`);
   if (failures.length) {

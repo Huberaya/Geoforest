@@ -48,17 +48,23 @@ Pour brancher le dashboard sur le backend FastAPI : `NEXT_PUBLIC_API_URL=http://
 ## Données satellite
 
 - **Live** : renseignez `GFW_API_KEY` → requête `umd_tree_cover_loss` sur la GFW Data API.
-- **Hors-ligne** (défaut, tests) : moteur déterministe basé sur des hotspots documentés
-  (Pará 2022, Riau 2021, Kalimantan 2024, Taï 2023, Mato Grosso 2019…) et un hash stable du centroïde.
-  Une propriété `properties.simulated_loss_year` sur une Feature force une année de perte (démonstrations).
+- **Hors-ligne** : sans `GFW_API_KEY` et sans `GFW_DEMO_MODE=true`, **aucun verdict n'est émis**
+  (statut `ANALYSIS_UNAVAILABLE`). Le mode démonstration produit une simulation **non probante**
+  (`SIMULATED_NON_PROBATIVE`), jamais « conforme ».
+- Une propriété de Feature (ex. `simulated_loss_year`) **n'influence plus jamais le verdict** : le
+  fichier déposé ne peut pas dicter sa propre conformité (cf. docs/PRODUCTION_READINESS_REPORT.md).
 
 ## Tests
 
 ```bash
-cd backend && pip install -r requirements.txt && pytest -q     # 26 tests : conforme, non conforme 2022, formats invalides, multi-parcelles, export TRACES
+cd backend && pip install -r requirements.txt && pytest -q     # 63 réussis, 3 xfail (moteur géospatial non livré)
 ```
 
 ## Endpoints
+
+**Le service FastAPI est fermé par défaut** : toutes ses routes d'analyse, de consultation et d'export
+exigent `Authorization: Bearer <GF_BACKEND_API_TOKEN>`. Sans cette variable, elles répondent 503.
+Le point `/health` reste public.
 
 - `POST /api/v1/audit/parcel` — `{ geojson, commodity, harvest_date, operator?, declared_area_ha? }` → audit complet.
 - `POST /api/v1/export/traces` — `{ audit_id, format: "xml"|"json", operator?, net_weight_kg? }` → fichier DDS.

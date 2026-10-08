@@ -23,6 +23,8 @@ from shapely.geometry import Point, mapping, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from urllib.parse import urlparse
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -300,8 +302,10 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     all_rows = [r for r in rows if r.get("umd_tree_cover_loss__year")]
 
     loss_area = round(sum(float(r.get("area__ha") or 0.0) for r in post_cutoff_rows), 4)
-    # Seuil de bruit : 0,5 % de la parcelle ou 0,01 ha (~1 pixel Landsat = 0,09 ha, on reste strict)
-    significant = loss_area >= max(0.01, area_ha * 0.005)
+    # P0 (recette 2026-10-08) : aucune tolérance. Un seuil de bruit (0,5 % de la
+    # parcelle) rendait « conforme » une perte réelle mais faible. Toute perte
+    # post-2020 détectée est non conforme ; l'erreur se corrige en revue humaine.
+    significant = loss_area > 0
 
     if significant:
         loss_year = min(int(r["umd_tree_cover_loss__year"]) for r in post_cutoff_rows)
@@ -383,6 +387,14 @@ def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
     }
 
 
+GFW_HOTE_OFFICIEL = "data-api.globalforestwatch.org"
+
+
+def _hote_officiel(url: str) -> bool:
+    """Vrai seulement si l'adresse désigne le service officiel Global Forest Watch."""
+    return urlparse(url).hostname == GFW_HOTE_OFFICIEL
+
+
 def check_deforestation_risk(geometry: Dict[str, Any], harvest_date: str) -> Dict[str, Any]:
     """Évalue le risque de déforestation post-2020 sur une géométrie GeoJSON.
 
@@ -401,6 +413,14 @@ def check_deforestation_risk(geometry: Dict[str, Any], harvest_date: str) -> Dic
     geom = _to_shapely(geometry)
 
     if settings.gfw_live_available:
+        # P0 (recette 2026-10-08) : seul le service officiel produit une preuve.
+        # Un point d'accès configuré ailleurs ne produit aucun verdict.
+        if not _hote_officiel(settings.gfw_api_url):
+            return _unavailable_result(
+                geom,
+                f"source satellite non officielle ({urlparse(settings.gfw_api_url).netloc}) : "
+                "aucune preuve ne peut en être tirée",
+            )
         try:
             return live_check(geom, parsed_date)
         except (requests.RequestException, ValueError, KeyError) as exc:

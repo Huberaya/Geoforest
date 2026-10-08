@@ -50,34 +50,53 @@ export const GET = guard<{ params: Promise<{ id: string }> }>("plot:read")(async
     .limit(1);
   if (!row) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
 
-  // Les audits sont rattachés à la parcelle par sa référence : le schéma
-  // d'audit ne porte pas d'identifiant de parcelle. Une parcelle sans
-  // référence n'a donc aucun audit — ce qui est exact, pas une approximation.
+  // P0 (recette 2026-10-08) — rattachement par identifiant (plot_id), seul lien
+  // fiable : la référence de parcelle est un texte saisi, non unique. La
+  // référence ne sert plus qu'en REPLI, pour les analyses antérieures à la
+  // migration 0007 (plot_id absent), et seulement si elle ne mène à aucune autre
+  // parcelle de l'organisation.
   const reference = row.plot.reference;
-  const audits = reference
-    ? await tx
-        .select({
-          id: parcelAudits.id,
-          status: parcelAudits.status,
-          compliant: parcelAudits.compliant,
-          lossYear: parcelAudits.lossYear,
-          riskLevel: parcelAudits.riskLevel,
-          analysisSource: parcelAudits.analysisSource,
-          analysisProbative: parcelAudits.analysisProbative,
-          createdAt: parcelAudits.createdAt,
-        })
-        .from(parcelAudits)
-        .where(and(eq(parcelAudits.organizationId, organizationId), eq(parcelAudits.parcelReference, reference)))
-        .orderBy(desc(parcelAudits.createdAt))
-        .limit(50)
-    : [];
+  const colonnes = {
+    id: parcelAudits.id,
+    status: parcelAudits.status,
+    compliant: parcelAudits.compliant,
+    lossYear: parcelAudits.lossYear,
+    riskLevel: parcelAudits.riskLevel,
+    analysisSource: parcelAudits.analysisSource,
+    analysisProbative: parcelAudits.analysisProbative,
+    createdAt: parcelAudits.createdAt,
+  };
+  const parId = await tx
+    .select(colonnes)
+    .from(parcelAudits)
+    .where(and(eq(parcelAudits.organizationId, organizationId), eq(parcelAudits.plotId, id)))
+    .orderBy(desc(parcelAudits.createdAt))
+    .limit(50);
+  let audits = parId;
+  let auditsLinkedBy: "plot_id" | "reference" | "aucune_reference" = parId.length > 0 ? "plot_id" : "aucune_reference";
+  if (reference && parId.length === 0) {
+    const parReference = await tx
+      .select(colonnes)
+      .from(parcelAudits)
+      .where(
+        and(
+          eq(parcelAudits.organizationId, organizationId),
+          eq(parcelAudits.parcelReference, reference),
+          isNull(parcelAudits.plotId),
+        ),
+      )
+      .orderBy(desc(parcelAudits.createdAt))
+      .limit(50);
+    audits = parReference;
+    auditsLinkedBy = parReference.length > 0 ? "reference" : "aucune_reference";
+  }
 
   return NextResponse.json({
     ...toPlot(row.plot, row.supplierName),
     audits,
     // Dit clairement ce qu'il en est du rattachement, plutôt que de laisser
     // croire à une liste vide par manque de chance.
-    audits_linked_by: reference ? "reference" : "aucune_référence",
+    audits_linked_by: auditsLinkedBy,
   });
 });
 

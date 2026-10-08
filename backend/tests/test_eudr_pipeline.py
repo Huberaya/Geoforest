@@ -40,9 +40,19 @@ def _fresh_db() -> None:
     reset_db_for_tests(":memory:")
 
 
+# P0 (recette 2026-10-08) : les routes API exigent un jeton. Le client de test
+# porte le jeton de test ; un appel anonyme est testé séparément (test_backend_auth).
+JETON_DE_TEST = "jeton-de-test-pipeline-" + "x" * 24
+
+
+@pytest.fixture(autouse=True)
+def _jeton_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GF_BACKEND_API_TOKEN", JETON_DE_TEST)
+
+
 @pytest.fixture()
 def client() -> TestClient:
-    return TestClient(app)
+    return TestClient(app, headers={"Authorization": f"Bearer {JETON_DE_TEST}"})
 
 
 @pytest.fixture()
@@ -372,15 +382,16 @@ class TestTracesExport:
         status_el = root.find(".//{https://geoforest-trace.eu/schema/verification/v1}status")
         assert status_el is not None and status_el.text == "VERIFIED_COMPLIANT"
 
-    def test_json_export_non_compliant_flagged(self, client: TestClient, gfw_live) -> None:
+    def test_export_non_compliant_bloque(self, client: TestClient, gfw_live) -> None:
+        # P0 (recette 2026-10-08) : la politique a changé. Une parcelle probante
+        # déforestée après 2020 n'a plus d'export « signalé » : l'export est BLOQUÉ
+        # (409), car un brouillon de déclaration ne doit pas circuler pour une
+        # marchandise non conforme. L'ancien test attendait un 200 avec drapeau.
         gfw_live.append({"umd_tree_cover_loss__year": 2022, "area__ha": 0.9})
         audit_id = self._create_audit(client, DEFORESTED_POLYGON, commodity="cocoa")
         response = client.post("/api/v1/export/traces", json={"audit_id": audit_id, "format": "json"})
-        assert response.status_code == 200
-        body = response.json()
-        assert body["statement"]["commodities"][0]["hs_heading"] == "1801"
-        assert body["verification"]["status"] == "VERIFIED_NON_COMPLIANT"
-        assert body["verification"]["loss_year"] == 2022
+        assert response.status_code == 409
+        assert "post-2020" in response.json()["detail"]
 
     def test_export_refused_for_invalid_geometry(self, client: TestClient) -> None:
         audit_id = self._create_audit(client, SELF_INTERSECTING_POLYGON)

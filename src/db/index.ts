@@ -7,8 +7,24 @@ import {
   SQL_STATEMENT_TIMEOUT_MS,
 } from "@/lib/api/limits";
 
-const databaseUrl =
-  process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/app_db";
+// P0 (recette 2026-10-08) — aucun repli vers un identifiant par défaut.
+// L'ancien repli `postgres:postgres` faisait tourner l'application avec un
+// SUPERUTILISATEUR, qui contourne la RLS : tout le cloisonnement tenant tombait
+// en silence si la variable était oubliée.
+//  · production : sans DATABASE_URL, le chargement échoue (fail-closed) ;
+//  · autres environnements (tests unitaires, outils) : aucune connexion n'est
+//    possible — l'URL factice refuse tout accès, et l'erreur est explicite au
+//    premier usage, sans jamais utiliser un identifiant par défaut.
+// La phase de build Next.js (collecte des pages) n'ouvre aucune connexion.
+const BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
+const URL_ABSENTE = !process.env.DATABASE_URL;
+if (URL_ABSENTE && !BUILD_PHASE) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("DATABASE_URL est requis en production : aucune connexion par défaut n'est utilisée.");
+  }
+  console.error("[db] DATABASE_URL absente : toute requête échouera (aucun identifiant par défaut).");
+}
+const databaseUrl = process.env.DATABASE_URL ?? "postgresql://absente:absente@127.0.0.1:1/absente";
 
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;

@@ -9,7 +9,7 @@ Version : **v1.0.0 (Production Release)**
 
 | Suite de Tests | Périmètre | Résultat | Taux de Succès |
 | :--- | :--- | :--- | :--- |
-| **Pytest Backend (GIS & Satellite)** | Moteur géodésique WGS84, Hansen GFW, Sentinel-2, ESA WorldCover, export TRACES-NT | **29 / 29 PASS** | **100 %** |
+| **Pytest Backend (GIS & Satellite)** | Moteur géodésique WGS84, Hansen GFW, export TRACES-NT, garde-fous satellite, authentification du service | **63 PASS / 3 xfail** (moteur géospatial multi-sources non livré) | Voir docs/PRODUCTION_READINESS_REPORT.md — ancien chiffre « 29/29 » remplacé par la mesure réelle du 08/10/2026 |
 | **TypeScript / TypeCheck Next.js** | App Router, contrats d'API, composants React, Leaflet SIG, schémas Pydantic miroir | **0 Erreur** | **100 %** |
 | **Next.js Production Build** | Compilation statique et dynamique de 25 routes applicatives et API REST v1 | **25 / 25 Routes OK** | **100 %** |
 | **Sécurité & En-têtes HTTP** | CSP, HSTS, X-Content-Type-Options, Permissions-Policy GPS navigateur | **Validé** | **100 %** |
