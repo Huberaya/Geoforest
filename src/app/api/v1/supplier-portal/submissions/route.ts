@@ -5,6 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { logAction } from "@/lib/api/audit-log";
+import { perimetreFournisseur } from "@/lib/auth/perimetre";
 
 export const dynamic = "force-dynamic";
 
@@ -119,15 +120,21 @@ export const POST = guard("supplier-portal:submit")(async (
 
   // Le producteur est rattaché à l'organisation de l'utilisateur connecté :
   // jamais à un identifiant fourni par le client (cf. P0-02).
-  const existing = await tx
-    .select({ id: suppliers.id })
-    .from(suppliers)
-    .where(and(eq(suppliers.organizationId, organizationId), eq(suppliers.name, parsed.companyName)))
-    .limit(1);
+  // Chantier 6 : pour un compte fournisseur, la fiche est celle du compte. Le nom saisi
+  // ne sert jamais à choisir la fiche : sinon un producteur réécrirait celle d'un autre
+  // (l'audit a reproduit l'écrasement de l'EORI d'un producteur par ce chemin).
+  const perimetre = perimetreFournisseur(session);
+  const existing = perimetre
+    ? []
+    : await tx
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(and(eq(suppliers.organizationId, organizationId), eq(suppliers.name, parsed.companyName)))
+        .limit(1);
 
   let supplierId: string;
-  if (existing.length > 0) {
-    supplierId = existing[0].id;
+  if (perimetre || existing.length > 0) {
+    supplierId = perimetre ?? existing[0].id;
     await tx
       .update(suppliers)
       .set({

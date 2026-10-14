@@ -5,6 +5,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { actionSuppression, logAction } from "@/lib/api/audit-log";
+import { perimetreFournisseur } from "@/lib/auth/perimetre";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,18 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("plot:write")(as
   const { id } = await context.params;
   if (!UUID_PATTERN.test(id)) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
 
+  // Chantier 6 : un compte fournisseur n'agit que sur les parcelles de sa fiche.
+  // Même réponse qu'une parcelle inexistante.
+  const perimetre = perimetreFournisseur(session);
+  if (perimetre) {
+    const [dans] = await tx
+      .select({ id: plots.id })
+      .from(plots)
+      .where(and(eq(plots.id, id), eq(plots.organizationId, organizationId), eq(plots.supplierId, perimetre)))
+      .limit(1);
+    if (!dans) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
+  }
+
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
   const lecture = await lireCorpsJson(request);
   if (!lecture.ok) return lecture.response;
@@ -126,6 +139,8 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("plot:write")(as
   }
   if (body.supplierId !== undefined) {
     const sid = typeof body.supplierId === "string" ? body.supplierId : "";
+    // Un compte fournisseur ne rattache ni ne détache une parcelle d'une autre fiche.
+    if (perimetre && sid !== perimetre) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
     if (sid) {
       const [owner] = await tx
         .select({ id: suppliers.id })
@@ -202,6 +217,18 @@ export const DELETE = guard<{ params: Promise<{ id: string }> }>("plot:write")(a
 ): Promise<Response> => {
   const { id } = await context.params;
   if (!UUID_PATTERN.test(id)) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
+
+  // Chantier 6 : un compte fournisseur n'agit que sur les parcelles de sa fiche.
+  // Même réponse qu'une parcelle inexistante.
+  const perimetre = perimetreFournisseur(session);
+  if (perimetre) {
+    const [dans] = await tx
+      .select({ id: plots.id })
+      .from(plots)
+      .where(and(eq(plots.id, id), eq(plots.organizationId, organizationId), eq(plots.supplierId, perimetre)))
+      .limit(1);
+    if (!dans) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
+  }
 
   // ------------------------------------------------------------------ P1-10
   // ⚠️ La parcelle n'est pas détruite : elle est marquée. Une parcelle

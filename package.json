@@ -19,6 +19,7 @@
     "test:e2e": "tsx --conditions=react-server scripts/e2e/parcours.ts",
     "test:cross-tenant": "tsx --conditions=react-server scripts/check-cross-tenant.ts",
     "test:cross-tenant:rls": "tsx scripts/check-cross-tenant-rls.ts",
+    "test:fournisseur:http": "tsx --conditions=react-server scripts/check-fournisseur-http.ts",
     "test:dds-etats:http": "tsx --conditions=react-server scripts/check-dds-etats-http.ts",
     "test:eudr": "tsx --conditions=react-server scripts/check-eudr-rules.ts",
     "test:unit": "tsx --conditions=react-server scripts/check-eudr-rules.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts && tsx scripts/check-evidence-pack.ts",

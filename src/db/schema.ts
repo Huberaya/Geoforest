@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  check,
   doublePrecision,
   foreignKey,
   index,
@@ -67,11 +69,24 @@ export const users = pgTable(
     mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
     /** Codes de secours à usage unique, stockés hachés (SHA-256). */
     mfaRecoveryCodes: jsonb("mfa_recovery_codes").$type<string[]>(),
+
+    // --- Compte fournisseur : invitation et périmètre (chantier 6) ----------
+    /**
+     * Fiche producteur à laquelle le compte est rattaché. Obligatoire pour le
+     * rôle `supplier`, interdit pour les autres rôles (contrainte ci-dessous).
+     * Le périmètre du fournisseur est lu ici, jamais dans le corps de requête.
+     */
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    /** Empreinte SHA-256 du jeton d'invitation. Le jeton lui-même n'est jamais stocké. Null hors invitation. */
+    invitationTokenHash: text("invitation_token_hash"),
+    invitationExpiresAt: timestamp("invitation_expires_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_gf_users_org").on(table.organizationId),
     index("idx_gf_users_email").on(table.email),
     index("idx_gf_users_org_email").on(table.organizationId, table.email),
+    index("idx_gf_users_invitation").on(table.invitationTokenHash),
+    check("ck_gf_users_lien_fournisseur", sql`(role = 'supplier') = (supplier_id IS NOT NULL)`),
   ],
 );
 

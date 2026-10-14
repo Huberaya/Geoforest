@@ -40,6 +40,8 @@ import { adresseClient, verifierCadence } from "@/lib/rate-limit";
 /** Chemins accessibles sans session. */
 const PUBLIC_PATHS = new Set<string>([
   "/login",
+  // Chantier 6 : activation d'un compte fournisseur par lien d'invitation (sans session).
+  "/accepter-invitation",
   "/api/v1/auth/login",
   "/api/v1/auth/mfa",
   "/api/v1/auth/refresh",
@@ -238,6 +240,7 @@ const CHEMINS_SECRETS = new Set([
   "/api/v1/auth/login",
   "/api/v1/auth/mfa",
   "/api/v1/auth/password",
+  "/api/v1/auth/invitation/accept",
 ]);
 
 
