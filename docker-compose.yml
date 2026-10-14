@@ -50,6 +50,10 @@ services:
       DATABASE_URL_ADMIN: postgresql://postgres:${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}@db:5432/app_db
       GFW_API_KEY: ${GFW_API_KEY:-}
       GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
+      # B-2 (chantier 5) : secrets obligatoires en production. Sans eux, l'application
+      # refuse de démarrer (AUTH_SECRET) ou refuse tout téléchargement de pièce (signature).
+      AUTH_SECRET: ${AUTH_SECRET:?définir AUTH_SECRET (≥ 32 caractères)}
+      GF_STORAGE_SIGNING_SECRET: ${GF_STORAGE_SIGNING_SECRET:?définir GF_STORAGE_SIGNING_SECRET (≥ 32 caractères)}
     ports:
       - "3000:3000"
     depends_on:

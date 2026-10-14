@@ -168,6 +168,46 @@ horodatage qualifié (OPEN), antivirus (B4), S3 (B6), analyse satellite (B1).
   à confirmer.
 - Le journal joint est un extrait. La chaîne complète reste à vérifier côté base (`scripts/verifier-chaine.ts`, intacte).
 
+## Chantier 5 — sauvegarde et restauration réelles (« B-2 » du plan)
+
+> Détail complet : `docs/BACKUP_RESTORE_TEST.md`. Procédure : `docs/PRODUCTION_RUNBOOK.md`.
+
+**Statut : VERIFIED (environnement local, mono-hôte).** Restent ouverts : sauvegarde planifiée, copie hors site,
+chiffrement et rétention des sauvegardes, RTO mesuré, restauration sur un second hôte, S3 (B6), Docker (B3).
+
+**Numérotation.** Le plan désigne ce chantier « B-2 » (sauvegarde). Dans le tableau ci-dessus, « B2 » désigne les
+**secrets** (rotation du mot de passe exposé, toujours OPEN). Les deux libellés coexistent : à confirmer par l'utilisateur.
+Le statut de la ligne B2 n'est pas modifié par ce chantier.
+
+**Ce qui est prouvé.**
+- Sauvegarde réelle (`scripts/sauvegarde.sh`) : `pg_dump` au format custom, archive du stockage, manifeste SHA-256.
+  Versions consignées : PostgreSQL 16.14, pg_dump 16.2.
+- Restauration réelle (`scripts/restauration.sh`) : vérification du manifeste, base neuve, `pg_restore --exit-on-error`,
+  contrôle d'intégrité. Empreinte identique à la référence (15 tables, 1146 lignes, 2 ancres, 46/46 pièces, 23 fichiers).
+- Refus vérifiés (`scripts/check-sauvegarde.sh`) : dump altéré, stockage altéré, manifeste absent, base cible existante,
+  nom `app_db`, stockage non vide, sauvegarde incomplète : **16/16**.
+- Service restauré (`scripts/check-restauration-app.ts`, application lancée sur la base restaurée) : connexion, 23/23
+  dossiers, **21/21 pièces servies avec les mêmes octets** que la référence : **25/25**.
+- Sensibilité : un octet altéré dans une pièce restaurée est détecté (code 1, pièce désignée nommément), puis le fichier
+  est rétabli et l'empreinte redevient identique.
+
+**Défaut trouvé et corrigé pendant le test.** Premier passage du contrôle applicatif : 22 échecs sur 25. Cause :
+`GF_STORAGE_SIGNING_SECRET` n'était défini nulle part (ni `.env.example`, ni `docker-compose.yml`, ni documentation), et
+`AUTH_SECRET` était absent du service frontend du compose. Un déploiement suivant la documentation ne pouvait donc pas
+télécharger une seule pièce. Corrections : variable documentée dans `.env.example`, deux secrets obligatoires dans le
+compose (`:?`), valeur de test générée dans `.env.local` (non versionné). Passage final : 25/25.
+
+**Restes et limites.**
+- Aucune planification, aucune rétention, aucune copie hors site. Une perte du poste fait perdre sauvegarde et données.
+- Sauvegarde non chiffrée, alors qu'elle contient des données personnelles (courriels des auteurs du journal).
+- Secrets non sauvegardés : sans `AUTH_SECRET` d'origine, les sessions restaurées sont invalides.
+- RTO non mesuré. Le jeu de test (23 fichiers) ne permet pas d'extrapoler.
+- Le contrôle applicatif lit le compte lecteur seulement ; les droits en écriture et l'administration ne sont pas testés
+  sur l'instance restaurée.
+- Après usage de l'instance restaurée, le comparateur signale des écarts attendus (lignes de journal et sessions
+  ajoutées par le contrôle lui-même). Ce ne sont pas des altérations.
+- Docker Compose : les variables sont obligatoires, leur effet au démarrage n'est pas prouvé (B3).
+
 ## Décision
 
 Aucun blocker critique n'est fermé de façon démontrable en dehors de B9 et B7 (périmètre). **Décision inchangée : NO-GO.**
