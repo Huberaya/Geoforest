@@ -29,4 +29,5 @@ export async function POST(): Promise<NextResponse> {
   return jsonResponse({ status: "logged_out" }, 200, clearSessionCookieHeaders());
 }
 
-export const GET = POST;
+// Chantier 2 : pas de GET. Une déconnexion par simple lien (image, lien de courriel)
+// ne doit pas pouvoir fermer la session (faiblesse CSRF relevée au rapport).

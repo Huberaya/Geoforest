@@ -110,9 +110,10 @@ organisation renvoyaient une 500 (violation de la clé étrangère composite, au
 ajoutée : 404 (« introuvable »), 422 si l'identifiant est mal formé.
 
 **Restes.**
-- FastAPI : décision de l'utilisateur, **publication du port 8000 retirée** (`docker-compose.yml`). Le service n'a toujours
-  pas de cloisonnement par organisation : il reste joignable sur le réseau Docker interne. Deux tests `xfail(strict=True)`
-  restent en place. Le cloisonnement, ou le retrait du service, reste à faire.
+- FastAPI : **retiré du déploiement** (décision de l'utilisateur) : service supprimé de `docker-compose.yml`, réécritures
+  publiques `/fastapi`, `/backend`, `/docs`, `/openapi.json`, `/health-py` supprimées de `vercel.json`. Le code reste dans
+  `backend/` sans cloisonnement ; les deux tests `xfail(strict=True)` le consignent toujours.
+- `GET /api/v1/auth/logout` : corrigé (POST seul).
 - Les contrôles HTTP et base ne tournent pas en CI (pas de PostgreSQL ni de serveur dans le workflow).
 - Limite de débit : 150 requêtes / 10 s par organisation ; le client de test espace ses requêtes.
 

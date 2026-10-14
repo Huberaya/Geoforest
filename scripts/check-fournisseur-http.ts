@@ -260,6 +260,12 @@ async function main(): Promise<void> {
   const compteurs = await appel(fournisseur, "GET", "/api/v1/nav/counts");
   check("compteurs de navigation : vides", compteurs.status === 200 && JSON.stringify(compteurs.json) === '{"counts":{}}', JSON.stringify(compteurs.json).slice(0, 80));
 
+  // Chantier 2 : une déconnexion par simple lien (GET) ne doit pas fermer la session.
+  const deconnexionGet = await appel(fournisseur, "GET", "/api/v1/auth/logout");
+  check("déconnexion par GET : 405", deconnexionGet.status === 405, `HTTP ${deconnexionGet.status}`);
+  const sessionApresGet = await appel(fournisseur, "GET", "/api/v1/nav/counts");
+  check("session intacte après un GET de déconnexion", sessionApresGet.status === 200, `HTTP ${sessionApresGet.status}`);
+
   const invitationParFournisseur = await appel(fournisseur, "POST", invitation, { email: `x-${RUN}@test.local`, name: "Intrus" });
   check("fournisseur : ne peut pas inviter", invitationParFournisseur.status === 403, `HTTP ${invitationParFournisseur.status}`);
 

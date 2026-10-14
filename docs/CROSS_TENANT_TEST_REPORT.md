@@ -10,9 +10,9 @@ par `seed:auth`.
 ## Verdict
 
 **Cloisonnement des données : démontré** pour les 13 tables tenant (12 portant `organization_id`, plus `gf_organizations`), pour les 13 fichiers de routes à identifiant et pour les listes et créations de `src/app/api/v1`
-qui portent un identifiant, une liste ou un lien. **Une lacune reste ouverte** : le service FastAPI n'a aucune notion
-d'organisation (section « Périmètre non couvert »). Statut B-8 : **FIXED — en attente de décision sur FastAPI**
-(non VERIFIED dans son ensemble).
+qui portent un identifiant, une liste ou un lien. Le service FastAPI, sans notion d'organisation, est **retiré du
+déploiement** (décision de l'utilisateur, chantier 2) : `docker-compose.yml` et `vercel.json` ne le servent plus, et
+aucune réécriture ne l'expose. Statut B-8 : **FIXED** (le code FastAPI reste dans `backend/`, non déployé).
 
 ## Ce qui a été testé
 
@@ -113,8 +113,8 @@ build refait, campagne rejouée au vert.
    par E2E-001 et `test_backend_auth.py`.
 4. **Insertion de `gf_organizations`** : testée au niveau RLS (au nom de A, depuis B : refusée). Aucune route ne crée
    d'organisation par API ; elle n'est donc pas testée au niveau HTTP.
-5. **`GET /api/v1/auth/logout`** : appelle `POST` (`export const GET = POST`), donc une déconnexion par simple lien.
-   Ce n'est pas un cloisonnement, mais c'est une faiblesse CSRF mineure à noter (P2).
+5. **`GET /api/v1/auth/logout`** : **corrigé** (chantier 2). La route n'accepte plus que `POST` ; un `GET` répond 405,
+   et la session reste valide. Contrôlé par `scripts/check-fournisseur-http.ts`.
 
 ## Reproduire
 

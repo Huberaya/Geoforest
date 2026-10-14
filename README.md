@@ -5,7 +5,7 @@ post-31/12/2020 (Hansen / Global Forest Watch) et export du dossier DDS au forma
 
 ```
 geoforest-trace/
-├── docker-compose.yml            # postgres + backend FastAPI + frontend Next.js
+├── docker-compose.yml            # postgres + frontend Next.js (le service FastAPI est retiré du déploiement)
 ├── Dockerfile                    # image du frontend (Next.js)
 ├── backend/                      # API FastAPI (Python 3.11)
 │   ├── Dockerfile
@@ -28,11 +28,11 @@ geoforest-trace/
 
 ```bash
 docker-compose up --build
-# Frontend : http://localhost:3000   —   Backend FastAPI : http://localhost:8000/docs
+# Frontend : http://localhost:3000   (le service FastAPI n'est plus déployé)
 ```
 
 Le dashboard utilise par défaut les routes API Next.js intégrées (`/api/v1/...`, persistance PostgreSQL via Drizzle).
-Pour brancher le dashboard sur le backend FastAPI : `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+Le navigateur n'appelle jamais de service externe : toutes les requêtes passent par les routes Next.js.
 
 ## Règles EUDR implémentées (identiques en Python et TypeScript)
 
@@ -62,9 +62,9 @@ cd backend && pip install -r requirements.txt && pytest -q     # 63 réussis, 3 
 
 ## Endpoints
 
-**Le service FastAPI est fermé par défaut** : toutes ses routes d'analyse, de consultation et d'export
-exigent `Authorization: Bearer <GF_BACKEND_API_TOKEN>`. Sans cette variable, elles répondent 503.
-Le point `/health` reste public.
+**Le service FastAPI n'est plus déployé** (chantier 2, « B-8 ») : son code reste dans `backend/` pour référence.
+Il n'a aucune notion d'organisation : il ne doit pas être réexposé sans un modèle de cloisonnement.
+Les routes décrites ci-dessous ne sont donc plus servies par l'application.
 
 - `POST /api/v1/audit/parcel` — `{ geojson, commodity, harvest_date, operator?, declared_area_ha? }` → audit complet.
 - `POST /api/v1/export/traces` — `{ audit_id, format: "xml"|"json", operator?, net_weight_kg? }` → fichier DDS.
