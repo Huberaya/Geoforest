@@ -53,6 +53,41 @@ et la copie locale de la branche était en retard sur `origin` (état intermédi
   Migrations appliquées, RLS 13/13 tables, 34 politiques. Mots de passe générés et stockés hors dépôt.
 - Résultats mesurés sur cette base : E2E 49/49, `test:db` OK, pytest 64/3 xfail, `test:unit` 162/162 contrôles, `test:eudr` 40/40.
 
+## Chantier 1 — CI (« B-1 » de la mission de finalisation)
+
+> Numérotation : ce chantier porte le libellé « B-1 » de la mission de finalisation. Il est distinct du
+> blocker **B1 (satellite réel)** du tableau ci-dessus.
+
+**Statut : VERIFIED** (run GitHub Actions vert sur le commit `74f5f43`, branche `arena/c73246d2-geoforest`).
+
+**Constat initial.** Les 8 dernières exécutions CI sur `main` étaient en échec. Deux causes reproduites :
+1. Pytest (étape « Install backend dependencies & test ») : 3 tests géospatiaux renvoient 404, car
+   `/api/v1/geospatial/*` n'est pas livré sur `main`. Sur la branche, ces tests sont marqués
+   `xfail(strict=True)` avec la raison écrite (cf. `backend/tests/test_geospatial.py`) : la suite reste honnête et
+   échouera dès que la fonctionnalité passera. **La fonctionnalité géospatiale multi-sources reste non livrée.**
+2. Build (`npm run build`) sans variables : `DATABASE_URL_ADMIN est requis` levé à la collecte de pages
+   (`src/db/admin.ts`). Corrigé avec le même garde-fou que `src/db/index.ts` : seul le build est concerné,
+   l'exécution reste fail-closed.
+
+**Modifications.**
+- `src/db/admin.ts` : garde-fou de phase de build (aucune connexion ouverte, URL factice refusant tout accès).
+- `.github/workflows/ci.yml` : déclenchement sur `arena/**` ; `permissions: contents: read` ; `npm ci` strict
+  (repli `npm install` retiré) ; étapes `typecheck`, `lint`, `test:unit`, `test:eudr` ajoutées avant le build.
+
+**Preuves.**
+- Reproduction locale à `1c95f4c` (worktree temporaire, retiré) : pytest 3 failed / 41 passed (404 géospatial).
+- Local, environnement vidé de toute variable : `npm run build` exit 1 avant correctif, exit 0 après ;
+  `pytest -q` 64 passed / 3 xfailed ; `typecheck` 0 ; `lint` 0 ; `test:unit` 162 ✅ / 0 ❌ ; `test:eudr` 40/40.
+- Résolution cp312 : toutes les dépendances de `backend/requirements.txt` ont des roues binaires pour Python 3.12
+  (`pip download --only-binary`). Python 3.12 n'est pas installé localement : la vérification 3.12 est celle du runner CI.
+- GitHub Actions, run `38542469348`, `headSha 74f5f43` : **success**, 11 étapes vertes.
+
+**Restes (non bloquants pour ce chantier).**
+- `test:db` (PostgreSQL) et E2E ne sont pas dans la CI : nécessitent un service PostgreSQL (à traiter avec le chantier 5).
+- `npm run audit:sec` : 6 « high » dans l'outillage de dev, non bloquant en CI (P1).
+- Avertissement GitHub : Node.js 20 déprécié pour les actions `checkout@v4`, `setup-node@v4`, `setup-python@v5` (à monter de version).
+- Les 8 exécutions précédentes sur `main` restent en échec tant que la branche n'est pas fusionnée.
+
 ## Décision
 
 Aucun blocker critique n'est fermé de façon démontrable en dehors de B9 et B7 (périmètre). **Décision inchangée : NO-GO.**
