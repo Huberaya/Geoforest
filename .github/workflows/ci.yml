@@ -4,10 +4,15 @@ on:
   push:
     branches:
       - main
+      - "arena/**"
   pull_request:
     branches:
       - main
   workflow_dispatch:
+
+# Moindre privilège : le workflow ne lit que le dépôt.
+permissions:
+  contents: read
 
 concurrency:
   group: geoforest-ci-${{ github.workflow }}-${{ github.ref }}
@@ -17,7 +22,7 @@ jobs:
   verify:
     name: Verify Frontend & Backend
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -39,9 +44,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Install frontend dependencies & build
+      - name: Install frontend dependencies (lockfile strict)
         run: |
           set -euo pipefail
-          npm ci || npm install
-          npm run build
+          npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: EUDR rules tests
+        run: npm run test:eudr
+
+      - name: Build
+        run: npm run build

@@ -18,9 +18,18 @@ const globalForAdmin = globalThis as typeof globalThis & {
  * ⚠️ Cette connexion contourne la RLS. Elle ne doit jamais être importée par
  * une route métier : celles-ci passent par `withTenant()` (cf. `src/lib/tenant.ts`).
  */
+// Phase de build Next.js (collecte des pages) : aucune connexion n'est ouverte ;
+// l'URL factice ci-dessous refuse tout accès. En exécution, l'absence de l'URL
+// reste fatale (fail-closed) : aucun identifiant par défaut n'est jamais utilisé.
+const BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
+const URL_FACTICE = "postgresql://absente:absente@127.0.0.1:1/absente";
+
 function createAdminPool(): Pool {
   const url = process.env.DATABASE_URL_ADMIN ?? process.env.DATABASE_URL;
   if (!url) {
+    if (BUILD_PHASE) {
+      return new Pool({ connectionString: URL_FACTICE, max: 1 });
+    }
     throw new Error("DATABASE_URL_ADMIN est requis pour les opérations système.");
   }
   return new Pool({ connectionString: url, max: 4 });
