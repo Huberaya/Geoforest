@@ -107,8 +107,8 @@ build refait, campagne rejouée au vert.
    - (b) ou lui ajouter un modèle d'organisation et un jeton par organisation.
    Dans les deux cas, retirer le marqueur `xfail` au moment de la correction.
 2. **Exécution automatique.** Les contrôles HTTP et base exigent un serveur réel, PostgreSQL et des comptes frais
-   (MFA à réenrôler : `npm run seed:auth -- --reset`). La CI actuelle n'a pas de service PostgreSQL : ces contrôles ne
-   tournent donc **pas** en CI. À traiter avec le chantier 5 (ou un job dédié).
+   (MFA à réenrôler : `npm run seed:auth -- --reset`). Ils tournent désormais dans le job `database` de la CI, sur une
+   branche Neon éphémère (`docs/CI_NEON.md`). Premier run réel subordonné à la configuration des secrets `NEON_*`.
 3. **Routes d'authentification** (`/api/v1/auth/*`) : publiques par conception ; hors périmètre cross-tenant. Couvertes
    par E2E-001 et `test_backend_auth.py`.
 4. **Insertion de `gf_organizations`** : testée au niveau RLS (au nom de A, depuis B : refusée). Aucune route ne crée

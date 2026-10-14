@@ -65,3 +65,78 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # Contrôles HTTP et base (chantier 2). Ils modifient et réinitialisent la base : ils ne
+  # tournent que sur une branche Neon éphémère, créée pour ce run à partir de la branche
+  # parente désignée (NEON_PARENT_BRANCH_ID), et supprimée en fin de job.
+  database:
+    name: Database & HTTP contracts (Neon branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      NEON_PARENT_BRANCH_ID: ${{ secrets.NEON_PARENT_BRANCH_ID }}
+      E2E_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies (lockfile strict)
+        run: |
+          set -euo pipefail
+          npm ci
+
+      - name: Create ephemeral Neon branch
+        run: npx tsx scripts/ci/neon-branche.ts creer
+
+      - name: Apply migrations on the test branch
+        run: npm run db:migrate
+
+      - name: Set application role password (test branch only)
+        run: npx tsx scripts/ci/neon-branche.ts role-app
+
+      - name: Database controls
+        run: npm run test:db
+
+      - name: Reset demo accounts (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Start production server
+        run: |
+          set -euo pipefail
+          nohup npx next start -p 3000 -H 127.0.0.1 > "$RUNNER_TEMP/next.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/next.pid"
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/next.log"
+          exit 1
+
+      - name: End-to-end journey
+        run: npm run test:e2e
+
+      - name: Cross-tenant HTTP controls
+        run: npm run test:cross-tenant
+
+      - name: Supplier journey HTTP controls
+        run: npm run test:fournisseur:http
+
+      - name: Stop production server
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/next.pid" ]; then kill "$(cat "$RUNNER_TEMP/next.pid")" || true; fi
+
+      - name: Delete ephemeral Neon branch
+        if: always()
+        run: npx tsx scripts/ci/neon-branche.ts supprimer

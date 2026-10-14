@@ -66,6 +66,17 @@ function verifierPrerequis(): string {
   if (VALEURS_COMPROMISES.has(motDePasse)) {
     throw new Error("SEED_DEMO_PASSWORD figure dans la liste des mots de passe publiquement connus : refusé.");
   }
+  // --reset efface et recrée les comptes : seule une base locale, ou une branche de test
+  // déclarée jetable par la CI (GF_BASE_JETABLE=oui), peut le recevoir.
+  if (RESET) {
+    const hote = new URL(process.env.DATABASE_URL_ADMIN ?? process.env.DATABASE_URL ?? "").hostname;
+    const locale = ["localhost", "127.0.0.1", "db"].includes(hote);
+    if (!locale && process.env.GF_BASE_JETABLE !== "oui") {
+      throw new Error(
+        `Refus de --reset : la base (${hote}) n'est pas locale et n'est pas déclarée jetable (GF_BASE_JETABLE=oui).`,
+      );
+    }
+  }
   return motDePasse;
 }
 

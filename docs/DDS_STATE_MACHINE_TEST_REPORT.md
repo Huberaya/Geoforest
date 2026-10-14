@@ -90,7 +90,7 @@ satellitaires, qui reste à démontrer sur GFW réel.
   Le brouillon d'une analyse vaut alors pour l'ensemble du dossier. Le pack de preuves du dossier entier existe depuis le chantier 4 (`docs/EVIDENCE_PACK_TEST_REPORT.md`).
 - **Environnement de test** : PostgreSQL 16.14 est un binaire `embedded-postgres` installé depuis npm (apt et Docker indisponibles).
   Cluster sur `127.0.0.1` uniquement. Ce n'est pas un test sur le PostgreSQL de production.
-- **CI** : les contrôles HTTP et base ne tournent pas en CI (pas de serveur ni de base dans le workflow).
+- **CI** : les contrôles HTTP et base tournent désormais dans le job `database` (branche Neon éphémère, `docs/CI_NEON.md`), sous réserve de la configuration des secrets `NEON_*`.
 
 ## 7. Idempotence (P1-11) : comportement attendu, pas un défaut
 

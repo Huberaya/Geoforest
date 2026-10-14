@@ -83,7 +83,7 @@ et la copie locale de la branche était en retard sur `origin` (état intermédi
 - GitHub Actions, run `38542469348`, `headSha 74f5f43` : **success**, 11 étapes vertes.
 
 **Restes (non bloquants pour ce chantier).**
-- `test:db` (PostgreSQL) et E2E ne sont pas dans la CI : nécessitent un service PostgreSQL (à traiter avec le chantier 5).
+- `test:db` (PostgreSQL) et E2E ne sont pas dans la CI : nécessitent un service PostgreSQL. Traités par le job `database` (branche Neon éphémère, `docs/CI_NEON.md`) ; premier run réel subordonné aux secrets `NEON_*`.
 - `npm run audit:sec` : 6 « high » dans l'outillage de dev, non bloquant en CI (P1).
 - Avertissement GitHub : Node.js 20 déprécié pour les actions `checkout@v4`, `setup-node@v4`, `setup-python@v5` (à monter de version).
 - Les 8 exécutions précédentes sur `main` restent en échec tant que la branche n'est pas fusionnée.
@@ -114,7 +114,7 @@ ajoutée : 404 (« introuvable »), 422 si l'identifiant est mal formé.
   publiques `/fastapi`, `/backend`, `/docs`, `/openapi.json`, `/health-py` supprimées de `vercel.json`. Le code reste dans
   `backend/` sans cloisonnement ; les deux tests `xfail(strict=True)` le consignent toujours.
 - `GET /api/v1/auth/logout` : corrigé (POST seul).
-- Les contrôles HTTP et base ne tournent pas en CI (pas de PostgreSQL ni de serveur dans le workflow).
+- Les contrôles HTTP et base : job `database` (branche Neon éphémère, `docs/CI_NEON.md`) ; premier run réel subordonné aux secrets `NEON_*`.
 - Limite de débit : 150 requêtes / 10 s par organisation ; le client de test espace ses requêtes.
 
 ## Chantier 3 — machine d'état DECLARED / EXPORTED / SUBMITTED (« B-12 » de la mission de finalisation)
