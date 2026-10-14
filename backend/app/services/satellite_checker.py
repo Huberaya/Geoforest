@@ -290,6 +290,13 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
 
 def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     rows, evidence = _gfw_query(_analysis_polygon(geom))
+    # Réponse vide : absence de perte et absence de donnée ne sont pas distinguables.
+    # Aucun verdict de conformité (miroir de la version TypeScript).
+    if not rows:
+        return _unavailable_result(
+            geom,
+            "réponse GFW vide : absence de perte et absence de donnée ne sont pas distinguables ; aucun verdict de conformité",
+        )
     centroid = geom.centroid
     iso2, country_name, country_risk = resolve_country(centroid.x, centroid.y)
 

@@ -40,8 +40,20 @@ def test_perte_avant_la_date_butoir_est_ignoree(monkeypatch):
     assert result["compliant"] is True
 
 
-def test_aucune_perte_donne_un_verdict_conforme_probant(monkeypatch):
+def test_reponse_vide_ne_donne_aucun_verdict(monkeypatch):
+    # Une réponse vide n'est pas une preuve de conformité : absence de perte et
+    # absence de donnée sont indiscernables. Aucun verdict n'est émis.
     monkeypatch.setattr(sc, "_gfw_query", lambda _poly: ([], EVIDENCE))
+    result = sc.live_check(_geom(), date(2025, 1, 1))
+    assert result["compliant"] is None
+    assert result["is_probative"] is False
+
+
+def test_perte_observee_avant_cutoff_reste_conforme_probant(monkeypatch):
+    # Une perte réellement observée, mais antérieure au cutoff, est un résultat
+    # exploitable : le polygone a bien été interrogé et renvoie des données.
+    rows = [{"umd_tree_cover_loss__year": 2015, "area__ha": 1.0}]
+    monkeypatch.setattr(sc, "_gfw_query", lambda _poly: (rows, EVIDENCE))
     result = sc.live_check(_geom(), date(2025, 1, 1))
     assert result["compliant"] is True
     assert result["is_probative"] is True

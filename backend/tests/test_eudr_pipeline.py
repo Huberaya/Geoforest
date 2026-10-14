@@ -75,7 +75,9 @@ def gfw_live(monkeypatch: pytest.MonkeyPatch):
     object.__setattr__(settings, "gfw_live_enabled", True)
     object.__setattr__(settings, "gfw_api_key", "cle-de-test")
 
-    stub_rows: List[Dict[str, Any]] = []
+    # Réponse non vide : une perte observée AVANT le cutoff (2015). Une réponse
+    # vide n'est plus un verdict « conforme » (absence de perte ≠ absence de donnée).
+    stub_rows: List[Dict[str, Any]] = [{"umd_tree_cover_loss__year": 2015, "area__ha": 0.5}]
 
     def fake_query(geometry: Dict[str, Any]):
         rows = list(stub_rows)

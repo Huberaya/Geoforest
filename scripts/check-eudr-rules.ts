@@ -367,6 +367,59 @@ async function testSourceSatellite(): Promise<void> {
   }
 }
 
+/**
+ * Réponse GFW — parité avec le port Python (`live_check`).
+ * `fetch` est remplacé : aucun appel réseau. Teste la règle « absence de donnée
+ * n'est jamais une conformité » et l'absence de tolérance sur la perte post-2020.
+ */
+async function testReponseGfw(): Promise<void> {
+  section("Réponse GFW — absence de donnée ≠ conformité (parité Python)");
+  const cles = ["GFW_API_KEY", "GFW_API_URL", "GFW_DEMO_MODE"] as const;
+  const sauvegarde: Record<string, string | undefined> = {};
+  for (const k of cles) sauvegarde[k] = process.env[k];
+  const fetchOriginal = globalThis.fetch;
+  const restaurer = () => {
+    for (const k of cles) {
+      if (sauvegarde[k] === undefined) delete process.env[k];
+      else process.env[k] = sauvegarde[k];
+    }
+    globalThis.fetch = fetchOriginal;
+  };
+  const avecReponse = (data: unknown[]) => {
+    globalThis.fetch = (async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      url: "https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/latest/query/json",
+      json: async () => ({ data }),
+      text: async () => "",
+    })) as unknown as typeof fetch;
+  };
+
+  try {
+    process.env.GFW_API_KEY = "cle-de-test";
+    delete process.env.GFW_API_URL;
+    process.env.GFW_DEMO_MODE = "false";
+
+    avecReponse([]);
+    const vide = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("réponse vide : aucun verdict", vide.compliant === null, `compliant=${vide.compliant}`);
+    check("réponse vide : non probant", vide.is_probative === false);
+
+    avecReponse([{ umd_tree_cover_loss__year: 2015, area__ha: 0.5 }]);
+    const avant = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("perte pré-cutoff seule : conforme probant", avant.compliant === true && avant.is_probative === true);
+
+    avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: 0.4 }]);
+    const apres = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("0,4 ha post-2020 : non conforme (aucune tolérance)", apres.compliant === false && apres.is_probative === true,
+      `compliant=${apres.compliant}`);
+  } finally {
+    restaurer();
+  }
+}
+
+
 async function main(): Promise<void> {
   console.log("=" .repeat(70));
   console.log("CHANTIER P0-03 / P0-05 — règles EUDR du moteur TypeScript");
@@ -379,6 +432,7 @@ async function main(): Promise<void> {
   testFourHectares();
   testDeterministicEngine();
   await testSourceSatellite();
+  await testReponseGfw();
 
   console.log(`\n${passed}/${passed + failures.length} contrôles réussis`);
   if (failures.length) {

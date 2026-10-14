@@ -470,6 +470,14 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
 
 async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckResult> {
   const { rows, evidence } = await gfwQuery(geometry);
+  // Réponse vide : « aucune perte » et « aucune donnée » ne sont pas distinguables
+  // dans cette réponse. Aucun verdict de conformité n'est donc émis (cf. EUDR_WORKFLOW_VALIDATION).
+  if (rows.length === 0) {
+    return unavailableResult(
+      geometry,
+      "réponse GFW vide : absence de perte et absence de donnée ne sont pas distinguables ; aucun verdict de conformité",
+    );
+  }
   const [lon, lat] = centroidOf(geometry);
   const country = resolveCountry(lon, lat);
   const areaHa = geodesicAreaHa(geometry) || 1;
