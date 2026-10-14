@@ -110,9 +110,36 @@ organisation renvoyaient une 500 (violation de la clé étrangère composite, au
 ajoutée : 404 (« introuvable »), 422 si l'identifiant est mal formé.
 
 **Restes.**
-- FastAPI : décision (a) retirer du déploiement ou (b) cloisonner. Deux tests `xfail(strict=True)` en attendant.
+- FastAPI : décision de l'utilisateur, **publication du port 8000 retirée** (`docker-compose.yml`). Le service n'a toujours
+  pas de cloisonnement par organisation : il reste joignable sur le réseau Docker interne. Deux tests `xfail(strict=True)`
+  restent en place. Le cloisonnement, ou le retrait du service, reste à faire.
 - Les contrôles HTTP et base ne tournent pas en CI (pas de PostgreSQL ni de serveur dans le workflow).
 - Limite de débit : 150 requêtes / 10 s par organisation ; le client de test espace ses requêtes.
+
+## Chantier 3 — machine d'état DECLARED / EXPORTED / SUBMITTED (« B-12 » de la mission de finalisation)
+
+> Détail complet : `docs/DDS_STATE_MACHINE_TEST_REPORT.md`.
+
+**Statut : IN_PROGRESS.** Machine locale **VERIFIED** par preuve. Soumission officielle (`SUBMITTED`) et déclaration
+officielle (`DECLARED`) : **BLOCKED_EXTERNAL**, faute d'intégration TRACES NT.
+
+**Ce qui est prouvé.**
+- `EXPORTED` n'est posé que par l'export d'un dossier `READY_FOR_DECLARATION`, avec revérification de la readiness et
+  entrée au journal. Un export refusé ne change rien.
+- `SUBMITTED` et `DECLARED` ne sont atteignables par aucune action. Le PATCH les refuse avec un motif explicite.
+- Un dossier figé refuse rattachement, détachement et modification de ses données.
+- `npm run test:unit` (`check-dds-etats.ts`) : 25/25. `npm run test:dds-etats:http` (serveur réel) : 39/39.
+- Sensibilité : mutation de la transition d'export → 5 échecs ; suppression de la revérification → 1 échec.
+- Non-régression : cross-tenant HTTP 262/0, RLS 96/0, E2E 49/49, typecheck, lint, build, `test:db`, EUDR 40/40, pytest 64 + 5 xfail.
+
+**Défaut corrigé (D2).** `POST /api/v1/due-diligence` ignorait `netWeightKg` sans le signaler.
+
+**Restes et limites.**
+- `SUBMITTED` / `DECLARED` : intégration TRACES NT absente (BLOCKED_EXTERNAL).
+- Le parcours pose le drapeau `analysis_probative` sur une **fixture** (source `fixture-test-probant`), faute d'analyse
+  satellite réelle (B1). Ce test prouve la machine d'état, pas la donnée satellite.
+- Le texte exact de la section 18 de la mission n'était pas dans l'espace de travail. La conception suit
+  `docs/TRACES_SCOPE.md` et P0-06, et a été validée par l'utilisateur.
 
 ## Décision
 

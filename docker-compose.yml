@@ -1,6 +1,6 @@
 # GeoForest Trace — lancement complet : `docker-compose up --build`
 #   Frontend (Next.js)  : http://localhost:3000
-#   Backend  (FastAPI)  : http://localhost:8000/docs
+#   Backend  (FastAPI)  : non publié (réseau interne uniquement, voir B-8)
 #   PostgreSQL          : localhost:5432 (persistance des audits côté Next.js)
 services:
   db:
@@ -32,8 +32,8 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
       GFW_API_KEY: ${GFW_API_KEY:-}
       GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
-    ports:
-      - "8000:8000"
+    # B-8 (chantier 2) : le service n'a aucune notion d'organisation. Il n'est pas publié
+    # sur l'hôte ; il reste joignable uniquement sur le réseau interne Docker.
     volumes:
       - geoforest-backend-data:/app/data
     restart: unless-stopped

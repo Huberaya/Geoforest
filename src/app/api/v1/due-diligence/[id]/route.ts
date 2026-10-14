@@ -6,29 +6,12 @@ import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { logAction } from "@/lib/api/audit-log";
 import { aujourdhuiIso, chargerDossier, recalculerDossier } from "@/lib/eudr/readiness-db";
+import { estFige, TRANSITIONS, verifierTransitionManuelle } from "@/lib/eudr/dds-etats";
 
 export const dynamic = "force-dynamic";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * Transitions de statut autorisées pour un dossier de diligence raisonnée.
- *
- * ⚠️ P0-06 : `DECLARED` est délibérément **inatteignable**. Une déclaration
- * n'existe qu'après un accusé du système d'information EUDR, qu'aucun
- * composant de ce produit ne peut obtenir à ce jour.
- */
-const TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
-  DRAFT: ["MISSING_DATA", "IN_ANALYSIS", "ARCHIVED"],
-  MISSING_DATA: ["DRAFT", "IN_ANALYSIS", "ARCHIVED"],
-  IN_ANALYSIS: ["UNDER_REVIEW", "RISK_IDENTIFIED", "MISSING_DATA", "ARCHIVED"],
-  UNDER_REVIEW: ["RISK_IDENTIFIED", "ACTION_REQUIRED", "READY_FOR_DECLARATION", "IN_ANALYSIS", "ARCHIVED"],
-  RISK_IDENTIFIED: ["ACTION_REQUIRED", "UNDER_REVIEW", "ARCHIVED"],
-  ACTION_REQUIRED: ["UNDER_REVIEW", "RISK_IDENTIFIED", "ARCHIVED"],
-  READY_FOR_DECLARATION: ["UNDER_REVIEW", "ACTION_REQUIRED", "ARCHIVED"],
-  DECLARED: ["ARCHIVED"],
-  ARCHIVED: ["DRAFT"],
-};
 
 export const GET = guard<{ params: Promise<{ id: string }> }>("dds:read")(async (
   _request: Request,
@@ -123,6 +106,19 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const patch: Record<string, unknown> = { updatedAt: new Date() };
 
+  // B-12 — un dossier figé (prêt, exporté, soumis, déclaré) ne change pas de données :
+  // un brouillon exporté ne doit pas diverger du dossier. Repasser en revue d'abord.
+  if ((body.title !== undefined || body.netWeightKg !== undefined) && estFige(current.status as DdsStatus)) {
+    const issue =
+      current.status === "READY_FOR_DECLARATION" || current.status === "EXPORTED"
+        ? "Repassez-le en revue (statut « UNDER_REVIEW ») avant toute modification."
+        : "Aucune modification n'est possible à ce stade.";
+    return NextResponse.json(
+      { detail: `Dossier figé (statut « ${current.status} ») : ses données ne se modifient pas. ${issue}` },
+      { status: 409 },
+    );
+  }
+
   if (body.title !== undefined) {
     if (str(body.title).length < 2) return NextResponse.json({ detail: "Intitulé trop court" }, { status: 422 });
     patch.title = str(body.title);
@@ -154,24 +150,12 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
     if (!DDS_STATUSES.includes(next as DdsStatus)) {
       return NextResponse.json({ detail: "Statut inconnu" }, { status: 422 });
     }
-    if (next === "DECLARED") {
-      // Refus explicite plutôt qu'un statut vide de sens.
-      return NextResponse.json(
-        {
-          detail:
-            "Le statut « DECLARED » ne peut pas être attribué depuis cette application : " +
-            "il suppose un accusé du système d'information EUDR, qu'aucun composant du " +
-            "produit ne peut obtenir aujourd'hui.",
-        },
-        { status: 409 },
-      );
-    }
+    // Refus explicite des cibles réservées (SUBMITTED, DECLARED, EXPORTED) et des
+    // enchaînements non admis : voir src/lib/eudr/dds-etats.ts.
     const from = current.status as DdsStatus;
-    if (!(TRANSITIONS[from] ?? []).includes(next as DdsStatus)) {
-      return NextResponse.json(
-        { detail: `Transition refusée : « ${from} » → « ${next} » n'est pas un enchaînement admis.` },
-        { status: 409 },
-      );
+    const verdict = verifierTransitionManuelle(from, next as DdsStatus);
+    if (!verdict.admise) {
+      return NextResponse.json({ detail: verdict.motif }, { status: 409 });
     }
     if (next === "READY_FOR_DECLARATION") {
       // ---------------------------------------------------------- P0 : porte de sortie

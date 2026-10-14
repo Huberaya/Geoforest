@@ -124,6 +124,17 @@ export const POST = guard("dds:write")(async (request: Request, _ctx, { tx, orga
     if (!owner) return NextResponse.json({ detail: "Produit introuvable" }, { status: 404 });
   }
 
+  // B-12 — le poids net saisi à la création est conservé (il était ignoré en silence,
+  // et la readiness signalait ensuite « poids non renseigné »). Même règle que la PATCH.
+  let netWeightKg = 0;
+  if (body.netWeightKg !== undefined && body.netWeightKg !== null && body.netWeightKg !== "") {
+    const poids = Number(body.netWeightKg);
+    if (!Number.isFinite(poids) || poids < 0) {
+      return NextResponse.json({ detail: "Poids net invalide" }, { status: 422 });
+    }
+    netWeightKg = poids;
+  }
+
   const year = new Date().getFullYear();
   const [row] = await tx
     .insert(dueDiligenceStatements)
@@ -134,6 +145,7 @@ export const POST = guard("dds:write")(async (request: Request, _ctx, { tx, orga
       commodity,
       supplierId: str(body.supplierId) || null,
       productId: str(body.productId) || null,
+      netWeightKg,
       status: "DRAFT",
     })
     .returning();

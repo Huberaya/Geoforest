@@ -28,6 +28,9 @@
  * d'information EUDR n'existe dans ce produit (cf. P0-06).
  */
 
+import { ETATS_VALIDES } from "./dds-etats";
+import type { DdsStatus } from "./types";
+
 export type ReadinessState = "BLOCKED" | "INCOMPLETE" | "COMPLETE" | "READY_FOR_REVIEW" | "READY_FOR_DDS";
 export type RiskTier = "LOW" | "STANDARD" | "HIGH" | "CRITICAL";
 
@@ -253,7 +256,7 @@ export function evaluerReadiness(input: ReadinessInput): ReadinessResult {
   let etat: ReadinessState;
   if (blocages.length > 0) etat = "BLOCKED";
   else if (manquants.length > 0) etat = "INCOMPLETE";
-  else if (dossier.status === "READY_FOR_DECLARATION") etat = "READY_FOR_DDS";
+  else if (ETATS_VALIDES.includes(dossier.status as DdsStatus)) etat = "READY_FOR_DDS";
   else if (dossier.status === "UNDER_REVIEW") etat = "READY_FOR_REVIEW";
   else etat = "COMPLETE";
 

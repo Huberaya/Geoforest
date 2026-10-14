@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { logAction } from "@/lib/api/audit-log";
 import { aujourdhuiIso, recalculerDossier } from "@/lib/eudr/readiness-db";
+import { estFige } from "@/lib/eudr/dds-etats";
+import type { DdsStatus } from "@/lib/eudr/types";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ export const POST = guard<{ params: Promise<{ id: string }> }>("dds:write")(asyn
     .where(and(eq(dueDiligenceStatements.id, id), eq(dueDiligenceStatements.organizationId, organizationId)))
     .limit(1);
   if (!dds) return NextResponse.json({ detail: "Dossier introuvable" }, { status: 404 });
-  if (dds.status === "DECLARED" || dds.status === "READY_FOR_DECLARATION") {
+  if (estFige(dds.status as DdsStatus)) {
     return NextResponse.json(
       {
         detail:

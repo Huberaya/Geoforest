@@ -33,8 +33,14 @@ export class Session {
     return [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
   }
 
-  async request(method: string, path: string, body?: unknown, rawBody?: string): Promise<{ status: number; json: any }> {
-    const headers: Record<string, string> = { accept: "application/json" };
+  async request(
+    method: string,
+    path: string,
+    body?: unknown,
+    rawBody?: string,
+    entetes: Record<string, string> = {},
+  ): Promise<{ status: number; json: any }> {
+    const headers: Record<string, string> = { accept: "application/json", ...entetes };
     if (body !== undefined || rawBody !== undefined) headers["content-type"] = "application/json";
     const cookie = this.cookieHeader();
     if (cookie) headers.cookie = cookie;
