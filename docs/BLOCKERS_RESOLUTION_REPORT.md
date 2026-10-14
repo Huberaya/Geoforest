@@ -88,6 +88,32 @@ et la copie locale de la branche était en retard sur `origin` (état intermédi
 - Avertissement GitHub : Node.js 20 déprécié pour les actions `checkout@v4`, `setup-node@v4`, `setup-python@v5` (à monter de version).
 - Les 8 exécutions précédentes sur `main` restent en échec tant que la branche n'est pas fusionnée.
 
+## Chantier 2 — cross-tenant (« B-8 » de la mission de finalisation)
+
+> Numérotation : « B-8 » de la mission de finalisation, distinct de **B8 (E2E)** du tableau ci-dessus.
+> Détail complet : `docs/CROSS_TENANT_TEST_REPORT.md`.
+
+**Statut : IN_PROGRESS.** Volet Next.js / base de données : **VERIFIED** par preuve (tests ci-dessous).
+Volet service FastAPI : **OPEN**, décision requise (pas de notion d'organisation, port 8000 publié par docker-compose).
+
+**Preuves.**
+- `npm run test:cross-tenant` (HTTP, deux sens, rôle restreint, routes à identifiant, listes, créations, forgeries,
+  intégrité, anonyme, aucune 5xx) : **262/262**.
+- `npm run test:cross-tenant:rls` (rôle applicatif, RLS forcée, lecture/écriture/suppression/insertion au nom d'autrui) :
+  **96/96**.
+- Sensibilité démontrée par mutation : retrait du filtre tenant + RLS coupée sur `gf_plots` → 12 échecs HTTP ;
+  RLS coupée seule → 5 échecs base. Code et RLS restaurés, tests repassés au vert.
+- Non-régression : E2E 49/49, `typecheck` 0, `lint` 0, `test:unit` 162 ✅, `test:eudr` 40/40, pytest 64 réussis + 5 XFAIL.
+
+**Défaut corrigé (D1).** `POST /shipments` et `POST /due-diligence` avec un fournisseur ou produit d'une autre
+organisation renvoyaient une 500 (violation de la clé étrangère composite, aucun lien créé). Vérification d'appartenance
+ajoutée : 404 (« introuvable »), 422 si l'identifiant est mal formé.
+
+**Restes.**
+- FastAPI : décision (a) retirer du déploiement ou (b) cloisonner. Deux tests `xfail(strict=True)` en attendant.
+- Les contrôles HTTP et base ne tournent pas en CI (pas de PostgreSQL ni de serveur dans le workflow).
+- Limite de débit : 150 requêtes / 10 s par organisation ; le client de test espace ses requêtes.
+
 ## Décision
 
 Aucun blocker critique n'est fermé de façon démontrable en dehors de B9 et B7 (périmètre). **Décision inchangée : NO-GO.**

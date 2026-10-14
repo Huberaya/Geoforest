@@ -104,6 +104,26 @@ export const POST = guard("dds:write")(async (request: Request, _ctx, { tx, orga
     return NextResponse.json({ detail: "Produit invalide" }, { status: 422 });
   }
 
+  // B-8 — fournisseur et produit doivent appartenir à l'organisation (même
+  // règle que la création de parcelle) : sinon 404, jamais une erreur de
+  // contrainte (500) qui révélerait l'existence d'une référence étrangère.
+  if (str(body.supplierId)) {
+    const [owner] = await tx
+      .select({ id: suppliers.id })
+      .from(suppliers)
+      .where(and(eq(suppliers.id, str(body.supplierId)), eq(suppliers.organizationId, organizationId)))
+      .limit(1);
+    if (!owner) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
+  }
+  if (str(body.productId)) {
+    const [owner] = await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.id, str(body.productId)), eq(products.organizationId, organizationId)))
+      .limit(1);
+    if (!owner) return NextResponse.json({ detail: "Produit introuvable" }, { status: 404 });
+  }
+
   const year = new Date().getFullYear();
   const [row] = await tx
     .insert(dueDiligenceStatements)

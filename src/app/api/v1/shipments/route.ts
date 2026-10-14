@@ -8,6 +8,8 @@ import { logAction } from "@/lib/api/audit-log";
 
 export const dynamic = "force-dynamic";
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 
 export const GET = guard("shipment:read")(async (_request: Request, _ctx, { tx, organizationId }) => {
   const rows = await tx
@@ -55,11 +57,39 @@ export const POST = guard("shipment:write")(async (request: Request, _ctx, { tx,
       return NextResponse.json({ detail: "Référence et date de récolte requises" }, { status: 422 });
     }
 
+    // B-8 — les références (fournisseur, produit) doivent appartenir à
+    // l'organisation : une référence étrangère ne doit ni être enregistrée, ni
+    // provoquer une erreur de contrainte (500) qui révélerait son existence.
+    const supplierIdEntree = body.supplierId ? String(body.supplierId) : null;
+    const productIdEntree = body.productId ? String(body.productId) : null;
+    if (supplierIdEntree && !UUID_PATTERN.test(supplierIdEntree)) {
+      return NextResponse.json({ detail: "Fournisseur invalide" }, { status: 422 });
+    }
+    if (productIdEntree && !UUID_PATTERN.test(productIdEntree)) {
+      return NextResponse.json({ detail: "Produit invalide" }, { status: 422 });
+    }
+    if (supplierIdEntree) {
+      const [owner] = await tx
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(and(eq(suppliers.id, supplierIdEntree), eq(suppliers.organizationId, organizationId)))
+        .limit(1);
+      if (!owner) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
+    }
+    if (productIdEntree) {
+      const [owner] = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.id, productIdEntree), eq(products.organizationId, organizationId)))
+        .limit(1);
+      if (!owner) return NextResponse.json({ detail: "Produit introuvable" }, { status: 404 });
+    }
+
     const newShipment: Shipment = {
       id: crypto.randomUUID(),
       reference: String(body.reference).trim().toUpperCase(),
-      supplierId: body.supplierId ? String(body.supplierId) : null,
-      productId: body.productId ? String(body.productId) : null,
+      supplierId: supplierIdEntree,
+      productId: productIdEntree,
       netWeightKg: Number(body.netWeightKg) || 0,
       harvestDate: String(body.harvestDate),
       customsDeclarationRef: body.customsDeclarationRef ? String(body.customsDeclarationRef).trim() : null,
