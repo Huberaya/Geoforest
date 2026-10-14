@@ -1,0 +1,65 @@
+# Validation satellite — rapport (B1)
+
+Date : 14/10/2026 · Branche : `arena/c73246d2-geoforest`.
+
+## Statut
+
+**B1 : BLOCKED_EXTERNAL.** Aucune analyse Global Forest Watch (GFW) réelle n'a été exécutée.
+Le produit n'émet donc aucun verdict probant validé. Ce document ne déclare aucune conformité.
+
+Cause : le sandbox n'a ni accès à `data-api.globalforestwatch.org` (HTTP 000, constaté à plusieurs reprises)
+ni clé `GFW_API_KEY`. L'utilisateur n'a pas pu obtenir l'un ni l'autre.
+
+## Ce qui est vérifié aujourd'hui (sans GFW)
+
+| Cas | Attendu | Obtenu | Preuve |
+|---|---|---|---|
+| C — géométrie invalide (auto-intersection) | rejet, aucun appel satellite | `REJECTED` (SELF_INTERSECTION) | `scripts/satellite/validate-reference.ts` |
+| D — API indisponible | `ANALYSIS_UNAVAILABLE`, jamais COMPLIANT | `UNAVAILABLE` (tentative réelle vers l'hôte officiel : `fetch failed`) | idem |
+| Réponse GFW vide | aucun verdict de conformité | `compliant: null`, non probant | `check-eudr-rules` (section « Réponse GFW », 4 contrôles) ; `test_reponse_vide_ne_donne_aucun_verdict` |
+| Perte pré-cutoff seule | conforme probant | `compliant: true` | idem |
+| 0,4 ha post-2020 | non conforme (aucune tolérance) | `compliant: false` | idem |
+
+Corrections faites pour cela (commit `fcfd594`) :
+
+- **Réponse vide = aucun verdict.** Le moteur TypeScript et le port Python renvoyaient `COMPLIANT`,
+  probant, confiance 0,95, pour une réponse sans ligne. Or une réponse vide ne distingue pas
+  « aucune perte » de « aucune donnée ». Règle désormais appliquée : zéro ligne → `ANALYSIS_UNAVAILABLE`.
+- **Sérialisation des résultats sans verdict.** `AuditSummary.compliant` était typé `bool` ; un résultat
+  sans verdict (`None`) provoquait une erreur de validation Pydantic (500). Corrigé : `Optional[bool]`.
+
+Résultat de la run du runner (sans géométries réelles) : `exécutés 2/5 · échecs 0 · non exécutés 3`, code de sortie 2.
+
+## Ce qui reste à faire (exige GFW)
+
+Cas A, B et E. Le runner refuse de déclarer un cas validé tant que sa géométrie et son résultat attendu
+ne sont pas fournis.
+
+### Procédure (à exécuter sur une machine ayant accès à GFW)
+
+1. Obtenir une clé GFW officielle (compte développeur Global Forest Watch).
+2. Pour chaque cas A, B, E : l'expert renseigne dans `scripts/satellite/reference-cases.json`
+   la géométrie réelle **et** `expected_before_run` **avant** toute exécution.
+   Ne jamais renseigner ce champ après avoir vu la réponse.
+3. Lancer :
+   ```bash
+   GFW_API_KEY='…' npx tsx --conditions=react-server scripts/satellite/validate-reference.ts
+   ```
+4. Résultat attendu : `échecs 0 · non exécutés 0`, code de sortie 0.
+5. Conserver la sortie, la date, la version du dataset (`evidence.dataset_version`) et les réponses brutes
+   dans le dossier d'évidence de la validation.
+
+### Point de décision à trancher avec l'expert avant le cas E
+
+La règle « réponse vide = aucun verdict » est volontairement prudente. Elle a une conséquence : une parcelle
+réellement sans perte, si GFW renvoie zéro ligne pour elle, sera classée « aucun verdict » et non « conforme ».
+Pour la lever, il faut établir avec GFW que la réponse vide signifie bien « pixels couverts, aucune perte »
+et non « hors couverture ». Tant que ce point n'est pas établi, le produit ne peut pas conclure à la conformité
+d'une parcelle sans perte. C'est le sens du cas E.
+
+## Limites
+
+- Les cas C et D utilisent des géométries **fictives** (format uniquement). Elles ne représentent pas de parcelle.
+- Le cas D ne prouve pas le comportement sous quota dépassé ou réponse HTTP 5xx. Seul l'échec réseau a été observé.
+- Aucune validation méthodologique (vérité terrain, comparaison à une source indépendante) n'a été faite.
+- Le moteur déterministe (`deterministicCheck`) reste un outil de démonstration. Il ne sert à aucune preuve.
