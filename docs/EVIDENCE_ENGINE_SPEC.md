@@ -126,3 +126,54 @@ Migration et retour arrière testés (`npm run db:rollback` puis `npm run db:mig
 - Il ne détecte aucun malware.
 - Il ne produit pas de preuve de légalité du foncier : il vérifie la présence et l'intégrité d'une pièce, pas son contenu juridique.
 - Il ne transmet rien à TRACES NT.
+- Il n'appose ni signature externe ni horodatage qualifié sur le pack (§7).
+
+## 7. Pack de preuves d'un dossier (B-10)
+
+Route : `GET /api/v1/due-diligence/{id}/evidence-pack` (permission `export:run` : administrateur, responsable
+conformité, auditeur ; le lecteur est refusé, 403). Code : `src/lib/evidence/pack.ts` (construction et vérification,
+sans base), `src/lib/evidence/assembler.ts` (lecture du dossier), `src/app/api/v1/due-diligence/[id]/evidence-pack/route.ts`.
+
+### 7.1 Contenu d'une archive ZIP
+
+| Fichier | Contenu |
+|---|---|
+| `manifeste.json` | Format `geoforest.evidence-pack/1`, date de génération, auteur (identifiant et rôle), dossier, readiness, pièces, analyses, ancre du journal, **liste de ce qui n'est pas vérifié** |
+| `dossier.json` | Dossier, fournisseur, produit, readiness détaillée (contrôles, blocages, manquants, risque) |
+| `analyses.json` | Analyses rattachées avec leur provenance : méthode, version, paramètres, limites, source, caractère probant, géométrie |
+| `journal.json` | Entrées du journal concernant le dossier, ses analyses et ses pièces, avec `hash_precedent` et `hash` |
+| `pieces/<id>-v<version>-<nom>` | Pièces telles que déposées |
+| `SHA256SUMS.txt` | Condensat SHA-256 de chaque fichier ci-dessus |
+| `LISEZMOI.txt` | Mode d'emploi et limites |
+
+### 7.2 Règles
+
+- **Incident = refus.** Une pièce déclarée dont le fichier manque sur le support, dont le contenu ne correspond plus
+  à l'empreinte déposée, ou dont la taille diffère de celle mesurée au dépôt, fait échouer le pack en **500**, avec
+  l'identifiant de la pièce. Aucune archive partielle n'est produite. Aucun export n'est journalisé.
+- **Absence = fait.** Une pièce jamais déposée (aucun fichier) figure comme `sans_fichier` et ne compte pas comme preuve.
+- **Le pack ne vaut pas déclaration.** Il peut être produit à tout statut de dossier, y compris `DRAFT`, pour montrer
+  ce qui manque. Il ne transmet rien.
+- **Export journalisé** dans la même transaction (`EXPORT`, `details.nature = "pack_preuves"`), avec le condensat
+  de l'archive. La réponse porte ce même condensat dans `X-GeoForest-SHA256`.
+- Les pièces et la readiness viennent du même lecteur que la readiness (`lireDocumentsDuDossier`) : le pack et l'écran
+  ne peuvent pas diverger sur l'ensemble des pièces.
+
+### 7.3 Vérification hors ligne
+
+`npx tsx scripts/verifier-pack.ts <archive.zip>` : aucun accès réseau ni base. Il recalcule chaque condensat, contrôle
+que chaque fichier est listé, que chaque pièce du manifeste correspond à un fichier, et qu'aucun fichier n'est
+ajouté ou retiré. Code de sortie 0 si cohérent, 1 sinon.
+
+**Ce qu'une archive cohérente prouve :** les fichiers sont ceux dont les condensats sont listés.
+**Ce qu'elle ne prouve pas :** la date de production par une autorité tierce (aucun horodatage qualifié) ;
+la chaîne complète du journal (seul un extrait est joint, avec l'ancre de l'organisation ; la chaîne complète se
+vérifie côté base avec `scripts/verifier-chaine.ts`) ; l'analyse satellite réelle (B1).
+
+### 7.4 Limites connues
+
+- Le pack contient les adresses e-mail des auteurs présentes dans le journal. C'est une donnée personnelle :
+  à traiter dans la politique de conservation et de communication, hors de ce moteur.
+- Pas de signature de l'archive : une archive peut être refaite entièrement par quelqu'un qui contrôle la base.
+  La défense est la signature externe, non implémentée.
+- Les pièces restent `NOT_SCANNED` (antivirus absent) : le pack le déclare, il ne le corrige pas (B4).

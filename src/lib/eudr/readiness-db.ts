@@ -16,6 +16,27 @@ export interface DossierCharge {
   resultat: ReadinessResult;
 }
 
+/**
+ * Pièces d'un dossier : celles du fournisseur, et celles rattachées à l'une de ses
+ * parcelles analysées. Source unique, partagée par la readiness et le pack de preuves.
+ */
+export async function lireDocumentsDuDossier(
+  tx: TenantTx,
+  organizationId: string,
+  supplierId: string | null,
+  plotIds: string[],
+): Promise<(typeof documents.$inferSelect)[]> {
+  const liens = [
+    supplierId ? eq(documents.supplierId, supplierId) : undefined,
+    plotIds.length ? inArray(documents.plotId, plotIds) : undefined,
+  ].filter((x): x is NonNullable<typeof x> => x !== undefined);
+  if (liens.length === 0) return [];
+  return tx
+    .select()
+    .from(documents)
+    .where(and(eq(documents.organizationId, organizationId), isNull(documents.deletedAt), or(...liens)));
+}
+
 export async function chargerDossier(
   tx: TenantTx,
   organizationId: string,
@@ -55,18 +76,12 @@ export async function chargerDossier(
     .from(parcelAudits)
     .where(and(eq(parcelAudits.organizationId, organizationId), eq(parcelAudits.dueDiligenceId, ddsId)));
 
-  const plotIds = analysesRows.map((a) => a.plotId).filter((x): x is string => Boolean(x));
-  // Pièces du fournisseur du dossier, ou rattachées à l'une de ses parcelles analysées.
-  const liens = [
-    dds.supplierId ? eq(documents.supplierId, dds.supplierId) : undefined,
-    plotIds.length ? inArray(documents.plotId, plotIds) : undefined,
-  ].filter((x): x is NonNullable<typeof x> => x !== undefined);
-  const documentsUniques = liens.length
-    ? await tx
-        .select()
-        .from(documents)
-        .where(and(eq(documents.organizationId, organizationId), isNull(documents.deletedAt), or(...liens)))
-    : [];
+  const documentsUniques = await lireDocumentsDuDossier(
+    tx,
+    organizationId,
+    dds.supplierId,
+    analysesRows.map((a) => a.plotId).filter((x): x is string => Boolean(x)),
+  );
 
   const resultat = evaluerReadiness({
     dossier: {

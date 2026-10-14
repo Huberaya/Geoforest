@@ -87,7 +87,7 @@ satellitaires, qui reste à démontrer sur GFW réel.
 - **Export au niveau dossier** : l'export reste par analyse. Un dossier `DRAFT` ou `UNDER_REVIEW` peut être exporté en
   brouillon sans changer de statut. C'est voulu : l'export ne vaut pas déclaration.
 - **Conséquence à connaître** : l'export d'**une** analyse d'un dossier prêt fait passer **tout** le dossier à `EXPORTED`.
-  Le brouillon d'une analyse vaut alors pour l'ensemble du dossier. Un export par dossier (pack complet) relève du chantier 4.
+  Le brouillon d'une analyse vaut alors pour l'ensemble du dossier. Le pack de preuves du dossier entier existe depuis le chantier 4 (`docs/EVIDENCE_PACK_TEST_REPORT.md`).
 - **Environnement de test** : PostgreSQL 16.14 est un binaire `embedded-postgres` installé depuis npm (apt et Docker indisponibles).
   Cluster sur `127.0.0.1` uniquement. Ce n'est pas un test sur le PostgreSQL de production.
 - **CI** : les contrôles HTTP et base ne tournent pas en CI (pas de serveur ni de base dans le workflow).

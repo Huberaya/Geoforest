@@ -21,8 +21,10 @@
     "test:cross-tenant:rls": "tsx scripts/check-cross-tenant-rls.ts",
     "test:dds-etats:http": "tsx --conditions=react-server scripts/check-dds-etats-http.ts",
     "test:eudr": "tsx --conditions=react-server scripts/check-eudr-rules.ts",
-    "test:unit": "tsx --conditions=react-server scripts/check-eudr-rules.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts",
-    "typecheck": "tsc --noEmit"
+    "test:unit": "tsx --conditions=react-server scripts/check-eudr-rules.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts && tsx scripts/check-evidence-pack.ts",
+    "typecheck": "tsc --noEmit",
+    "test:evidence:http": "tsx --conditions=react-server scripts/check-evidence-pack-http.ts",
+    "verifier:pack": "tsx scripts/verifier-pack.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",
@@ -32,6 +34,7 @@
     "@types/leaflet": "^1.9.22",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
+    "fflate": "0.8.3",
     "jose": "^6.2.12",
     "leaflet": "^1.9.4",
     "next": "16.3.8",

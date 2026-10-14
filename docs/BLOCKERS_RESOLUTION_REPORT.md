@@ -141,6 +141,33 @@ officielle (`DECLARED`) : **BLOCKED_EXTERNAL**, faute d'intégration TRACES NT.
 - Le texte exact de la section 18 de la mission n'était pas dans l'espace de travail. La conception suit
   `docs/TRACES_SCOPE.md` et P0-06, et a été validée par l'utilisateur.
 
+## Chantier 4 — pack de preuves d'un dossier (« B-10 » de la mission de finalisation)
+
+> Détail complet : `docs/EVIDENCE_PACK_TEST_REPORT.md`. Spécification : `docs/EVIDENCE_ENGINE_SPEC.md` §7.
+
+**Statut : VERIFIED (environnement local, périmètre interne).** Hors périmètre, et restant ouvert : signature externe et
+horodatage qualifié (OPEN), antivirus (B4), S3 (B6), analyse satellite (B1).
+
+**Ce qui est prouvé.**
+- `GET /api/v1/due-diligence/{id}/evidence-pack` produit une archive ZIP : dossier, readiness, analyses avec provenance,
+  pièces telles que déposées, extrait du journal, condensats SHA-256, liste de ce qui n'est pas vérifié.
+- Vérification hors ligne : `npx tsx scripts/verifier-pack.ts <archive>` (intacte : 0 ; un octet modifié : 1).
+- Une pièce altérée, absente, ou de taille différente sur le support fait échouer le pack en 500, en désignant la
+  pièce. Aucune archive partielle, aucune trace d'export.
+- Chaque export réussi est journalisé avec le condensat de l'archive.
+- Tests : `check-evidence-pack.ts` 27/27 ; `check-evidence-pack-http.ts` 45/45 ; chantier 3 39/39 ; cross-tenant 262/0 ;
+  RLS 96/0 ; E2E 49/49 ; typecheck, lint, build, `test:db`, EUDR, pytest (64 + 5 xfail) : verts.
+- Sensibilité : mutation du contrôle de condensat détectée (7 échecs). Le premier test était aveugle à cette mutation,
+  parce qu'un contrôle de taille masquait l'altération ; il a été corrigé.
+
+**Restes et limites.**
+- Mutation de l'absence de fichier : non exécutée.
+- Une archive peut être refaite par quiconque contrôle la base : une signature externe serait nécessaire pour une preuve
+  opposable à un tiers (OPEN).
+- Liste de fichiers du brief : non disponible dans l'espace de travail. Contenu retenu : `EVIDENCE_ENGINE_SPEC.md`,
+  à confirmer.
+- Le journal joint est un extrait. La chaîne complète reste à vérifier côté base (`scripts/verifier-chaine.ts`, intacte).
+
 ## Décision
 
 Aucun blocker critique n'est fermé de façon démontrable en dehors de B9 et B7 (périmètre). **Décision inchangée : NO-GO.**
