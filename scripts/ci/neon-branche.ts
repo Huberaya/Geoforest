@@ -134,12 +134,14 @@ async function roleApp(): Promise<void> {
 }
 
 async function supprimer(): Promise<void> {
-  const projet = exiger("NEON_PROJECT_ID");
+  // Sans branche créée, rien à supprimer : on sort avant de lire le projet,
+  // pour ne pas échouer sur un secret absent alors qu'il n'y a rien à faire.
   const branche = process.env.NEON_BRANCH_ID;
   if (!branche) {
     console.log("aucune branche à supprimer (la création a échoué avant).");
     return;
   }
+  const projet = exiger("NEON_PROJECT_ID");
   // Garde-fou : seule une branche créée par ce script peut être supprimée.
   if (!branche.startsWith("br-")) throw new Error("identifiant de branche inattendu : suppression refusée");
   const res = await api("DELETE", `/projects/${projet}/branches/${encodeURIComponent(branche)}`);
