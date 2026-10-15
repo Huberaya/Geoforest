@@ -126,8 +126,14 @@ jobs:
       - name: End-to-end journey
         run: npm run test:e2e
 
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
       - name: Cross-tenant HTTP controls
         run: npm run test:cross-tenant
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
 
       - name: Supplier journey HTTP controls
         run: npm run test:fournisseur:http
