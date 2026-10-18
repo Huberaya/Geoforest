@@ -104,3 +104,10 @@ Branche : `forest/country-risk-neutralization-2026-10-18`, issue de la PR brouil
 - Des contrôles automatisés ont été ajoutés pour verrouiller l'absence de classification géographique approximative.
 
 Cette correction **neutralise** la classification pays approximative ; elle ne fournit pas à elle seule une classification de remplacement. Le GO réglementaire reste bloqué tant que les données officielles versionnées, leur date d'effet et leur provenance ne sont intégrées et validées.
+
+
+### Addendum — valeurs historiques et valeurs de repli
+
+Les API de liste/détail et les exports neutralisent désormais aussi les anciennes valeurs pays issues des boîtes englobantes : pays `XX`, nom « Non déterminé », benchmark `UNKNOWN`. Les niveaux de risque restitués restent `HIGH` uniquement pour un audit explicitement marqué `compliant = false`; dans les autres cas, ils sont `UNKNOWN`. Les exports ne réutilisent plus le pays inféré depuis la géométrie comme pays du producteur : sans donnée producteur explicite, ils indiquent `XX`.
+
+Les données historiques en base ne sont pas réécrites par cette branche ; elles sont neutralisées dans les réponses et exports applicatifs. Aucune modification de production n'a été effectuée. Le benchmark officiel reste absent et doit être intégré à partir d'une source officielle versionnée avant tout GO réglementaire.
