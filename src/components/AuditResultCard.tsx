@@ -94,9 +94,9 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
   const { status, validation, satellite } = result;
   const badge =
     status === "COMPLIANT"
-      ? { text: "CONFORME EUDR", cls: "bg-emerald-600 text-white", icon: "✓" }
+      ? { text: "PAS DE PERTE DÉTECTÉE", cls: "bg-emerald-600 text-white", icon: "✓" }
       : status === "NON_COMPLIANT"
-        ? { text: "NON CONFORME", cls: "bg-red-600 text-white", icon: "✕" }
+        ? { text: "PERTE POST-2020 DÉTECTÉE", cls: "bg-red-600 text-white", icon: "!" }
         : status === "SIMULATED_NON_PROBATIVE"
           ? { text: "ANALYSE SIMULÉE — NON PROBANT", cls: "bg-slate-600 text-white", icon: "⚠" }
           : status === "ANALYSIS_UNAVAILABLE"
