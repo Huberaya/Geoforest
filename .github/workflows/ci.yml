@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - "arena/**"
+      - "security/**"
   workflow_dispatch:
 
 # Moindre privilège : le workflow ne lit que le dépôt.
