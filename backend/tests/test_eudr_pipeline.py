@@ -227,7 +227,7 @@ class TestNonCompliantParcel:
         assert sat["country_code"] == "XX"
         assert sat["country_name"] == "Non déterminé"
         assert sat["country_risk"] == "UNKNOWN"
-        assert sat["risk_level"] == "UNKNOWN"
+        assert sat["risk_level"] == "HIGH", "la simulation conserve le signal de perte, sans en faire une preuve"
         assert "non probant" in sat["disclaimer"]
 
     def test_simulated_loss_year_property_is_ignored(self) -> None:
