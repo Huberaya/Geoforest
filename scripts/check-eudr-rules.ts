@@ -420,6 +420,8 @@ async function testReponseGfw(): Promise<void> {
       { label: "année non numérique", row: { umd_tree_cover_loss__year: "inconnue", area__ha: 0.4 } },
       { label: "année future", row: { umd_tree_cover_loss__year: new Date().getUTCFullYear() + 1, area__ha: 0.4 } },
       { label: "surface absente", row: { umd_tree_cover_loss__year: 2023 } },
+      { label: "surface nulle", row: { umd_tree_cover_loss__year: 2023, area__ha: null } },
+      { label: "surface vide", row: { umd_tree_cover_loss__year: 2023, area__ha: "" } },
       { label: "surface négative", row: { umd_tree_cover_loss__year: 2023, area__ha: -0.4 } },
       { label: "surface infinie", row: { umd_tree_cover_loss__year: 2023, area__ha: "Infinity" } },
     ];
