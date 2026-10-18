@@ -30,6 +30,15 @@ def _env_list(name: str, default: List[str]) -> List[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
+def validate_cors_origins(origins: List[str], *, production: bool) -> None:
+    """Refuse une origine CORS générique en production."""
+    if production and "*" in origins:
+        raise ValueError(
+            "CORS_ORIGINS ne peut pas contenir '*' en production ; "
+            "définir explicitement les origines autorisées."
+        )
+
+
 @dataclass(frozen=True)
 class Settings:
     """Paramètres immuables de l'application."""
@@ -80,7 +89,7 @@ class Settings:
     # --- CORS ---
     cors_origins: List[str] = field(
         default_factory=lambda: _env_list(
-            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000", "*"]
+            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000"]
         )
     )
 
@@ -90,3 +99,4 @@ class Settings:
 
 
 settings = Settings()
+validate_cors_origins(settings.cors_origins, production=os.getenv("NODE_ENV", "").lower() == "production")
