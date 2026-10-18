@@ -533,7 +533,6 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
 
   if (significant) {
     const lossYear = Math.min(...post.map((r) => r.year));
-    const fraction = Math.min(lossArea / areaHa, 1);
     return {
       compliant: false,
       loss_year: lossYear,
