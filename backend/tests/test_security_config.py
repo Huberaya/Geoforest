@@ -1,7 +1,7 @@
 """Garde-fous de configuration CORS pour le service FastAPI retiré du chemin produit."""
 import pytest
 
-from app.core.config import settings, validate_cors_origins
+from app.core.config import is_production_environment, settings, validate_cors_origins
 
 
 def test_origines_cors_par_defaut_sans_joker():
@@ -23,3 +23,16 @@ def test_production_accepte_liste_origines_explicitement_autorisees():
 
 def test_developpement_peut_utiliser_origines_configurees():
     validate_cors_origins(["http://localhost:3000", "*"], production=False)
+
+
+def test_environnement_production_detecte_sans_dependre_de_node_env(monkeypatch):
+    monkeypatch.delenv("NODE_ENV", raising=False)
+    monkeypatch.setenv("APP_ENV", "production")
+    assert is_production_environment()
+
+
+def test_environnement_developpement_reste_non_production(monkeypatch):
+    for name in ("NODE_ENV", "APP_ENV", "ENVIRONMENT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    assert not is_production_environment()
