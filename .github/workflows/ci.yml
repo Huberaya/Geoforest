@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - "arena/**"
+      - "forest/**"
   pull_request:
     branches:
       - main
       - "arena/**"
+      - "forest/**"
   workflow_dispatch:
 
 # Moindre privilège : le workflow ne lit que le dépôt.
