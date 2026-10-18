@@ -4,62 +4,17 @@ import { EUDR_CUTOFF_DATE, EUDR_CUTOFF_YEAR, type AnalysisEvidence, type Positio
 import { incrementer, noterJauges } from "@/lib/observability/metriques";
 import { journal } from "@/lib/observability/journal";
 
-// ---------------------------------------------------------------- Benchmark pays (Commission UE, art. 29 EUDR)
-interface CountryBox {
-  iso2: string;
-  name: string;
-  box: [number, number, number, number]; // lonMin, latMin, lonMax, latMax
-  risk: RiskLevel;
-}
-
-const COUNTRY_BOXES: CountryBox[] = [
-  { iso2: "BY", name: "Biélorussie", box: [23.1, 51.2, 32.8, 56.2], risk: "HIGH" },
-  { iso2: "MM", name: "Myanmar", box: [92.1, 9.5, 101.2, 28.6], risk: "HIGH" },
-  { iso2: "KP", name: "Corée du Nord", box: [124.1, 37.6, 130.7, 43.0], risk: "HIGH" },
-  { iso2: "RU", name: "Russie", box: [27.3, 41.1, 180.0, 81.9], risk: "HIGH" },
-  { iso2: "CI", name: "Côte d'Ivoire", box: [-8.6, 4.3, -2.5, 10.8], risk: "STANDARD" },
-  { iso2: "GH", name: "Ghana", box: [-3.3, 4.7, 1.2, 11.2], risk: "STANDARD" },
-  { iso2: "NG", name: "Nigeria", box: [2.6, 4.2, 14.7, 13.9], risk: "STANDARD" },
-  { iso2: "CM", name: "Cameroun", box: [8.4, 1.6, 16.2, 13.1], risk: "STANDARD" },
-  { iso2: "CD", name: "RD Congo", box: [12.2, -13.5, 31.3, 5.4], risk: "STANDARD" },
-  { iso2: "UG", name: "Ouganda", box: [29.5, -1.5, 35.0, 4.2], risk: "STANDARD" },
-  { iso2: "ET", name: "Éthiopie", box: [32.9, 3.4, 48.0, 14.9], risk: "STANDARD" },
-  { iso2: "KE", name: "Kenya", box: [33.9, -4.7, 41.9, 5.5], risk: "STANDARD" },
-  { iso2: "TZ", name: "Tanzanie", box: [29.3, -11.8, 40.5, -0.9], risk: "STANDARD" },
-  { iso2: "LR", name: "Liberia", box: [-11.5, 4.3, -7.4, 8.6], risk: "STANDARD" },
-  { iso2: "ID", name: "Indonésie", box: [95.0, -11.0, 141.0, 6.1], risk: "STANDARD" },
-  { iso2: "MY", name: "Malaisie", box: [99.6, 0.8, 119.3, 7.4], risk: "STANDARD" },
-  { iso2: "VN", name: "Vietnam", box: [102.1, 8.4, 109.5, 23.4], risk: "STANDARD" },
-  { iso2: "TH", name: "Thaïlande", box: [97.3, 5.6, 105.7, 20.5], risk: "STANDARD" },
-  { iso2: "PG", name: "Papouasie-Nouvelle-Guinée", box: [140.8, -11.7, 156.0, -1.3], risk: "STANDARD" },
-  { iso2: "IN", name: "Inde", box: [68.1, 6.7, 97.4, 35.5], risk: "STANDARD" },
-  { iso2: "BR", name: "Brésil", box: [-74.0, -33.8, -34.8, 5.3], risk: "STANDARD" },
-  { iso2: "CO", name: "Colombie", box: [-79.0, -4.2, -66.9, 12.5], risk: "STANDARD" },
-  { iso2: "PE", name: "Pérou", box: [-81.4, -18.4, -68.7, -0.03], risk: "STANDARD" },
-  { iso2: "EC", name: "Équateur", box: [-81.1, -5.0, -75.2, 1.7], risk: "STANDARD" },
-  { iso2: "BO", name: "Bolivie", box: [-69.6, -22.9, -57.5, -9.7], risk: "STANDARD" },
-  { iso2: "PY", name: "Paraguay", box: [-62.7, -27.6, -54.3, -19.3], risk: "STANDARD" },
-  { iso2: "AR", name: "Argentine", box: [-73.6, -55.1, -53.6, -21.8], risk: "STANDARD" },
-  { iso2: "HN", name: "Honduras", box: [-89.4, 12.9, -83.1, 16.5], risk: "STANDARD" },
-  { iso2: "GT", name: "Guatemala", box: [-92.3, 13.7, -88.2, 17.8], risk: "STANDARD" },
-  { iso2: "NI", name: "Nicaragua", box: [-87.7, 10.7, -83.1, 15.0], risk: "STANDARD" },
-  { iso2: "CR", name: "Costa Rica", box: [-85.9, 8.0, -82.6, 11.2], risk: "STANDARD" },
-  { iso2: "MX", name: "Mexique", box: [-118.4, 14.5, -86.7, 32.7], risk: "STANDARD" },
-  { iso2: "US", name: "États-Unis", box: [-125.0, 24.5, -66.9, 49.4], risk: "LOW" },
-  { iso2: "CA", name: "Canada", box: [-141.0, 41.7, -52.6, 83.1], risk: "LOW" },
-  { iso2: "AU", name: "Australie", box: [113.3, -43.6, 153.6, -10.7], risk: "LOW" },
-  { iso2: "NZ", name: "Nouvelle-Zélande", box: [166.5, -47.3, 178.6, -34.4], risk: "LOW" },
-  { iso2: "JP", name: "Japon", box: [129.4, 31.0, 145.8, 45.5], risk: "LOW" },
-  { iso2: "CN", name: "Chine", box: [73.5, 18.2, 134.8, 53.6], risk: "LOW" },
-  { iso2: "EU", name: "Union européenne", box: [-10.5, 35.0, 31.6, 71.2], risk: "LOW" },
-];
-
-export function resolveCountry(lon: number, lat: number): { iso2: string; name: string; risk: RiskLevel } {
-  for (const c of COUNTRY_BOXES) {
-    const [lonMin, latMin, lonMax, latMax] = c.box;
-    if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) return { iso2: c.iso2, name: c.name, risk: c.risk };
-  }
-  return { iso2: "XX", name: "Non déterminé", risk: "STANDARD" };
+// ---------------------------------------------------------------- Risque pays
+/**
+ * La géométrie seule ne permet pas d'assigner un pays ni un benchmark EUDR.
+ * Les anciennes boîtes englobantes chevauchaient des frontières et des pays
+ * voisins ; aucune classification administrative officielle n'est intégrée.
+ * Le moteur échoue donc explicitement en « inconnu » au lieu d'inventer un
+ * niveau de risque. À remplacer uniquement par une source administrative et
+ * un benchmark officiel versionné, avec provenance.
+ */
+export function resolveCountry(_lon: number, _lat: number): { iso2: string; name: string; risk: RiskLevel } {
+  return { iso2: "XX", name: "Non déterminé", risk: "UNKNOWN" as RiskLevel };
 }
 
 // ---------------------------------------------------------------- Hotspots déterministes (mode hors-ligne)
@@ -281,7 +236,7 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
   } else {
     details =
       `Simulation : aucun scénario de démonstration ne couvre cette position. ` +
-      `Pays : ${country.name} (${country.iso2}), benchmark UE déclaré : ${country.risk}.`;
+      `Pays et benchmark officiel non déterminés.`;
   }
   if (harvestDate <= EUDR_CUTOFF_DATE) details += " Récolte antérieure à la date butoir : hors champ temporel EUDR.";
 
@@ -291,10 +246,10 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
     compliant: null,
     loss_year: lossYear,
     confidence_score: null,
-    risk_level: country.risk,
+    risk_level: "UNKNOWN" as RiskLevel,
     country_code: country.iso2,
     country_name: country.name,
-    country_risk: country.risk,
+    country_risk: "UNKNOWN" as RiskLevel,
     source: "simulated",
     is_probative: false,
     evidence: null,
@@ -307,11 +262,11 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
         date_butoir: EUDR_CUTOFF_DATE,
         scenarios_disponibles: LOSS_HOTSPOTS.length,
         scenario_retenu: hotspotLabel,
-        resolution_pays: "boîte englobante",
+        resolution_pays: "non évaluée : aucune source administrative officielle intégrée",
       },
       limits: [
         "Aucune donnée satellite n'a été consultée : les chiffres sont inventés pour la démonstration.",
-        "Le pays est déterminé par boîte englobante, non par géocodage inverse (cf. P1-09).",
+        "Aucune classification de pays ou de benchmark EUDR n’est calculée : une source administrative officielle versionnée est requise.",
         ...LIMITES_METHODE_COUVERT,
       ],
     },
@@ -358,7 +313,7 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
       "Aucune conclusion ne doit en être tirée pour un dossier EUDR.",
     loss_area_ha: 0,
     tree_cover_2000_pct: null,
-    details: `Analyse satellite impossible : ${reason}. Pays déduit des coordonnées : ${country.name} (${country.iso2}).`,
+    details: `Analyse satellite impossible : ${reason}. Classification du pays et benchmark officiel indisponibles.`,
   };
 }
 
@@ -599,7 +554,7 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     tree_cover_2000_pct: null,
     details:
       `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : aucune perte significative ` +
-      `post-2020 (${lossArea} ha). Pays : ${country.name}, benchmark UE : ${country.risk}.`,
+      `post-2020 (${lossArea} ha). Ce signal ne constitue pas une classification de risque pays.`,
   };
 }
 
