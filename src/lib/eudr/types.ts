@@ -44,6 +44,8 @@ export interface AnalysisEvidence {
   sql: string;
   geometry_type: string;
   retrieved_at: string;
+  /** Empreinte SHA-256 des lignes normalisées reçues, sans stocker de clé ni d'en-tête secret. */
+  rows_sha256: string;
 }
 export type GeometryRule = "POINT_ALLOWED" | "POLYGON_REQUIRED";
 
