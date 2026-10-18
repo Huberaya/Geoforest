@@ -414,6 +414,21 @@ async function testReponseGfw(): Promise<void> {
     const apres = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("0,4 ha post-2020 : non conforme (aucune tolérance)", apres.compliant === false && apres.is_probative === true,
       `compliant=${apres.compliant}`);
+
+    const malformedRows: Array<{ label: string; row: unknown }> = [
+      { label: "année absente", row: { area__ha: 0.4 } },
+      { label: "année non numérique", row: { umd_tree_cover_loss__year: "inconnue", area__ha: 0.4 } },
+      { label: "année future", row: { umd_tree_cover_loss__year: new Date().getUTCFullYear() + 1, area__ha: 0.4 } },
+      { label: "surface absente", row: { umd_tree_cover_loss__year: 2023 } },
+      { label: "surface négative", row: { umd_tree_cover_loss__year: 2023, area__ha: -0.4 } },
+      { label: "surface infinie", row: { umd_tree_cover_loss__year: 2023, area__ha: "Infinity" } },
+    ];
+    for (const { label, row } of malformedRows) {
+      avecReponse([row]);
+      const result = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+      check(`GFW ${label} : aucun verdict probant`, result.compliant === null && result.is_probative === false,
+        `compliant=${result.compliant} · source=${result.source}`);
+    }
   } finally {
     restaurer();
   }
