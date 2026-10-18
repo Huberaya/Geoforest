@@ -63,3 +63,29 @@ d'une parcelle sans perte. C'est le sens du cas E.
 - Le cas D ne prouve pas le comportement sous quota dépassé ou réponse HTTP 5xx. Seul l'échec réseau a été observé.
 - Aucune validation méthodologique (vérité terrain, comparaison à une source indépendante) n'a été faite.
 - Le moteur déterministe (`deterministicCheck`) reste un outil de démonstration. Il ne sert à aucune preuve.
+
+
+---
+
+## Addendum — revue du moteur forestier (18/10/2026)
+
+Branche de travail : `forest/engine-evidence-chantier-d-2026-10-18` · PR brouillon : [#4](https://github.com/Huberaya/Geoforest/pull/4).
+
+### Corrections apportées, à confirmer par CI
+
+- **Géométrie :** l'aplatissement d'un `Polygon` conserve désormais ses anneaux dans la même surface ; un anneau intérieur ne devient plus une surface positive indépendante.
+- **Contrat des données :** les lignes GFW doivent avoir une année entière plausible et une surface finie, positive ou nulle. Une ligne invalide, une surface négative ou un champ `data` qui n'est pas un tableau déclenche l'indisponibilité et ne peut pas produire de conformité.
+- **Destination finale :** le moteur vérifie aussi l'hôte de la réponse après redirection HTTP, pas seulement l'URL configurée.
+- **Intégrité :** la provenance inclut `rows_sha256`, empreinte SHA-256 des lignes normalisées. Cette empreinte permet de détecter une différence de contenu ; elle n'est ni une signature du fournisseur ni une preuve autonome de vérité.
+- **Confiance :** les scores fixes/formulaires non calibrés ont été supprimés. Aucune valeur de confiance chiffrée n'est publiée sans méthode validée.
+- **Restitution et export :** les libellés de l'interface et les résumés d'audit décrivent désormais le signal de perte de couvert, sans déclarer une conformité EUDR complète. Le brouillon JSON/XML conserve l'empreinte et la méthode de provenance disponibles, et précise les limites d'interprétation.
+
+### Statut de la preuve réelle
+
+**Toujours BLOCKED_EXTERNAL.** Aucun appel GFW réel concluant n'est revendiqué dans ce chantier. Les tests automatiques simulent les réponses HTTP et vérifient les garde-fous ; ils ne prouvent ni l'accès au fournisseur, ni la couverture d'une parcelle, ni l'exactitude scientifique des détections. Les cas A, B et E restent à renseigner par un expert avec des géométries réelles, un résultat attendu enregistré avant l'appel et une vérité terrain documentée.
+
+### Risque restant avant GO produit
+
+Le niveau de risque pays est encore estimé par boîtes englobantes géographiques. Cette méthode n'est pas une résolution administrative précise des frontières et ne remplace pas la classification officielle de risque pays applicable. Il faut remplacer ou neutraliser cette estimation dans toute décision réglementaire avant de présenter le niveau pays comme une classification EUDR officielle.
+
+La qualification scientifique indépendante, l'accès GFW officiel, la vérification de couverture et la revue juridique restent hors de portée de la CI. Le produit ne doit pas être déclaré prêt à commercialiser sur la seule base de tests verts.

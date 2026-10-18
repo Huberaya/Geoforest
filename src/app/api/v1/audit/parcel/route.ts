@@ -117,11 +117,16 @@ function summaryText(status: AuditStatus, validation: GeometryValidationResult, 
     return `Résultat simulé, non probant : aucune donnée satellite n'a été consultée. Ce dossier ne peut pas servir de preuve de conformité (parcelle de ${area} ha).`;
   }
   if (status === "NON_COMPLIANT" && satellite) {
-    return `NON CONFORME EUDR : déforestation détectée en ${satellite.loss_year} (après le 31/12/2020) sur une parcelle de ${area} ha.`;
+    return `ALERTE : perte de couvert post-2020 détectée en ${satellite.loss_year} sur une parcelle de ${area} ha. Ce signal requiert une revue humaine ; il ne détermine pas à lui seul la cause ni la qualification juridique de déforestation.`;
   }
-  // ⚠️ On n'arrive ici que si l'analyse est probante : le statut COMPLIANT
-  //   n'est posé que dans ce cas. Toute autre situation est traitée plus haut.
-  return `CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${area} ha, risque ${satellite?.risk_level}, confiance ${Math.round((satellite?.confidence_score ?? 0) * 100)} %).`;
+  // Une analyse satellite renseigne un indicateur de couvert forestier, pas
+  // l'ensemble des obligations EUDR. Ne jamais présenter ce seul indicateur
+  // comme une décision juridique de conformité.
+  const confidence = satellite?.confidence_score;
+  const confidenceText = confidence === null || confidence === undefined
+    ? ""
+    : `, confiance estimée ${Math.round(confidence * 100)} %`;
+  return `Aucune perte de couvert post-2020 détectée par l'analyse satellite (parcelle de ${area} ha, risque ${satellite?.risk_level}${confidenceText}). Ce résultat ne suffit pas, à lui seul, à établir la conformité EUDR complète.`;
 }
 
 export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, organizationId, session }): Promise<NextResponse> => {

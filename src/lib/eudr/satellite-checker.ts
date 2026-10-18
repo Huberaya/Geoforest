@@ -185,9 +185,9 @@ export function aplatirPourAnalyse(input: SupportedGeometry): SupportedGeometry 
     } else if (t === "MultiPoint") {
       for (const p of g.coordinates as Position[]) points.push(p);
     } else if (t === "Polygon") {
-      // Chaque anneau est conservé : les trous sont refusés en amont (P1-16),
-      // mais une géométrie enregistrée avant le correctif peut en comporter.
-      for (const anneau of g.coordinates as Position[][]) polygones.push([anneau]);
+      // Un Polygon est une surface : le premier anneau est son contour et les suivants
+      // sont des trous. Les séparer en polygones positifs inverserait la sémantique.
+      polygones.push(g.coordinates as Position[][]);
     } else if (t === "MultiPolygon") {
       for (const poly of g.coordinates as Position[][][]) polygones.push(poly);
     }
@@ -377,6 +377,41 @@ interface GfwQueryResult {
   evidence: AnalysisEvidence;
 }
 
+/**
+ * Valide strictement le contrat des lignes GFW avant toute décision.
+ * Une réponse non vide mais mal formée ne doit jamais devenir « conforme ».
+ */
+export function normaliserLignesGfw(data: unknown): GfwRow[] {
+  if (!Array.isArray(data)) {
+    throw new Error("Réponse GFW invalide : le champ data doit être un tableau");
+  }
+  const anneeCourante = new Date().getUTCFullYear();
+  return data.map((raw, index) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new Error(`Réponse GFW invalide : ligne ${index + 1} non objet`);
+    }
+    const row = raw as Record<string, unknown>;
+    const anneeBrute = row.umd_tree_cover_loss__year;
+    const surfaceBrute = row.area__ha;
+    const annee = typeof anneeBrute === "string" && anneeBrute.trim() !== ""
+      ? Number(anneeBrute)
+      : anneeBrute;
+    const surface = typeof surfaceBrute === "string" && surfaceBrute.trim() !== ""
+      ? Number(surfaceBrute)
+      : surfaceBrute;
+    if (typeof annee !== "number" || !Number.isInteger(annee) || annee < 2001 || annee > anneeCourante) {
+      throw new Error(`Réponse GFW invalide : année de perte absente ou hors plage à la ligne ${index + 1}`);
+    }
+    if (typeof surface !== "number" || !Number.isFinite(surface) || surface < 0) {
+      throw new Error(`Réponse GFW invalide : surface absente, non finie ou négative à la ligne ${index + 1}`);
+    }
+    return {
+      umd_tree_cover_loss__year: annee,
+      area__ha: surface,
+    };
+  });
+}
+
 /** Hôte du service officiel. Toute autre adresse est un service distinct. */
 const GFW_HOTE_OFFICIEL = "data-api.globalforestwatch.org";
 
@@ -435,23 +470,31 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
       const body = await res.text().catch(() => "");
       throw new Error(`GFW HTTP ${res.status} ${res.statusText} — ${body.slice(0, 200)}`);
     }
+    // fetch suit les redirections : vérifier l'hôte final réellement servi,
+    // pas seulement l'URL configurée, avant de lui attribuer une preuve officielle.
+    const fournisseurFinal = nommerFournisseur(res.url);
+    if (!fournisseurFinal.officiel) {
+      throw new Error(`Destination finale non officielle après redirection (${res.url})`);
+    }
     noterJauges("gfw_disponible", 1);
     noterJauges("gfw_latence_ms", Date.now() - debutAppel);
-    const payload = (await res.json()) as { data?: GfwRow[] };
+    const payload = (await res.json()) as { data?: unknown };
+    const rows = normaliserLignesGfw(payload?.data);
     // La version réellement servie est déduite de l'URL finale : elle est
     // consignée pour qu'un audit ancien reste reproductible.
     const servedVersion = /\/dataset\/[^/]+\/([^/]+)\//.exec(res.url)?.[1] ?? version;
     return {
-      rows: payload.data ?? [],
+      rows,
       evidence: {
-        provider: nommerFournisseur(base).provider,
-        is_official_source: nommerFournisseur(base).officiel,
+        provider: fournisseurFinal.provider,
+        is_official_source: fournisseurFinal.officiel,
         dataset,
         dataset_version: servedVersion,
         endpoint,
         sql: GFW_SQL,
         geometry_type: sentGeometry.type,
         retrieved_at: new Date().toISOString(),
+        rows_sha256: createHash("sha256").update(JSON.stringify(rows)).digest("hex"),
       },
     };
   } catch (error) {
@@ -496,11 +539,10 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
 
   if (significant) {
     const lossYear = Math.min(...post.map((r) => r.year));
-    const fraction = Math.min(lossArea / areaHa, 1);
     return {
       compliant: false,
       loss_year: lossYear,
-      confidence_score: Number(Math.min(0.99, 0.8 + fraction * 0.5).toFixed(3)),
+      confidence_score: null,
       risk_level: "HIGH",
       country_code: country.iso2,
       country_name: country.name,
@@ -533,7 +575,7 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
   return {
     compliant: true,
     loss_year: historic,
-    confidence_score: 0.95,
+    confidence_score: null,
     risk_level: country.risk,
     country_code: country.iso2,
     country_name: country.name,
