@@ -403,12 +403,15 @@ async function testReponseGfw(): Promise<void> {
     }
     globalThis.fetch = fetchOriginal;
   };
-  const avecReponse = (data: unknown) => {
+  const avecReponse = (
+    data: unknown,
+    url = "https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/latest/query/json",
+  ) => {
     globalThis.fetch = (async () => ({
       ok: true,
       status: 200,
       statusText: "OK",
-      url: "https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/latest/query/json",
+      url,
       json: async () => ({ data }),
       text: async () => "",
     })) as unknown as typeof fetch;
@@ -446,6 +449,11 @@ async function testReponseGfw(): Promise<void> {
     avecReponse({ message: "payload inattendu" });
     const mauvaisSchema = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("champ data non-tableau : aucun verdict probant", mauvaisSchema.source === "unavailable" && mauvaisSchema.compliant === null);
+
+    avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: 0.1 }],
+      "https://evil.example/dataset/umd_tree_cover_loss/latest/query/json");
+    const redirection = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("redirection vers un hôte non officiel : aucun verdict", redirection.source === "unavailable" && redirection.compliant === null);
   } finally {
     restaurer();
   }
