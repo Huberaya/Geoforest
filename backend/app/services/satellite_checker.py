@@ -29,7 +29,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-RiskLevel = str  # "LOW" | "STANDARD" | "HIGH"
+RiskLevel = str  # "LOW" | "STANDARD" | "HIGH" | "CRITICAL" | "UNKNOWN"
 
 
 # --------------------------------------------------------------------------- Risque pays
