@@ -47,8 +47,8 @@ function featureCollection(row: ParcelAuditRow): Record<string, unknown> {
       {
         type: "Feature",
         properties: {
-          ProducerName: row.operatorName,
-          ProducerCountry: row.countryCode,
+          ProducerName: (row as { producerName?: string | null }).producerName ?? "",
+          ProducerCountry: ((row as { producerCountry?: string | null }).producerCountry ?? "XX").toUpperCase(),
           ProductionPlace: row.parcelReference ?? row.id,
           Area: Number(row.areaHa.toFixed(4)),
           HarvestDate: row.harvestDate,
@@ -81,7 +81,7 @@ export function producteurDe(row: ParcelAuditRow): { name: string; country: stri
   if (!name || name.trim().length < 2) return null;
   return {
     name: name.trim(),
-    country: ((row as { producerCountry?: string | null }).producerCountry ?? row.countryCode ?? "XX").toUpperCase(),
+    country: ((row as { producerCountry?: string | null }).producerCountry ?? "XX").toUpperCase(),
   };
 }
 
@@ -102,7 +102,7 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
   const producteur = producteurDe(row);
   const producers = producteur
     ? [{ country: producteur.country, name: producteur.name }]
-    : [{ country: row.countryCode ?? "XX", name: "" }];
+    : [{ country: "XX", name: "" }];
   const avertissements: string[] = producteur
     ? []
     : ["Producteur non déclaré : le nœud producers est vide. Une déclaration sans " +
@@ -156,8 +156,8 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       tree_cover_loss_detected_post_cutoff: row.compliant === false,
       loss_year: row.lossYear,
       confidence_score: null,
-      risk_level: row.riskLevel,
-      country_benchmark_risk: row.countryRisk,
+      risk_level: row.compliant === false ? "HIGH" : "UNKNOWN",
+      country_benchmark_risk: "UNKNOWN",
       satellite_source: satellite.source ?? "",
       satellite_evidence: satellite.evidence ?? null,
       satellite_provenance: satellite.provenance ?? null,

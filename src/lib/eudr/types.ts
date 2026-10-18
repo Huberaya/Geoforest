@@ -1,6 +1,6 @@
 /** Contrats de données GeoForest Trace — miroir strict des schémas Pydantic du backend. */
 
-export type RiskLevel = "LOW" | "STANDARD" | "HIGH" | "CRITICAL";
+export type RiskLevel = "LOW" | "STANDARD" | "HIGH" | "CRITICAL" | "UNKNOWN";
 /**
  * Statut d'un audit de parcelle.
  *

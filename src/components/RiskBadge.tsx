@@ -6,6 +6,7 @@ const TONES: Record<RiskLevel, string> = {
   STANDARD: "blue",
   HIGH: "amber",
   CRITICAL: "red",
+  UNKNOWN: "grey",
 };
 
 const LABELS: Record<RiskLevel, string> = {
@@ -13,6 +14,7 @@ const LABELS: Record<RiskLevel, string> = {
   STANDARD: "Standard",
   HIGH: "Élevé",
   CRITICAL: "Critique",
+  UNKNOWN: "Non évalué",
 };
 
 export default function RiskBadge({ level }: { level: RiskLevel | string }) {

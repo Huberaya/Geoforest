@@ -29,8 +29,8 @@ export const GET = guard("dds:read")(async (request: Request, _ctx, { tx, organi
     status: r.status as AuditStatus,
     compliant: r.compliant,
     loss_year: r.lossYear,
-    risk_level: r.riskLevel as RiskLevel,
-    country_code: r.countryCode,
+    risk_level: (r.compliant === false ? "HIGH" : "UNKNOWN") as RiskLevel,
+    country_code: "XX",
   }));
 
   // P0-07 : plus de liste vide en cas d'incident. Une liste vide se lit comme

@@ -251,7 +251,7 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         centroidLon: validation.centroid?.[0] ?? 0,
         centroidLat: validation.centroid?.[1] ?? 0,
         countryCode: satellite?.country_code ?? "XX",
-        countryRisk: satellite?.country_risk ?? "STANDARD",
+        countryRisk: satellite?.country_risk ?? "UNKNOWN",
         // ⚠️ `null ?? false` vaut `false` : écrire cette ligne ainsi
         // transformait « aucun verdict » en « NON CONFORME » persisté.
         compliant: satellite?.compliant ?? null,
@@ -274,7 +274,7 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         analysisLimits: satellite?.provenance.limits ?? [
           "Aucune analyse n'a été menée : la provenance n'a pas été établie.",
         ],
-        riskLevel: satellite?.risk_level ?? "HIGH",
+        riskLevel: satellite?.risk_level ?? "UNKNOWN",
         status,
         validation,
         satellite,

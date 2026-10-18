@@ -89,3 +89,25 @@ Branche de travail : `forest/engine-evidence-chantier-d-2026-10-18` · PR brouil
 Le niveau de risque pays est encore estimé par boîtes englobantes géographiques. Cette méthode n'est pas une résolution administrative précise des frontières et ne remplace pas la classification officielle de risque pays applicable. Il faut remplacer ou neutraliser cette estimation dans toute décision réglementaire avant de présenter le niveau pays comme une classification EUDR officielle.
 
 La qualification scientifique indépendante, l'accès GFW officiel, la vérification de couverture et la revue juridique restent hors de portée de la CI. Le produit ne doit pas être déclaré prêt à commercialiser sur la seule base de tests verts.
+
+
+---
+
+## Addendum — neutralisation du risque pays (18/10/2026)
+
+Branche : `forest/country-risk-neutralization-2026-10-18`, issue de la PR brouillon #4.
+
+- Les boîtes englobantes de pays ont été retirées du moteur. Les coordonnées d'une parcelle ne sont plus converties en pays ou benchmark EUDR par approximation.
+- Le résultat retourne explicitement `country_code: XX`, `country_name: Non déterminé` et `country_risk: UNKNOWN` tant qu'une source administrative et un benchmark officiel versionné ne sont pas intégrés.
+- Le niveau de risque parcellaire est également `UNKNOWN` pour une simulation, une analyse indisponible ou une absence de perte détectée sans méthode de qualification du risque. Une perte post-2020 effectivement détectée garde un signal de parcelle `HIGH`, sans en déduire une classification de pays.
+- L'interface affiche « Risque pays : Non évalué » sans code pays fictif. Les exports peuvent porter `UNKNOWN` ; cela ne vaut pas benchmark officiel.
+- Des contrôles automatisés ont été ajoutés pour verrouiller l'absence de classification géographique approximative.
+
+Cette correction **neutralise** la classification pays approximative ; elle ne fournit pas à elle seule une classification de remplacement. Le GO réglementaire reste bloqué tant que les données officielles versionnées, leur date d'effet et leur provenance ne sont intégrées et validées.
+
+
+### Addendum — valeurs historiques et valeurs de repli
+
+Les API de liste/détail et les exports neutralisent désormais aussi les anciennes valeurs pays issues des boîtes englobantes : pays `XX`, nom « Non déterminé », benchmark `UNKNOWN`. Les niveaux de risque restitués restent `HIGH` uniquement pour un audit explicitement marqué `compliant = false`; dans les autres cas, ils sont `UNKNOWN`. Les exports ne réutilisent plus le pays inféré depuis la géométrie comme pays du producteur : sans donnée producteur explicite, ils indiquent `XX`.
+
+Les données historiques en base ne sont pas réécrites par cette branche ; elles sont neutralisées dans les réponses et exports applicatifs. Aucune modification de production n'a été effectuée. Le benchmark officiel reste absent et doit être intégré à partir d'une source officielle versionnée avant tout GO réglementaire.
