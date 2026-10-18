@@ -470,6 +470,12 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
       const body = await res.text().catch(() => "");
       throw new Error(`GFW HTTP ${res.status} ${res.statusText} — ${body.slice(0, 200)}`);
     }
+    // fetch suit les redirections : vérifier l'hôte final réellement servi,
+    // pas seulement l'URL configurée, avant de lui attribuer une preuve officielle.
+    const fournisseurFinal = nommerFournisseur(res.url);
+    if (!fournisseurFinal.officiel) {
+      throw new Error(`Destination finale non officielle après redirection (${res.url})`);
+    }
     noterJauges("gfw_disponible", 1);
     noterJauges("gfw_latence_ms", Date.now() - debutAppel);
     const payload = (await res.json()) as { data?: unknown };
@@ -480,8 +486,8 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
     return {
       rows,
       evidence: {
-        provider: nommerFournisseur(base).provider,
-        is_official_source: nommerFournisseur(base).officiel,
+        provider: fournisseurFinal.provider,
+        is_official_source: fournisseurFinal.officiel,
         dataset,
         dataset_version: servedVersion,
         endpoint,
