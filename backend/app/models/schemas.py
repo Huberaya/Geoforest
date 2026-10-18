@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-RiskLevel = Literal["LOW", "STANDARD", "HIGH"]
+RiskLevel = Literal["LOW", "STANDARD", "HIGH", "CRITICAL", "UNKNOWN"]
 # Un audit non probant n'est ni conforme ni non conforme : c'est un troisième
 # état, distinct, qui interdit toute conclusion (P0-04).
 AuditStatus = Literal[
