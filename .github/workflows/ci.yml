@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - "arena/**"
   workflow_dispatch:
 
 # Moindre privilège : le workflow ne lit que le dépôt.
