@@ -78,6 +78,7 @@ Branche de travail : `forest/engine-evidence-chantier-d-2026-10-18` · PR brouil
 - **Destination finale :** le moteur vérifie aussi l'hôte de la réponse après redirection HTTP, pas seulement l'URL configurée.
 - **Intégrité :** la provenance inclut `rows_sha256`, empreinte SHA-256 des lignes normalisées. Cette empreinte permet de détecter une différence de contenu ; elle n'est ni une signature du fournisseur ni une preuve autonome de vérité.
 - **Confiance :** les scores fixes/formulaires non calibrés ont été supprimés. Aucune valeur de confiance chiffrée n'est publiée sans méthode validée.
+- **Restitution et export :** les libellés de l'interface et les résumés d'audit décrivent désormais le signal de perte de couvert, sans déclarer une conformité EUDR complète. Le brouillon JSON/XML conserve l'empreinte et la méthode de provenance disponibles, et précise les limites d'interprétation.
 
 ### Statut de la preuve réelle
 
