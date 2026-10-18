@@ -10,7 +10,7 @@
  *             sinon 92 % des GeoJSON valides à 6 décimales sont rejetés.
  */
 import { validateGeometry, minDecimalsFromJsonText } from "../src/lib/eudr/gis-validator";
-import { checkDeforestationRisk, deterministicCheck, nommerFournisseur } from "../src/lib/eudr/satellite-checker";
+import { aplatirPourAnalyse, checkDeforestationRisk, deterministicCheck, nommerFournisseur } from "../src/lib/eudr/satellite-checker";
 import { buildEudrIsGeoJson, toEudrIsGeometry } from "../src/lib/eudr/eudr-is-geojson";
 import type { GeoJsonInput } from "../src/lib/eudr/types";
 
@@ -309,6 +309,24 @@ function testFourHectares(): void {
   );
 }
 
+// ------------------------------------------------------- géométrie d'analyse
+function testFlattenPreservesPolygonHoles(): void {
+  section("Moteur forestier — préservation de l'emprise géographique");
+  const polygonWithHole = {
+    type: "Polygon",
+    coordinates: [
+      [[-5.5, 6], [-5.49, 6], [-5.49, 6.01], [-5.5, 6.01], [-5.5, 6]],
+      [[-5.498, 6.002], [-5.492, 6.002], [-5.492, 6.008], [-5.498, 6.008], [-5.498, 6.002]],
+    ],
+  } as never;
+  const normalized = aplatirPourAnalyse(polygonWithHole) as { type: string; coordinates?: unknown[] };
+  check(
+    "anneau intérieur conservé comme trou, pas transformé en surface positive",
+    normalized.type === "Polygon" && normalized.coordinates?.length === 2,
+    `type=${normalized.type} · anneaux=${normalized.coordinates?.length ?? 0}`,
+  );
+}
+
 // ---------------------------------------------------------------- moteur
 function testDeterministicEngine(): void {
   section("Moteur déterministe — cohérence");
@@ -385,7 +403,7 @@ async function testReponseGfw(): Promise<void> {
     }
     globalThis.fetch = fetchOriginal;
   };
-  const avecReponse = (data: unknown[]) => {
+  const avecReponse = (data: unknown) => {
     globalThis.fetch = (async () => ({
       ok: true,
       status: 200,
@@ -414,6 +432,20 @@ async function testReponseGfw(): Promise<void> {
     const apres = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("0,4 ha post-2020 : non conforme (aucune tolérance)", apres.compliant === false && apres.is_probative === true,
       `compliant=${apres.compliant}`);
+    check("score de confiance non calibré : aucune valeur inventée", avant.confidence_score === null && apres.confidence_score === null);
+    check("empreinte SHA-256 des lignes conservée dans la provenance", /^[a-f0-9]{64}$/.test(avant.evidence?.rows_sha256 ?? ""));
+
+    avecReponse([{ umd_tree_cover_loss__year: null, area__ha: 1 }]);
+    const anneeInvalide = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("année absente : aucun verdict probant", anneeInvalide.source === "unavailable" && anneeInvalide.compliant === null);
+
+    avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: -0.4 }]);
+    const surfaceNegative = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("surface négative : aucun verdict probant", surfaceNegative.source === "unavailable" && surfaceNegative.compliant === null);
+
+    avecReponse({ message: "payload inattendu" });
+    const mauvaisSchema = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("champ data non-tableau : aucun verdict probant", mauvaisSchema.source === "unavailable" && mauvaisSchema.compliant === null);
   } finally {
     restaurer();
   }
@@ -431,6 +463,7 @@ async function main(): Promise<void> {
   testEudrIsGeoJson();
   testFourHectares();
   testDeterministicEngine();
+  testFlattenPreservesPolygonHoles();
   await testSourceSatellite();
   await testReponseGfw();
 
