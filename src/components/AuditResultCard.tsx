@@ -152,11 +152,6 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
               Risque parcelle : {RISK_LABELS[satellite.risk_level]}
             </span>
-            {satellite.confidence_score !== null && (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
-                Confiance {Math.round(satellite.confidence_score * 100)} %
-              </span>
-            )}
             {satellite.loss_year && (
               <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${satellite.loss_year > 2020 ? "bg-red-100 text-red-800 ring-red-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>
                 Perte de couvert : {satellite.loss_year}
