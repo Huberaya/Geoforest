@@ -482,9 +482,15 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
   const parsed = rows.map((r) => {
     const year = Number(r.umd_tree_cover_loss__year);
     const area = Number(r.area__ha);
-    return { year, area };
+    const missingYear = r.umd_tree_cover_loss__year == null ||
+      (typeof r.umd_tree_cover_loss__year === "string" && r.umd_tree_cover_loss__year.trim() === "");
+    const missingArea = r.area__ha == null ||
+      (typeof r.area__ha === "string" && r.area__ha.trim() === "");
+    return { year, area, missingYear, missingArea };
   });
-  const malformed = parsed.some(({ year, area }) =>
+  const malformed = parsed.some(({ year, area, missingYear, missingArea }) =>
+    missingYear ||
+    missingArea ||
     !Number.isInteger(year) ||
     year < 2001 ||
     year > currentYear ||
