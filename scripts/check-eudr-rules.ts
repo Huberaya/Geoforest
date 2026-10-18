@@ -10,7 +10,7 @@
  *             sinon 92 % des GeoJSON valides à 6 décimales sont rejetés.
  */
 import { validateGeometry, minDecimalsFromJsonText } from "../src/lib/eudr/gis-validator";
-import { aplatirPourAnalyse, checkDeforestationRisk, deterministicCheck, nommerFournisseur } from "../src/lib/eudr/satellite-checker";
+import { aplatirPourAnalyse, checkDeforestationRisk, deterministicCheck, nommerFournisseur, resolveCountry } from "../src/lib/eudr/satellite-checker";
 import { buildEudrIsGeoJson, toEudrIsGeometry } from "../src/lib/eudr/eudr-is-geojson";
 import type { GeoJsonInput } from "../src/lib/eudr/types";
 
@@ -333,6 +333,10 @@ function testDeterministicEngine(): void {
   const a = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   const b = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   check("deux appels identiques donnent le même verdict", JSON.stringify(a) === JSON.stringify(b));
+  const country = resolveCountry(-5.5, 6.2);
+  check("aucun pays attribué par boîte englobante", country.iso2 === "XX" && country.name === "Non déterminé");
+  check("benchmark pays non évalué sans source officielle", country.risk === "UNKNOWN");
+  check("moteur démo n'invente pas un risque pays", a.country_code === "XX" && a.country_risk === "UNKNOWN" && a.risk_level === "UNKNOWN");
 }
 
 /**
@@ -426,10 +430,12 @@ async function testReponseGfw(): Promise<void> {
     const vide = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("réponse vide : aucun verdict", vide.compliant === null, `compliant=${vide.compliant}`);
     check("réponse vide : non probant", vide.is_probative === false);
+    check("réponse vide : risque pays non évalué", vide.country_risk === "UNKNOWN" && vide.country_code === "XX");
 
     avecReponse([{ umd_tree_cover_loss__year: 2015, area__ha: 0.5 }]);
     const avant = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("perte pré-cutoff seule : conforme probant", avant.compliant === true && avant.is_probative === true);
+    check("analyse satellite n'invente pas le benchmark pays", avant.country_risk === "UNKNOWN" && avant.country_code === "XX");
 
     avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: 0.4 }]);
     const apres = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
