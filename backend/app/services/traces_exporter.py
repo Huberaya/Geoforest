@@ -66,7 +66,7 @@ def _geometry_feature_collection(record: ParcelAuditRecord) -> Dict[str, Any]:
                 "type": "Feature",
                 "properties": {
                     "ProducerName": record.operator_name,
-                    "ProducerCountry": record.country_code,
+                    "ProducerCountry": "XX",
                     "ProductionPlace": record.id,
                     "Area": round(record.area_ha, 4),
                     "HarvestDate": record.harvest_date,
@@ -113,7 +113,7 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
                     },
                     "producers": [
                         {
-                            "country": record.country_code,
+                            "country": "XX",
                             "name": record.operator_name,
                             "geometry_geojson_base64": geojson_b64,
                             "geometry_geojson": geojson_fc,
@@ -136,8 +136,8 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
             "deforestation_detected_post_cutoff": not record.compliant,
             "loss_year": record.loss_year,
             "confidence_score": record.confidence_score,
-            "risk_level": record.risk_level,
-            "country_benchmark_risk": record.country_risk,
+            "risk_level": "HIGH" if record.compliant is False else "UNKNOWN",
+            "country_benchmark_risk": "UNKNOWN",
             "satellite_source": record.satellite.get("source", ""),
             "centroid": {"lon": record.centroid_lon, "lat": record.centroid_lat},
         },
