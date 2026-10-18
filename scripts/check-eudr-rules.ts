@@ -417,6 +417,8 @@ async function testReponseGfw(): Promise<void> {
 
     const malformedRows: Array<{ label: string; row: unknown }> = [
       { label: "année absente", row: { area__ha: 0.4 } },
+      { label: "année nulle", row: { umd_tree_cover_loss__year: null, area__ha: 0.4 } },
+      { label: "année vide", row: { umd_tree_cover_loss__year: "", area__ha: 0.4 } },
       { label: "année non numérique", row: { umd_tree_cover_loss__year: "inconnue", area__ha: 0.4 } },
       { label: "année future", row: { umd_tree_cover_loss__year: new Date().getUTCFullYear() + 1, area__ha: 0.4 } },
       { label: "surface absente", row: { umd_tree_cover_loss__year: 2023 } },
