@@ -21,8 +21,8 @@ type Cas = {
   id: string;
   label: string;
   geometry: Record<string, unknown> | null;
-  expected: string;
-  expected_before_run: string | null;
+  expected: Issue;
+  expected_before_run: Issue | null;
 };
 
 type Issue = "COMPLIANT" | "NON_COMPLIANT" | "NO_VERDICT" | "UNAVAILABLE" | "REJECTED";
@@ -87,9 +87,12 @@ async function main(): Promise<void> {
       }
     }
 
-    const ok = obtenu.issue === cas.expected;
+    // L'attendu opposable est celui pré-enregistré avant la requête ; le champ
+    // descriptif `expected` ne doit jamais se substituer à ce verrou.
+    const attendu = cas.expected_before_run;
+    const ok = obtenu.issue === attendu;
     if (!ok) echecs++;
-    console.log(`${cas.id}  ${ok ? "OK    " : "ÉCHEC "} attendu=${cas.expected} obtenu=${obtenu.issue} — ${obtenu.detail}`);
+    console.log(`${cas.id}  ${ok ? "OK    " : "ÉCHEC "} attendu_pré-enregistré=${attendu} obtenu=${obtenu.issue} — ${obtenu.detail}`);
   }
 
   console.log(`\nexécutés: ${cases.length - nonExecutes}/${cases.length} · échecs: ${echecs} · non exécutés: ${nonExecutes}`);
