@@ -47,8 +47,12 @@ function featureCollection(row: ParcelAuditRow): Record<string, unknown> {
       {
         type: "Feature",
         properties: {
-          ProducerName: row.operatorName,
-          ProducerCountry: row.countryCode,
+          // P2-15 — le producteur, pas l'opérateur. Ces deux propriétés
+          // portaient `row.operatorName` : le fichier de géolocalisation
+          // désignait donc comme producteur une entité qui n'a pas produit la
+          // marchandise, et lui prêtait la nationalité de la parcelle.
+          ProducerName: producteurDe(row)?.name ?? "",
+          ProducerCountry: producteurDe(row)?.country ?? "",
           ProductionPlace: row.parcelReference ?? row.id,
           Area: Number(row.areaHa.toFixed(4)),
           HarvestDate: row.harvestDate,
@@ -98,7 +102,10 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
   const producteur = producteurDe(row);
   const producers = producteur
     ? [{ country: producteur.country, name: producteur.name }]
-    : [{ country: row.countryCode ?? "XX", name: "" }];
+    : // P2-15 — un producteur non déclaré produit un nœud réellement vide. Ce
+      // nœud portait le code pays de la **parcelle** : une nationalité que
+      // personne n'avait déclarée, dans un champ qui désigne une personne.
+      [{ country: "", name: "" }];
   const avertissements: string[] = producteur
     ? []
     : ["Producteur non déclaré : le nœud producers est vide. Une déclaration sans " +
@@ -112,7 +119,10 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
     operator: {
       reference_number: { type: "EORI", identifier: operator.eori },
       name: operator.name,
-      country: operator.country ?? "FR",
+      // P2-15 — le pays vient de la déclaration, sinon du préfixe EORI (qui est
+      // un code pays ISO). « FR » par défaut faisait porter à tout opérateur une
+      // nationalité que personne n'avait déclarée.
+      country: operator.country ?? operator.eori.slice(0, 2),
       address: operator.address ?? "",
       email: operator.email ?? "",
     },
@@ -141,13 +151,31 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       provider: "GeoForest Trace",
       audit_id: row.id,
       audited_at: row.createdAt.toISOString(),
-      status: row.compliant && row.status !== "INVALID_GEOMETRY" ? "VERIFIED_COMPLIANT" : "VERIFIED_NON_COMPLIANT",
+      // ⚠️ P2-06 — `!row.compliant` transformait « aucun verdict » (null) en
+      // « non conforme », et la trace exportée affirmait une déforestation que
+      // personne n'avait mesurée. Trois états, pas deux.
+      status:
+        row.compliant === null || row.compliant === undefined
+          ? "NOT_VERIFIED"
+          : row.compliant
+            ? "VERIFIED_COMPLIANT"
+            : "VERIFIED_NON_COMPLIANT",
       eudr_cutoff_date: EUDR_CUTOFF_DATE,
       harvest_date: row.harvestDate,
       geometry_type: row.geometryType,
       area_ha: Number(row.areaHa.toFixed(4)),
-      geometry_rule: row.areaHa > EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED",
-      deforestation_detected_post_cutoff: !row.compliant,
+      // La règle des 4 ha s'applique **par parcelle**, pas sur la surface
+      // totale du dossier : un lot de trois parcelles de 2 ha (6 ha au total)
+      // n'exige aucun polygone. La règle tranchée au moment de la validation
+      // est conservée ; le calcul sur la surface totale n'est qu'un repli pour
+      // les dossiers antérieurs au champ.
+      geometry_rule: (() => {
+        const stored = (row as { validation?: { eudr_geometry_rule?: string } }).validation?.eudr_geometry_rule;
+        if (stored === "POLYGON_REQUIRED" || stored === "POINT_ALLOWED") return stored;
+        return row.areaHa > EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED";
+      })(),
+      deforestation_detected_post_cutoff:
+        row.compliant === null || row.compliant === undefined ? null : !row.compliant,
       loss_year: row.lossYear,
       confidence_score: row.confidenceScore,
       risk_level: row.riskLevel,

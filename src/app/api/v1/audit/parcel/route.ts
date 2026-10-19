@@ -20,14 +20,26 @@ import { guard } from "@/lib/auth/guard";
 export const dynamic = "force-dynamic";
 
 const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
-const ANONYMOUS_OPERATOR: OperatorInfo = { name: "Opérateur non renseigné", eori: "XX0000000000000", country: "XX" };
 
 function badRequest(detail: string, status = 422): NextResponse {
   return NextResponse.json({ detail }, { status });
 }
 
-function parseOperator(raw: unknown): { operator: OperatorInfo } | { error: string } {
-  if (raw === null || raw === undefined) return { operator: ANONYMOUS_OPERATOR };
+/**
+ * P2-15 — aucune identité n'est inventée.
+ *
+ * L'absence d'opérateur produisait auparavant
+ * `{ nom: "Opérateur non renseigné", eori: "XX0000000000000", pays: "XX" }` :
+ * un triplet qui a la forme d'une identité, qui était persisté, affiché dans
+ * l'historique et repris dans l'export de déclaration. Le distinguer ensuite
+ * d'une donnée réelle devenait impossible.
+ *
+ * `null` signifie « non renseigné » et c'est un état de dossier légitime. La
+ * conséquence est portée par l'export : une déclaration ne peut pas être
+ * établie sans identité, elle est refusée (cf. `export/traces`).
+ */
+function parseOperator(raw: unknown): { operator: OperatorInfo | null } | { error: string } {
+  if (raw === null || raw === undefined) return { operator: null };
   if (typeof raw !== "object") return { error: "operator doit être un objet" };
   const o = raw as Record<string, unknown>;
   const name = typeof o.name === "string" ? o.name.trim() : "";
@@ -132,9 +144,12 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
   const operator = parsedOperator.operator;
   const parsedProducer = parseProducteur(body.producer);
   if ("error" in parsedProducer) return badRequest(parsedProducer.error);
+  // `same_as_operator` n'a de sens que si l'opérateur est connu. Sans identité
+  // d'opérateur, il n'y a rien à copier : le producteur reste non déclaré plutôt
+  // que d'hériter d'une valeur fabriquée.
   const producer =
-    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true
-      ? { name: operator.name, country: operator.country }
+    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true && operator
+      ? { name: operator.name, country: operator.country ?? null }
       : parsedProducer.producer;
   const parcelReference = typeof body.parcel_reference === "string" ? body.parcel_reference.slice(0, 100) : null;
 
@@ -170,10 +185,11 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       .insert(parcelAudits)
       .values({
         organizationId,
-        operatorName: operator.name,
-        operatorEori: operator.eori,
-        operatorCountry: operator.country ?? "FR",
-        operatorAddress: operator.address ?? null,
+        // P2-15 — `null`, jamais une identité de remplissage.
+        operatorName: operator?.name ?? null,
+        operatorEori: operator?.eori ?? null,
+        operatorCountry: operator?.country ?? null,
+        operatorAddress: operator?.address ?? null,
         // Nullables : un producteur inconnu reste inconnu, il n'est pas
         // remplacé par l'opérateur.
         producerName: producer.name,
@@ -249,6 +265,8 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
     satellite,
     eudr_cutoff_date: EUDR_CUTOFF_DATE,
     summary: summaryText(status, validation, satellite),
+    operator,
+    operator_identity: operator ? "declared" : "missing",
   };
   // ⚠️ P1-10 — une analyse non journalisée est une analyse qui n'a pas
   //   d'auteur : impossible de dire qui l'a demandée, ni quand. C'était l'une

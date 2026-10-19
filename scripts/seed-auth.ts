@@ -18,7 +18,23 @@ config({ path: ".env.local" });
 import { hashPassword } from "../src/lib/auth/password";
 import { organizations, users } from "../src/db/schema";
 
-const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? "Trace!Demo2026x";
+/**
+ * ---------------------------------------------------------------- P3-04
+ * ⚠️ Le mot de passe de démonstration n'a **plus de valeur par défaut**.
+ *
+ * Il était écrit en dur (une constante littérale, volontairement non recopiée ici)
+ * puis **affiché sur stdout**
+ * à la fin de l'amorçage. Deux conséquences : un mot de passe fonctionnel
+ * vivait dans le dépôt, et il finissait dans les journaux de la machine ou de
+ * la CI qui lançait le script. Un secret qu'on peut lire dans `git log` n'est
+ * pas un secret, et une valeur par défaut fait qu'un lancement accidentel
+ * crée des comptes ouverts au lieu d'échouer.
+ *
+ * Le mot de passe est donc exigé explicitement, avec une longueur minimale.
+ */
+const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? "";
+
+const LONGUEUR_MINIMALE = 12;
 
 const ORGS = [
   { slug: "geoforest-agro", name: "GeoForest Agrobusiness SAS (FR)", country: "FR", eori: "FR28475619283" },
@@ -34,8 +50,29 @@ const ACCOUNTS = [
 ];
 
 async function main(): Promise<void> {
+  // ⚠️ P3-04 — garde de production. Les comptes créés ici partagent un mot de
+  //   passe commun et n'ont pas de MFA : ils n'ont rien à faire sur un
+  //   environnement qui sert de vraies données. La variable d'échappement
+  //   existe pour un environnement de recette explicitement identifié, jamais
+  //   pour la production.
+  if (process.env.NODE_ENV === "production" && process.env.SEED_ALLOW_PRODUCTION !== "1") {
+    throw new Error(
+      "seed:auth refuse de s'exécuter avec NODE_ENV=production. " +
+        "Ces comptes partagent un mot de passe et n'ont pas de MFA. " +
+        "Pour une recette isolée, posez explicitement SEED_ALLOW_PRODUCTION=1.",
+    );
+  }
+
+  if (DEMO_PASSWORD.length < LONGUEUR_MINIMALE) {
+    throw new Error(
+      `SEED_DEMO_PASSWORD est requis et doit contenir au moins ${LONGUEUR_MINIMALE} caractères. ` +
+        "Aucune valeur par défaut n'est fournie : un compte de démonstration " +
+        "avec un mot de passe connu du dépôt est un compte ouvert.",
+    );
+  }
+
   if (!process.env.DATABASE_URL_ADMIN) {
-    throw new Error("DATABASE_URL n'est pas défini (charger .env.local).");
+    throw new Error("DATABASE_URL_ADMIN n'est pas défini (charger .env.local).");
   }
 
   const pool = new Pool({
@@ -105,8 +142,13 @@ async function main(): Promise<void> {
   for (const account of ACCOUNTS) {
     console.log(`  ${account.email.padEnd(28)} ${account.role.padEnd(18)} ${account.org}`);
   }
-  console.log(`\nMot de passe commun : ${DEMO_PASSWORD}`);
+  // ⚠️ P3-04 — le mot de passe n'est plus affiché. Il a été fourni par
+  //   l'appelant ; le répéter sur stdout le recopiait dans les journaux.
+  console.log(
+    `\nMot de passe : celui fourni dans SEED_DEMO_PASSWORD (${DEMO_PASSWORD.length} caractères), non affiché.`,
+  );
   console.log("⚠️ Comptes de démonstration — à supprimer avant toute mise en production.");
+  console.log("   Rotation : voir docs/ROTATION_SECRETS_ET_INTEGRITE_AUDIT.md");
 
   await pool.end();
 }

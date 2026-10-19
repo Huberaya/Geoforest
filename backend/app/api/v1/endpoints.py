@@ -25,7 +25,10 @@ from app.services.traces_exporter import build_reference, export_traces_json, ex
 
 router = APIRouter()
 
-_ANONYMOUS_OPERATOR = OperatorInfo(name="Opérateur non renseigné", eori="XX0000000000000", country="XX")
+# P2-15 — plus d'identité de remplissage. L'absence d'opérateur est représentée
+# par `None` de bout en bout (persistance, lecture, export), et c'est l'export
+# qui refuse d'émettre une déclaration sans identité.
+EORI_PLACEHOLDER_HISTORIQUE = "XX0000000000000"
 
 
 def _summary_text(status_value: str, validation: Dict[str, Any], satellite: Dict[str, Any] | None) -> str:
@@ -89,13 +92,21 @@ def audit_parcel(
     audit_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     hs_code = COMMODITY_HS_CODES[payload.commodity.value]
-    operator = payload.operator or _ANONYMOUS_OPERATOR
+    # P2-15 — `payload.operator` peut être None : identité non renseignée.
+    operator = payload.operator
 
     satellite: Dict[str, Any] | None = None
     if validation["valid"]:
         # Aucun argument ne provient des propriétés du fichier : le verdict ne
         # peut pas être influencé par le déposant (cf. P0-03).
-        satellite = check_deforestation_risk(payload.geojson, payload.harvest_date.isoformat())
+        # ⚠️ L'analyse porte sur la géométrie **validée et normalisée**, pas sur
+        # le fichier brut : c'est elle qui a été contrôlée et arrondie à six
+        # décimales. Analyser l'entrée brute faisait diverger la géométrie
+        # auditée de la géométrie enregistrée.
+        satellite = check_deforestation_risk(
+            validation.get("normalized_geometry") or payload.geojson,
+            payload.harvest_date.isoformat(),
+        )
         # Aucun verdict n'est inventé : si l'analyse n'est pas probante, le
         # statut le dit. `compliant is None` ne devient jamais « NON_COMPLIANT ».
         if satellite["compliant"] is None:
@@ -113,8 +124,9 @@ def audit_parcel(
     record = ParcelAuditRecord(
         id=audit_id,
         created_at=created_at,
-        operator_name=operator.name,
-        operator_eori=operator.eori,
+        operator_name=operator.name if operator else None,
+        operator_eori=operator.eori if operator else None,
+        operator_country=(operator.country if operator else None),
         commodity=payload.commodity.value,
         hs_code=hs_code,
         harvest_date=payload.harvest_date.isoformat(),
@@ -151,6 +163,8 @@ def audit_parcel(
         satellite=satellite,  # type: ignore[arg-type]
         eudr_cutoff_date=settings.eudr_cutoff_date,
         summary=_summary_text(status_value, validation, satellite),
+        operator=payload.operator,
+        operator_identity="declared" if payload.operator else "missing",
     )
 
 
@@ -215,23 +229,41 @@ def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) 
             ),
         )
 
-    operator: Dict[str, Any]
+    # ------------------------------------------------------------------ P2-15
+    # L'identité vient du dossier **ou** de la requête, jamais d'un remplissage.
+    # Avant, un dossier sans identité exportait `eori = "XX0000000000000"` et un
+    # pays déduit du code pays de la parcelle : la déclaration semblait complète
+    # tout en désignant un opérateur qui n'existe pas.
+    operator: Dict[str, Any] | None = None
     if payload.operator is not None:
         operator = payload.operator.model_dump()
-    else:
+    elif record.operator_eori and record.operator_eori != EORI_PLACEHOLDER_HISTORIQUE:
         operator = {
-            "name": record.operator_name,
+            "name": record.operator_name or "",
             "eori": record.operator_eori,
-            "country": record.country_code if record.operator_eori[:2] == "XX" else record.operator_eori[:2],
+            "country": record.operator_country if record.operator_country else record.operator_eori[:2],
             "address": "",
             "email": "",
         }
+
+    if operator is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Export refusé : l'identité de l'opérateur n'est pas renseignée pour ce dossier. "
+                "Une déclaration de diligence raisonnée doit identifier l'opérateur (nom et numéro EORI) : "
+                "renseignez-la dans la requête `operator`, puis relancez l'export. "
+                "Aucune identité de remplacement n'est fabriquée."
+            ),
+        )
 
     options = {
         "activity_type": payload.activity_type,
         "net_weight_kg": payload.net_weight_kg,
         "internal_reference": payload.internal_reference,
-        "country_of_activity": payload.country_of_activity.upper(),
+        # P2-15 — plus de « FR » par défaut : le pays d'activité vient de la
+        # requête, sinon du pays réellement connu de l'opérateur.
+        "country_of_activity": (payload.country_of_activity or operator.get("country") or operator["eori"][:2]).upper(),
     }
     reference = payload.internal_reference or build_reference(record.id)
     db.mark_draft_generated(record.id, reference)

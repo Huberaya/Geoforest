@@ -1,8 +1,30 @@
-"""Tests du moteur géospatial multi-sources et connecteurs satellites (Chantier 4)."""
+"""Tests du moteur géospatial multi-sources et connecteurs satellites (Chantier 4).
+
+⚠️ Ces tests décrivent un moteur **absent de ce commit** : les routes
+`/api/v1/geospatial/sources` et `/api/v1/geospatial/analyze` ne sont pas
+implémentées (404). Ils sont marqués `xfail(strict=True)` plutôt que supprimés,
+afin que l'écart reste visible et qu'une implémentation future les fasse
+échouer explicitement (XPASS strict) au lieu de passer inaperçue.
+
+    Ne pas implémenter ces routes pour faire passer ces tests : leurs attentes
+    supposent en outre qu'une analyse **simulée** rende un verdict
+    `compliant: true`, ce qui contredit la règle P0-04 (aucun verdict sans
+    donnée réellement mesurée). La spécification du moteur multi-sources et les
+    identifiants d'accès aux fournisseurs doivent être fournis avant toute
+    implémentation.
+"""
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+
+pytestmark = pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Endpoints /api/v1/geospatial/* absents de ce commit ; les attentes "
+        "supposent en outre un verdict de conformité simulé, contraire à P0-04."
+    ),
+)
 
 client = TestClient(app)
 

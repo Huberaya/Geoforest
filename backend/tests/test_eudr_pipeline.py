@@ -71,6 +71,8 @@ def gfw_live(monkeypatch: pytest.MonkeyPatch):
         rows = list(stub_rows)
         evidence = {
             "provider": "Global Forest Watch (World Resources Institute)",
+            # P2-08 — la trace porte désormais la provenance réelle de l'hôte.
+            "is_official_source": True,
             "dataset": settings.gfw_dataset,
             "dataset_version": "v1.13",
             "endpoint": f"{settings.gfw_api_url}/dataset/{settings.gfw_dataset}/v1.13/query/json",

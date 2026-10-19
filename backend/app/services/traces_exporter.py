@@ -65,8 +65,13 @@ def _geometry_feature_collection(record: ParcelAuditRecord) -> Dict[str, Any]:
             {
                 "type": "Feature",
                 "properties": {
-                    "ProducerName": record.operator_name,
-                    "ProducerCountry": record.country_code,
+                    # ⚠️ P2-15 — le producteur, pas l'opérateur. Ce champ portait
+                    # `record.operator_name` : le fichier de géolocalisation
+                    # désignait comme producteur une entité qui n'a pas produit la
+                    # marchandise. Ce backend ne conserve pas encore l'identité du
+                    # producteur : la valeur est vide, jamais empruntée.
+                    "ProducerName": "",
+                    "ProducerCountry": "",
                     "ProductionPlace": record.id,
                     "Area": round(record.area_ha, 4),
                     "HarvestDate": record.harvest_date,
@@ -83,7 +88,14 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
     geojson_fc = _geometry_feature_collection(record)
     geojson_b64 = base64.b64encode(json.dumps(geojson_fc, separators=(",", ":")).encode("utf-8")).decode("ascii")
     hs_code = record.hs_code or COMMODITY_HS_CODES.get(record.commodity, "")
-    verification_status = "VERIFIED_COMPLIANT" if record.compliant and record.status != "INVALID_GEOMETRY" else "VERIFIED_NON_COMPLIANT"
+    # ⚠️ P2-06 — `compliant` peut valoir None : « aucun verdict » n'est ni
+    # conforme ni non conforme. L'ancien ternaire transformait l'absence de
+    # verdict en « non conforme », c'est-à-dire affirmait une déforestation que
+    # personne n'avait mesurée.
+    if record.compliant is None or record.status == "INVALID_GEOMETRY":
+        verification_status = "NOT_VERIFIED"
+    else:
+        verification_status = "VERIFIED_COMPLIANT" if record.compliant else "VERIFIED_NON_COMPLIANT"
 
     return {
         "notice": DRAFT_NOTICE,
@@ -113,8 +125,11 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
                     },
                     "producers": [
                         {
-                            "country": record.country_code,
-                            "name": record.operator_name,
+                            # P2-15 — le producteur n'est pas l'opérateur. Le nom
+                            # était emprunté à ce dernier ; il reste vide tant que
+                            # l'identité du producteur n'est pas collectée.
+                            "country": "",
+                            "name": "",
                             "geometry_geojson_base64": geojson_b64,
                             "geometry_geojson": geojson_fc,
                         }
@@ -132,8 +147,22 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
             "harvest_date": record.harvest_date,
             "geometry_type": record.geometry_type,
             "area_ha": round(record.area_ha, 4),
-            "geometry_rule": "POLYGON_REQUIRED" if record.area_ha > settings.eudr_polygon_threshold_ha else "POINT_ALLOWED",
-            "deforestation_detected_post_cutoff": not record.compliant,
+            # La règle des 4 ha s'applique **par parcelle**, pas sur la surface
+            # totale du dossier : la règle tranchée à la validation est
+            # conservée ; le calcul sur la surface totale n'est qu'un repli.
+            "geometry_rule": (
+                record.validation.get("eudr_geometry_rule")
+                if isinstance(record.validation, dict)
+                and record.validation.get("eudr_geometry_rule") in {"POLYGON_REQUIRED", "POINT_ALLOWED"}
+                else (
+                    "POLYGON_REQUIRED"
+                    if record.area_ha > settings.eudr_polygon_threshold_ha
+                    else "POINT_ALLOWED"
+                )
+            ),
+            "deforestation_detected_post_cutoff": (
+                None if record.compliant is None else not record.compliant
+            ),
             "loss_year": record.loss_year,
             "confidence_score": record.confidence_score,
             "risk_level": record.risk_level,

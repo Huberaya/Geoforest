@@ -200,8 +200,14 @@ async function testProvenance(): Promise<void> {
   );
 
   // 3. Une panne GFW ne doit jamais produire une simulation.
+  // ⚠️ L'hôte est remplacé par une adresse non routable : vérifier le chemin
+  // d'échec ne justifie pas d'envoyer une requête au service réel avec une clé
+  // fictive. Ce contrôle prouve le comportement du logiciel, pas l'état du
+  // fournisseur.
+  const savedUrl = process.env.GFW_API_URL;
   process.env.GFW_DEMO_MODE = "false";
   process.env.GFW_API_KEY = "cle-volontairement-invalide";
+  process.env.GFW_API_URL = "https://gfw-test.invalid";
   process.env.GFW_TIMEOUT_SECONDS = "10";
   const broken = await checkDeforestationRisk(DEFORESTED_POLYGON as never, "2024-06-01");
   check(
@@ -212,6 +218,8 @@ async function testProvenance(): Promise<void> {
 
   if (savedKey === undefined) delete process.env.GFW_API_KEY;
   else process.env.GFW_API_KEY = savedKey;
+  if (savedUrl === undefined) delete process.env.GFW_API_URL;
+  else process.env.GFW_API_URL = savedUrl;
   process.env.GFW_DEMO_MODE = savedDemo ?? "false";
 }
 

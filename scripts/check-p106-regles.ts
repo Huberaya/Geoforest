@@ -81,13 +81,17 @@ section("B. Réduction — ce qui ne doit jamais atteindre un journal");
 {
   const objet = {
     email: "admin@geoforest.eu",
-    password: "Trace!Demo2026x",
+    password: "mot-de-passe-de-test-non-reel", // sentinelle, pas un identifiant
     imbrique: { token: "abc.def.ghi", api_key: "GFW-1234", normal: "visible" },
     liste: [{ secret: "x" }, { ok: 1 }],
     nombre: 42,
   };
   const s = JSON.stringify(rediger(objet));
-  verifier("le mot de passe est masqué", !s.includes("Trace!Demo2026x"), s.slice(0, 120));
+  verifier(
+      "le mot de passe est masqué",
+      !s.includes("mot-de-passe-de-test-non-reel"),
+      s.slice(0, 120),
+    );
   verifier("le jeton est masqué", !s.includes("abc.def.ghi"));
   verifier("la clé d'API est masquée", !s.includes("GFW-1234"));
   verifier("un secret imbriqué est masqué", !s.includes('"secret":"x"'));

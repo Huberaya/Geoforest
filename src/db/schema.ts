@@ -537,9 +537,23 @@ export const parcelAudits = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    operatorName: text("operator_name").notNull(),
-    operatorEori: text("operator_eori").notNull(),
-    operatorCountry: text("operator_country").notNull().default("FR"),
+    /**
+     * P2-15 — identité de l'opérateur : **nullable, et sans valeur de repli**.
+     *
+     * Ces trois colonnes étaient `NOT NULL`, avec `'FR'` en défaut pour le pays,
+     * et la route d'audit fabriquait `{ nom: "Opérateur non renseigné",
+     * eori: "XX0000000000000", pays: "XX" }` quand aucune identité n'était
+     * fournie. Ce triplet ressemble à une identité : il a la forme d'un EORI,
+     * il traverse la persistance, l'historique et l'export, et rien ne le
+     * distingue d'une donnée réelle une fois en base.
+     *
+     * « Nous ne connaissons pas l'opérateur » est un état légitime du dossier,
+     * au même titre que « nous ne connaissons pas le producteur » (P1-16). Il
+     * se représente par `NULL`, jamais par une valeur inventée.
+     */
+    operatorName: text("operator_name"),
+    operatorEori: text("operator_eori"),
+    operatorCountry: text("operator_country"),
     operatorAddress: text("operator_address"),
     /**
      * P1-16 — identité du **producteur**, distincte de l'opérateur.

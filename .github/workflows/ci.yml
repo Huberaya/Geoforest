@@ -40,8 +40,43 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install frontend dependencies & build
+      - name: Install frontend dependencies
         run: |
           set -euo pipefail
           npm ci || npm install
-          npm run build
+
+      # Les contrôles EUDR ne dépendent ni de la base ni du réseau : ils
+      # vérifient le validateur géospatial et le moteur de risque hors ligne.
+      - name: Frontend EUDR & GIS checks
+        run: npm run test:gis
+
+      # ⚠️ Défauts non géospatiaux consolidés en phase 3 : proxy paresseux
+      #   (réflexion), migration 0007 sur base embarquée, refus du seed en
+      #   production, portée mémoire de la limitation de débit.
+      - name: Sécurité des garde-fous
+        run: npm run test:securite
+
+      # ⚠️ Production : zéro vulnérabilité connue. **Bloquant.**
+      - name: Audit des dépendances de production
+        run: npm run audit:sec
+
+      # ⚠️ `braces` <= 3.0.3 n'a AUCUNE version corrigée
+      #   (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687) : `npm run audit:dev` échoue et
+      #   échouera jusqu'à ce que l'amont publie. Le rendre simplement bloquant
+      #   condamnerait la CI sans action possible ; le rendre « informatif »
+      #   (`continue-on-error`) afficherait un job vert pour un audit rouge —
+      #   un masquage.
+      #   Ce contrôle-ci est donc **bloquant**, et il est significatif : il
+      #   exige 0 vulnérabilité de production et n'accepte, en développement,
+      #   que le lot `braces` connu, rattaché au même avis. Toute nouveauté fait
+      #   échouer la CI ; il échoue aussi si `braces` reçoit un correctif, pour
+      #   que l'exception ne survive pas à sa justification.
+      - name: Audit des dépendances (contrôle de régression)
+        run: npm run audit:controle
+
+      # ⚠️ Le build s'exécute SANS base de données, comme chez l'hébergeur.
+      #   Il évaluait auparavant `src/db/admin.ts`, qui construisait un pool au
+      #   niveau du module : le build échouait sur `/api/metrics`. Le test
+      #   `test:demarrage` (inclus dans `test:gis`) verrouille cette propriété.
+      - name: Build frontend
+        run: npm run build

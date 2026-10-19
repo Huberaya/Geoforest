@@ -203,12 +203,30 @@ export interface ParcelAuditResponse {
   satellite: SatelliteCheckResult | null;
   eudr_cutoff_date: string;
   summary: string;
+  /**
+   * P2-15 — identité de l'opérateur telle qu'elle a été **déclarée**.
+   * `null` = non renseignée. Aucune valeur de remplissage n'est produite.
+   */
+  operator?: OperatorInfo | null;
+  operator_identity?: OperatorIdentityStatus;
 }
+
+/**
+ * P2-15 — état de l'identité de l'opérateur.
+ *
+ *   declared           : identité réellement fournie à l'audit
+ *   missing            : identité absente (état légitime, export refusé)
+ *   legacy_placeholder : dossier antérieur au correctif, portant la valeur de
+ *                        remplissage `XX0000000000000`. Il n'est ni effacé ni
+ *                        réécrit : sa reprise est une décision explicite.
+ */
+export type OperatorIdentityStatus = "declared" | "missing" | "legacy_placeholder";
 
 export interface AuditSummary {
   audit_id: string;
   created_at: string;
-  operator_name: string;
+  /** P2-15 — `null` quand l'identité n'a pas été renseignée. */
+  operator_name: string | null;
   commodity: string;
   hs_code: string;
   harvest_date: string;

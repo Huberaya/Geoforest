@@ -11,6 +11,12 @@ import { guard } from "@/lib/auth/guard";
 export const dynamic = "force-dynamic";
 
 const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
+/**
+ * P2-15 — valeur de remplissage héritée du code antérieur. Les dossiers qui la
+ * portent ne sont PAS réécrits : ils sont traités comme « identité inconnue » à
+ * l'export, et listés par la vue `v_parcel_audits_identite` pour reprise.
+ */
+const EORI_PLACEHOLDER_HISTORIQUE = "XX0000000000000";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIVITIES: ActivityType[] = ["IMPORT", "EXPORT", "DOMESTIC"];
 
@@ -55,13 +61,23 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     );
   }
 
-  let operator: OperatorInfo = {
-    name: row.operatorName,
-    eori: row.operatorEori,
-    country: row.operatorCountry,
-    address: row.operatorAddress ?? "",
-    email: "",
-  };
+  /**
+   * P2-15 — l'identité vient du dossier **ou** de la requête, jamais d'un
+   * remplissage. Si les deux sont absentes, l'export est refusé : une
+   * déclaration de diligence raisonnée sans opérateur identifiable n'est pas
+   * une déclaration, et l'émettre « quand même » reviendrait à produire un
+   * dossier faussement complet.
+   */
+  let operator: OperatorInfo | null = null;
+  if (row.operatorEori && row.operatorEori !== EORI_PLACEHOLDER_HISTORIQUE) {
+    operator = {
+      name: row.operatorName ?? "",
+      eori: row.operatorEori,
+      country: row.operatorCountry ?? row.operatorEori.slice(0, 2),
+      address: row.operatorAddress ?? "",
+      email: "",
+    };
+  }
   if (body.operator && typeof body.operator === "object") {
     const o = body.operator as Record<string, unknown>;
     const eori = typeof o.eori === "string" ? o.eori.replace(/\s+/g, "").toUpperCase() : "";
@@ -78,6 +94,21 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     };
   }
 
+  if (!operator) {
+    return NextResponse.json(
+      {
+        detail:
+          "Export refusé : l'identité de l'opérateur n'est pas renseignée pour ce dossier. " +
+          "Une déclaration de diligence raisonnée doit identifier l'opérateur (nom et numéro EORI) : " +
+          "renseignez-la dans la requête `operator`, puis relancez l'export. " +
+          "Aucune identité de remplacement n'est fabriquée.",
+        code: "OPERATOR_IDENTITY_MISSING",
+        operator_identity: "missing",
+      },
+      { status: 422 },
+    );
+  }
+
   const format: TracesFormat =
     body.format === "geojson" ? "geojson" : body.format === "json" ? "json" : "xml";
   const activityType = ACTIVITIES.includes(body.activity_type as ActivityType) ? (body.activity_type as ActivityType) : "IMPORT";
@@ -87,8 +118,19 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     return NextResponse.json({ detail: "net_weight_kg doit être ≥ 0" }, { status: 422 });
   }
   const internalReference = typeof body.internal_reference === "string" && body.internal_reference.trim() ? body.internal_reference.trim().slice(0, 50) : null;
-  const countryOfActivity =
-    typeof body.country_of_activity === "string" && body.country_of_activity.trim().length === 2 ? body.country_of_activity.trim().toUpperCase() : "FR";
+  /**
+   * P2-15 — le pays d'activité n'est plus « FR » par défaut.
+   *
+   * Il était codé en dur : une déclaration établie depuis un autre pays
+   * portait « FR » sans que personne ne l'ait déclaré. À défaut de saisie, il
+   * est déduit du pays de l'opérateur — une information réellement connue,
+   * pas une valeur inventée.
+   */
+  const paysSaisi =
+    typeof body.country_of_activity === "string" && body.country_of_activity.trim().length === 2
+      ? body.country_of_activity.trim().toUpperCase()
+      : null;
+  const countryOfActivity = paysSaisi ?? (operator.country ?? operator.eori.slice(0, 2));
 
   const options: TracesOptions = { activityType, netWeightKg, internalReference, countryOfActivity };
   const reference = internalReference ?? buildReference(row.id);
