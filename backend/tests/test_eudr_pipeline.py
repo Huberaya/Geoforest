@@ -323,7 +323,6 @@ class TestInvalidGeometry:
         assert result["errors"][0]["code"] == "UNSUPPORTED_GEOMETRY_TYPE"
 
     @pytest.mark.parametrize("geojson", [
-        {"type": "Feature", "properties": [], "geometry": COMPLIANT_POLYGON},
         {"type": "Feature", "geometry": []},
         {"type": "GeometryCollection", "geometries": [None]},
         {"type": "GeometryCollection", "geometries": [[]]},
@@ -334,6 +333,11 @@ class TestInvalidGeometry:
         assert result["valid"] is False
         assert result["normalized_geometry"] is None
         assert result["errors"]
+
+    def test_feature_with_malformed_properties_is_sanitized(self) -> None:
+        result = validate_geometry({"type": "Feature", "properties": [], "geometry": COMPLIANT_POLYGON})
+        assert result["valid"] is True
+        assert result["normalized_geometry"]["properties"] == {"area_ha": result["area_ha"]}
 
     def test_api_returns_invalid_geometry_status(self, client: TestClient) -> None:
         response = client.post("/api/v1/audit/parcel", json=_audit_payload(SELF_INTERSECTING_POLYGON))
