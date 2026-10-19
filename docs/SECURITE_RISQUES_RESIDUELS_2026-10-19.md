@@ -123,9 +123,20 @@ nextjs-postgresql-template
 |---|---|---|
 | `npm run audit:sec` (`--omit=dev --audit-level=high`) | **0** | `found 0 vulnerabilities` |
 | `npm run audit:dev` (`--include=dev --audit-level=high`) | **1** | **5 vulnérabilités high**, toutes dues à `braces` |
+| `npm run audit:controle` | **0** (7/7) | état connu confirmé, aucune nouveauté |
 
-⚠️ L'échec de l'audit de développement est **conservé et visible** : il n'est
-ni masqué par un `--omit=dev`, ni exclu du rapport.
+⚠️ **Le premier montage de la CI était un masquage.** L'étape d'audit de
+développement avait `continue-on-error: true` : elle s'affichait **verte**
+alors que `npm audit` sortait en code 1. Un job vert pour un audit rouge est
+exactement ce que la mission interdit. Le run
+[`39323809934`](https://github.com/Huberaya/Geoforest/actions/runs/39323809934)
+montre cette étape en `success` — c'est le défaut, pas la preuve d'une réussite.
+
+Remplacement : `scripts/check-audit-dependances.ts` est **bloquant** et
+significatif. Il exige 0 vulnérabilité de production, n'accepte en
+développement que le lot `braces` connu, vérifie que chaque entrée remonte au
+**même** avis GHSA, et **échoue si `braces` reçoit un correctif** — pour que
+l'exception ne survive pas à sa justification.
 
 Les cinq entrées (`braces`, `fast-glob`, `micromatch`,
 `@next/eslint-plugin-next`, `eslint-config-next`) sont **une seule et même
@@ -310,7 +321,7 @@ implémentée.**
 | Risque | Statut | Preuve | Prochaine action |
 |---|---|---|---|
 | E1 — PostgreSQL serveur / RLS | `NON VÉRIFIÉ` | PGlite 13/13 pour la migration ; aucun serveur disponible | Instance isolée + recette § E1 |
-| E2 — `braces` | `ATTÉNUÉ — RISQUE RÉSIDUEL` | Avis relu ; dev seul ; 0 en production après correction `source-map-js` | Veille sur `braces > 3.0.3` |
+| E2 — `braces` | `ATTÉNUÉ — RISQUE RÉSIDUEL` | Avis relu ; dev seul ; 0 en production après correction `source-map-js` ; `audit:controle` 7/7 | Veille sur `braces > 3.0.3` |
 | E3 — Comptes de démonstration | `ATTÉNUÉ — RISQUE RÉSIDUEL` | Seed 7/7 ; littéral retiré ; inventaire hors dépôt impossible | Inventaire par l'exploitant + rotation |
 | E4a — Limitation en mémoire | `ATTÉNUÉ — RISQUE RÉSIDUEL` | Inventaire + démonstration | Magasin partagé (hors périmètre) |
 | E4b — Rotation des secrets | `NON VÉRIFIÉ` | Procédure écrite, non exécutée | Exécution encadrée |

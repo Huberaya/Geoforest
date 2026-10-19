@@ -850,6 +850,7 @@ npm run test:gis          # 24/24 + 66/66 + 16/16 + 22/22
 npm run test:securite     # 22/22 + 13/13 + 7/7 + 6/6
 npm run audit:sec         # 0 vulnérabilité de production
 npm run audit:dev         # échoue : `braces` sans version corrigée — voir rapport sécurité
+npm run audit:controle    # bloque sur toute nouveauté ; 7/7
 npx tsc --noEmit          # aucune erreur
 cd backend && pytest -q   # 117 passed, 3 xfailed
 

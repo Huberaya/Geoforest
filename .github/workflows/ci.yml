@@ -60,16 +60,19 @@ jobs:
       - name: Audit des dépendances de production
         run: npm run audit:sec
 
-      # ⚠️ Développement : `braces` <= 3.0.3 n'a AUCUNE version corrigée
-      #   (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687). L'audit échoue, et cet échec
-      #   est **visible** : il n'est ni neutralisé par `--omit=dev`, ni tu.
-      #   Le rendre bloquant condamnerait toute la CI sans qu'aucune action ne
-      #   puisse la débloquer. Il est donc publié sans interrompre le job, et
-      #   le rapport de sécurité consigne le risque.
-      #   À rendre bloquant dès qu'une version `braces > 3.0.3` existera.
-      - name: Audit des dépendances de développement (informatif)
-        continue-on-error: true
-        run: npm run audit:dev
+      # ⚠️ `braces` <= 3.0.3 n'a AUCUNE version corrigée
+      #   (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687) : `npm run audit:dev` échoue et
+      #   échouera jusqu'à ce que l'amont publie. Le rendre simplement bloquant
+      #   condamnerait la CI sans action possible ; le rendre « informatif »
+      #   (`continue-on-error`) afficherait un job vert pour un audit rouge —
+      #   un masquage.
+      #   Ce contrôle-ci est donc **bloquant**, et il est significatif : il
+      #   exige 0 vulnérabilité de production et n'accepte, en développement,
+      #   que le lot `braces` connu, rattaché au même avis. Toute nouveauté fait
+      #   échouer la CI ; il échoue aussi si `braces` reçoit un correctif, pour
+      #   que l'exception ne survive pas à sa justification.
+      - name: Audit des dépendances (contrôle de régression)
+        run: npm run audit:controle
 
       # ⚠️ Le build s'exécute SANS base de données, comme chez l'hébergeur.
       #   Il évaluait auparavant `src/db/admin.ts`, qui construisait un pool au

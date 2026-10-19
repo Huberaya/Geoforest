@@ -19,7 +19,8 @@
     "test:demarrage": "node --conditions=react-server --import tsx scripts/check-demarrage-sans-config.ts",
     "test:migration": "node --conditions=react-server --import tsx scripts/check-migration-identite.ts",
     "audit:dev": "npm audit --include=dev --audit-level=high",
-    "test:securite": "node --conditions=react-server --import tsx scripts/check-demarrage-sans-config.ts && node --conditions=react-server --import tsx scripts/check-migration-identite.ts && node --conditions=react-server --import tsx scripts/check-seed-securite.ts && node --conditions=react-server --import tsx scripts/check-limitation-memoire.ts"
+    "test:securite": "node --conditions=react-server --import tsx scripts/check-demarrage-sans-config.ts && node --conditions=react-server --import tsx scripts/check-migration-identite.ts && node --conditions=react-server --import tsx scripts/check-seed-securite.ts && node --conditions=react-server --import tsx scripts/check-limitation-memoire.ts",
+    "audit:controle": "node --conditions=react-server --import tsx scripts/check-audit-dependances.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",
