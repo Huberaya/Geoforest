@@ -322,6 +322,26 @@ class TestInvalidGeometry:
         assert result["valid"] is False
         assert result["errors"][0]["code"] == "UNSUPPORTED_GEOMETRY_TYPE"
 
+    @pytest.mark.parametrize("geojson", [
+        {"type": "Feature", "geometry": []},
+        {"type": "GeometryCollection", "geometries": [None]},
+        {"type": "GeometryCollection", "geometries": [[]]},
+        {"type": "GeometryCollection", "geometries": [{"type": "Point"}]},
+    ])
+    def test_malformed_feature_and_geometry_collection_fail_closed(self, geojson: Dict[str, Any]) -> None:
+        result = validate_geometry(geojson)
+        assert result["valid"] is False
+        assert result["normalized_geometry"] is None
+        assert result["errors"]
+
+    def test_feature_with_malformed_properties_does_not_break_geometry_validation(self) -> None:
+        result = validate_geometry({"type": "Feature", "properties": [], "geometry": COMPLIANT_POLYGON})
+        assert result["valid"] is True
+        # The validator's public contract returns normalized geometry, not a
+        # Feature wrapper; malformed properties must not leak into that output.
+        assert result["normalized_geometry"]["type"] == "Polygon"
+        assert "properties" not in result["normalized_geometry"]
+
     def test_api_returns_invalid_geometry_status(self, client: TestClient) -> None:
         response = client.post("/api/v1/audit/parcel", json=_audit_payload(SELF_INTERSECTING_POLYGON))
         assert response.status_code == 201
@@ -594,3 +614,100 @@ class TestProvenanceP004:
         assert record.analysis_source == "gfw-live"
         assert record.analysis_probative is True
         assert record.analysis_evidence["dataset_version"] == "v1.13"
+
+
+# --------------------------------------------------------------------------- Chantier A — fail-closed sur les réponses GFW mal formées
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": -0.1}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": float("nan")}],
+        [{"umd_tree_cover_loss__year": 2999, "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": "2022.5", "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": True, "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": True}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": None}],
+        ["ligne-invalide"],
+    ],
+)
+def test_reponse_gfw_mal_formee_ne_peut_jamais_produire_un_verdict(
+    rows, gfw_live, monkeypatch
+) -> None:
+    """Toute donnée fournisseur incohérente doit devenir indisponible, jamais conforme."""
+    monkeypatch.setattr(
+        satellite_checker,
+        "_gfw_query",
+        lambda geometry: (
+            rows,
+            {
+                "provider": "Global Forest Watch (World Resources Institute)",
+                "dataset": settings.gfw_dataset,
+                "dataset_version": "v1.13",
+                "endpoint": settings.gfw_api_url,
+                "sql": satellite_checker.GFW_SQL,
+                "geometry_type": geometry.get("type", "Unknown"),
+                "retrieved_at": "2026-10-19T00:00:00+00:00",
+            },
+        ),
+    )
+    result = check_deforestation_risk(COMPLIANT_POLYGON, "2024-06-01")
+    assert result["source"] == "unavailable"
+    assert result["is_probative"] is False
+    assert result["compliant"] is None
+    assert result["evidence"] is None
+    assert "Réponse GFW invalide" in result["details"]
+
+
+def test_annee_gfw_entier_en_chaine_est_normalisee_comme_typescript(monkeypatch, gfw_live) -> None:
+    monkeypatch.setattr(
+        satellite_checker,
+        "_gfw_query",
+        lambda geometry: (
+            [{"umd_tree_cover_loss__year": "2022.0", "area__ha": "0.25"}],
+            {
+                "provider": "Global Forest Watch (World Resources Institute)",
+                "dataset": settings.gfw_dataset,
+                "dataset_version": "v1.13",
+                "endpoint": settings.gfw_api_url,
+                "sql": satellite_checker.GFW_SQL,
+                "geometry_type": geometry.get("type", "Unknown"),
+                "retrieved_at": "2026-10-19T00:00:00+00:00",
+            },
+        ),
+    )
+    result = check_deforestation_risk(COMPLIANT_POLYGON, "2024-06-01")
+    assert result["source"] == "gfw-live"
+    assert result["compliant"] is False
+    assert result["loss_year"] == 2022
+    assert result["loss_area_ha"] == 0.25
+
+
+# Chantier A — une FeatureCollection partiellement invalide ne doit pas être analysée en sous-ensemble
+@pytest.mark.parametrize(
+    "invalid_feature",
+    [
+        None,
+        "feature-invalide",
+        {"type": "Feature", "properties": {}, "geometry": None},
+        {"type": "Feature", "properties": {}, "geometry": []},
+        {"type": "Point", "coordinates": [38.201234, 6.161234]},
+    ],
+)
+def test_feature_collection_invalide_est_rejetee_sans_ignorer_une_parcelle(
+    invalid_feature: Any,
+) -> None:
+    """Un élément invalide ne doit pas être ignoré si d'autres parcelles sont valides."""
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {},
+                "geometry": {"type": "Point", "coordinates": [38.201234, 6.161234]},
+            },
+            invalid_feature,
+        ],
+    }
+    result = validate_geometry(geojson, declared_area_ha=1.0)
+    assert result["valid"] is False
+    assert any(issue["code"] in {"INVALID_FEATURE", "MISSING_GEOMETRY"} for issue in result["errors"])
