@@ -36,18 +36,25 @@ function collectPlotItems(input: GeoJsonInput): PlotItem[] {
   }
   const type = input.type;
   if (type === "FeatureCollection") {
-    const features = Array.isArray(input.features) ? (input.features as Record<string, unknown>[]) : [];
+    const features = Array.isArray(input.features) ? (input.features as unknown[]) : [];
+    if (features.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "FeatureCollection vide");
     const items: PlotItem[] = [];
-    features.forEach((f, idx) => {
-      if (f && typeof f === "object" && f.geometry && typeof f.geometry === "object") {
-        items.push({
-          geometry: f.geometry as Record<string, unknown>,
-          properties: (f.properties as Record<string, unknown>) ?? {},
-          featureIndex: idx,
-        });
+    features.forEach((rawFeature, idx) => {
+      if (!rawFeature || typeof rawFeature !== "object" || Array.isArray(rawFeature)) {
+        throw new ExtractionError("INVALID_FEATURE", `Feature #${idx + 1} invalide dans la FeatureCollection`);
       }
+      const f = rawFeature as Record<string, unknown>;
+      if (f.type !== "Feature" || !f.geometry || typeof f.geometry !== "object" || Array.isArray(f.geometry)) {
+        throw new ExtractionError("MISSING_GEOMETRY", `Feature #${idx + 1} sans géométrie GeoJSON valide`);
+      }
+      items.push({
+        geometry: f.geometry as Record<string, unknown>,
+        properties: (f.properties && typeof f.properties === "object" && !Array.isArray(f.properties)
+          ? f.properties as Record<string, unknown>
+          : {}),
+        featureIndex: idx,
+      });
     });
-    if (items.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "FeatureCollection vide");
     return items;
   }
   if (type === "Feature") {
