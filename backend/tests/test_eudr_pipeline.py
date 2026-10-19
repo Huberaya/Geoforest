@@ -660,3 +660,34 @@ def test_annee_gfw_entier_en_chaine_est_normalisee_comme_typescript(monkeypatch,
     assert result["compliant"] is False
     assert result["loss_year"] == 2022
     assert result["loss_area_ha"] == 0.25
+
+
+# Chantier A — une FeatureCollection partiellement invalide ne doit pas être analysée en sous-ensemble
+@pytest.mark.parametrize(
+    "invalid_feature",
+    [
+        None,
+        "feature-invalide",
+        {"type": "Feature", "properties": {}, "geometry": None},
+        {"type": "Feature", "properties": {}, "geometry": []},
+        {"type": "Point", "coordinates": [38.201234, 6.161234]},
+    ],
+)
+def test_feature_collection_invalide_est_rejetee_sans_ignorer_une_parcelle(
+    invalid_feature: Any,
+) -> None:
+    """Un élément invalide ne doit pas être ignoré si d'autres parcelles sont valides."""
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {},
+                "geometry": {"type": "Point", "coordinates": [38.201234, 6.161234]},
+            },
+            invalid_feature,
+        ],
+    }
+    result = validate_geometry(geojson, declared_area_ha=1.0)
+    assert result["valid"] is False
+    assert any(issue["code"] in {"INVALID_FEATURE", "MISSING_GEOMETRY"} for issue in result["errors"])
