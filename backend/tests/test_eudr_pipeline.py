@@ -322,6 +322,19 @@ class TestInvalidGeometry:
         assert result["valid"] is False
         assert result["errors"][0]["code"] == "UNSUPPORTED_GEOMETRY_TYPE"
 
+    @pytest.mark.parametrize("geojson", [
+        {"type": "Feature", "properties": [], "geometry": COMPLIANT_POLYGON},
+        {"type": "Feature", "geometry": []},
+        {"type": "GeometryCollection", "geometries": [None]},
+        {"type": "GeometryCollection", "geometries": [[]]},
+        {"type": "GeometryCollection", "geometries": [{"type": "Point"}]},
+    ])
+    def test_malformed_feature_and_geometry_collection_fail_closed(self, geojson: Dict[str, Any]) -> None:
+        result = validate_geometry(geojson)
+        assert result["valid"] is False
+        assert result["normalized_geometry"] is None
+        assert result["errors"]
+
     def test_api_returns_invalid_geometry_status(self, client: TestClient) -> None:
         response = client.post("/api/v1/audit/parcel", json=_audit_payload(SELF_INTERSECTING_POLYGON))
         assert response.status_code == 201
