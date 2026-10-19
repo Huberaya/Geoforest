@@ -1,3 +1,5 @@
+> Actualisation technique du 19/10/2026 : voir [la consolidation Agent A](AGENT_A_CONSOLIDATION_2026-10-19.md), code vérifié localement `26350a1e0ce89cde8af4c1a9a643b9123b5f1a8b`. Les chiffres et constats ci-dessous restent historiques ; ils ne valent pas validation de la tête finale ni de la production.
+
 # Rapport de tests de sécurité
 
 Date : 08/10/2026 · Branche : `arena/c73246d2-geoforest`.

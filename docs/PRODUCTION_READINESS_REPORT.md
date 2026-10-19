@@ -1,3 +1,5 @@
+> Actualisation technique du 19/10/2026 : voir [la consolidation Agent A](AGENT_A_CONSOLIDATION_2026-10-19.md), code vérifié localement `26350a1e0ce89cde8af4c1a9a643b9123b5f1a8b`. Les chiffres et constats ci-dessous restent historiques ; ils ne valent pas validation de la tête finale ni de la production.
+
 # GeoForest — Rapport de readiness production
 
 - **Version auditée** : branche `arena/c73246d2-geoforest`, à partir de `main` @ `1c95f4c`. Le `package.json` ne déclare pas de numéro de version.
