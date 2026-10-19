@@ -15,7 +15,7 @@
 | Base `main` | `1c95f4c585ed8303f887089ae7450c9235523fd0` — **inchangée** |
 | Commit de code de la phase 3 | `a26721c7b2cda9236adc3ecd56305cc26edf733c` |
 | Commit de CI (audit bloquant) | `295f0f7e221325aaa70f510d9c21841f48b81b33` |
-| Branche distante | `origin/arena/837c5c36-geoforest` = `295f0f7` |
+| Branche distante | `origin/arena/837c5c36-geoforest` (voir § 11 pour les runs) |
 | PR | [#7](https://github.com/Huberaya/Geoforest/pull/7) — **ouverte, non fusionnée** |
 
 Historique :
@@ -369,8 +369,14 @@ backend. Un `xfail` qui passerait inopinément ferait échouer la suite.
 |---|---|---|---|
 | [`39323809934`](https://github.com/Huberaya/Geoforest/actions/runs/39323809934) | `a26721c` | `pull_request` | ✅ vert — mais **étape 10 verte à tort** (masquage, corrigé ensuite) |
 | [`39324186614`](https://github.com/Huberaya/Geoforest/actions/runs/39324186614) | `295f0f7` | `pull_request` | ✅ **vert, 11/11 étapes** |
+| [`39324491953`](https://github.com/Huberaya/Geoforest/actions/runs/39324491953) | `17fc848` | `pull_request` | ✅ **vert, 11/11 étapes** |
 
-Détail du run `39324186614` :
+⚠️ **Auto-référence assumée.** Ce fichier est versionné : son propre commit ne
+peut pas citer son propre SHA ni son propre run. Le run du commit qui porte ce
+rapport est consigné dans la PR #7, jamais dans le fichier qu'il modifie.
+Prétendre le contraire obligerait à réécrire le rapport à chaque push.
+
+Détail du run `39324491953` (identique à `39324186614`) :
 
 ```
  4. Install backend dependencies & test                success
