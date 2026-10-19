@@ -10,6 +10,7 @@ const RISK_LABELS: Record<RiskLevel, string> = {
   STANDARD: "Standard",
   HIGH: "Élevé",
   CRITICAL: "Critique",
+  UNKNOWN: "Non évalué",
 };
 
 const RISK_STYLES: Record<RiskLevel, string> = {
@@ -17,6 +18,7 @@ const RISK_STYLES: Record<RiskLevel, string> = {
   STANDARD: "bg-slate-100 text-slate-700",
   HIGH: "bg-amber-100 text-amber-800",
   CRITICAL: "bg-rose-100 text-rose-800",
+  UNKNOWN: "bg-slate-100 text-slate-500",
 };
 
 const STATUS_LABELS: Record<string, string> = {

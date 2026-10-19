@@ -90,3 +90,18 @@ def test_source_non_officielle_ne_produit_aucun_verdict(monkeypatch):
 )
 def test_hote_officiel(url, attendu):
     assert sc._hote_officiel(url) is attendu
+
+
+def test_country_risk_not_inferred_from_bounding_boxes():
+    # A coordinate must not be assigned a country/official benchmark by rectangle approximation.
+    assert sc.resolve_country(-5.5, 6.2) == ("XX", "Non déterminé", "UNKNOWN")
+
+
+def test_live_clean_signal_does_not_invent_country_risk_or_confidence(monkeypatch):
+    rows = [{"umd_tree_cover_loss__year": 2015, "area__ha": 1.0}]
+    monkeypatch.setattr(sc, "_gfw_query", lambda _poly: (rows, EVIDENCE))
+    result = sc.live_check(_geom(), date(2025, 1, 1))
+    assert result["country_code"] == "XX"
+    assert result["country_risk"] == "UNKNOWN"
+    assert result["risk_level"] == "UNKNOWN"
+    assert result["confidence_score"] is None

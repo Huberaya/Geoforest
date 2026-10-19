@@ -224,7 +224,10 @@ class TestNonCompliantParcel:
         assert sat["compliant"] is None, "un moteur simulé ne rend pas de verdict"
         assert sat["loss_year"] == 2022
         assert sat["confidence_score"] is None
-        assert sat["country_code"] == "BR"
+        assert sat["country_code"] == "XX"
+        assert sat["country_name"] == "Non déterminé"
+        assert sat["country_risk"] == "UNKNOWN"
+        assert sat["risk_level"] == "HIGH", "la simulation conserve le signal de perte, sans en faire une preuve"
         assert "non probant" in sat["disclaimer"]
 
     def test_simulated_loss_year_property_is_ignored(self) -> None:
@@ -582,7 +585,7 @@ class TestProvenanceP004:
         assert sat["disclaimer"] is None
         assert sat["evidence"]["dataset_version"] == "v1.13"
         assert sat["evidence"]["dataset"] == settings.gfw_dataset
-        assert sat["confidence_score"] is not None
+        assert sat["confidence_score"] is None, "un score non calibré ne doit pas être publié"
 
     def test_la_provenance_est_conservee_avec_l_audit(self, client: TestClient, gfw_live) -> None:
         response = client.post("/api/v1/audit/parcel", json=_audit_payload(COMPLIANT_POLYGON))

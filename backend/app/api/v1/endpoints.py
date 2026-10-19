@@ -149,12 +149,12 @@ def audit_parcel(
         centroid_lon=float(centroid[0]),
         centroid_lat=float(centroid[1]),
         country_code=(satellite or {}).get("country_code", "XX"),
-        country_risk=(satellite or {}).get("country_risk", "STANDARD"),
+        country_risk=(satellite or {}).get("country_risk", "UNKNOWN"),
         compliant=(satellite["compliant"] if satellite else None),
         loss_year=(satellite or {}).get("loss_year"),
         # None = aucune confiance calculable ; 0.0 serait lu comme une mesure.
         confidence_score=(satellite or {}).get("confidence_score"),
-        risk_level=(satellite or {}).get("risk_level", "HIGH"),
+        risk_level=(satellite or {}).get("risk_level", "UNKNOWN"),
         analysis_source=(satellite or {}).get("source", "unavailable"),
         analysis_probative=bool((satellite or {}).get("is_probative", False)),
         analysis_evidence=(satellite or {}).get("evidence"),
@@ -193,8 +193,8 @@ def list_audits(limit: int = Query(default=50, ge=1, le=500), db: Database = Dep
             status=r.status,
             compliant=r.compliant,
             loss_year=r.loss_year,
-            risk_level=r.risk_level,
-            country_code=r.country_code,
+            risk_level=("HIGH" if r.compliant is False else "UNKNOWN"),
+            country_code="XX",
         )
         for r in db.list_audits(limit)
     ]
@@ -205,7 +205,23 @@ def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     record = db.get_audit(audit_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Audit introuvable")
-    return record.__dict__
+    data = record.__dict__.copy()
+    # Neutraliser les valeurs historiques issues des boîtes englobantes.
+    data["country_code"] = "XX"
+    data["country_risk"] = "UNKNOWN"
+    data["risk_level"] = "HIGH" if record.compliant is False else "UNKNOWN"
+    satellite = data.get("satellite")
+    if isinstance(satellite, dict):
+        satellite = dict(satellite)
+        satellite["country_code"] = "XX"
+        satellite["country_name"] = "Non déterminé"
+        satellite["country_risk"] = "UNKNOWN"
+        satellite["risk_level"] = "HIGH" if satellite.get("compliant") is False else "UNKNOWN"
+        details = satellite.get("details")
+        if isinstance(details, str) and ("benchmark UE" in details or "Pays déduit des coordonnées" in details):
+            satellite["details"] = "Classification du pays et benchmark officiel indisponibles."
+        data["satellite"] = satellite
+    return data
 
 
 @router.post(
