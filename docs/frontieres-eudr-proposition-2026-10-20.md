@@ -67,6 +67,13 @@ instruits et approuvés par le responsable produit et le conseil juridique :
 | **OpenStreetMap — limites administratives** | extrait daté | ODbL 1.0 | Précision locale, frontières réelles | Partage à l'identique et attribution ; données mouvantes ; revue juridique nécessaire |
 | **GAUL / source FAO-UE** | édition à figer | à vérifier | Référence institutionnelle possible | Conditions d'utilisation à établir par écrit ; ne pas supposer qu'elle est libre |
 
+**Empreinte SHA-256** : volontairement **non renseignée** à ce stade — aucun
+fichier n'a été téléchargé ni ajouté. Elle est un **préalable bloquant** : le
+script d'import devra la calculer, la comparer à la valeur publiée par la
+source et l'écrire dans `SOURCE.md`. Une empreinte absente ou différente
+interdit l'import ; aucun pays ne doit être attribué à partir d'un fichier non
+vérifié.
+
 Recommandation **à instruire**, pas à appliquer : Natural Earth 5.1.2 pour le
 socle, avec une politique de frontières contestées explicite et un fichier
 `data/frontieres/<version>/countries.geojson` accompagné de
