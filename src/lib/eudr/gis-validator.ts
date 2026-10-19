@@ -10,8 +10,26 @@ import {
   type ValidationIssue,
 } from "./types";
 
-/** Rayon équatorial WGS84 (m). */
-const WGS84_RADIUS = 6378137;
+/**
+ * Ellipsoïde WGS84.
+ *
+ * ⚠️ P2-13 — l'ancien calcul utilisait une **sphère de rayon équatorial**
+ * (6 378 137 m). Un degré de latitude y vaut un degré de longitude, ce qui
+ * surestime systématiquement les surfaces : mesuré 123,9203 ha pour un carré
+ * de 0,01° à l'équateur, contre 123,0907 ha pour la référence géodésique
+ * (`pyproj.Geod`, utilisée par le validateur Python). Soit +0,67 % — assez
+ * pour faire basculer un dossier au voisinage du seuil de 4 ha, et pour que
+ * les deux validateurs rendent des surfaces différentes sur le même fichier.
+ *
+ * La correction retenue est la **latitude authalique** : la sphère de rayon
+ * authalique (6 371 007,18 m) conserve exactement les surfaces de l'ellipsoïde.
+ * Vérification : le même carré vaut 123,0907202 ha côté TS contre 123,0907205
+ * côté pyproj, soit un écart relatif de 2,5 × 10⁻⁹.
+ */
+const WGS84_A = 6378137;
+const WGS84_F = 1 / 298.257223563;
+const WGS84_E2 = WGS84_F * (2 - WGS84_F);
+const WGS84_E = Math.sqrt(WGS84_E2);
 const SUPPORTED = new Set(["Point", "MultiPoint", "Polygon", "MultiPolygon"]);
 
 class ExtractionError extends Error {
@@ -29,6 +47,60 @@ interface PlotItem {
   featureIndex: number;
 }
 
+/**
+ * Vérifie la forme minimale d'une géométrie avant tout parcours.
+ *
+ * ⚠️ P2-09 — `{type: "Polygon"}` sans `coordinates`, un MultiPolygon contenant
+ * `null` ou une GeometryCollection contenant `null` provoquaient un `TypeError`
+ * (donc une erreur 500) au lieu d'un refus de validation. Une entrée hostile ne
+ * doit jamais faire tomber le validateur : elle doit être refusée avec un code.
+ */
+function assertGeometryShape(geometry: Record<string, unknown>, index: number): void {
+  if (typeof geometry.type !== "string") {
+    throw new ExtractionError("INVALID_GEOMETRY", `Parcelle #${index + 1} : champ 'type' manquant`);
+  }
+  if ((geometry.type === "Polygon" || geometry.type === "MultiPolygon") && !Array.isArray(geometry.coordinates)) {
+    throw new ExtractionError(
+      "EMPTY_COORDINATES",
+      `Parcelle #${index + 1} : tableau 'coordinates' absent ou invalide`,
+    );
+  }
+  // Un membre `null` dans un MultiPolygon, ou un anneau `null` dans un
+  // Polygon, était ignoré par le calcul de surface : le refuser est la seule
+  // conduite qui ne modifie pas silencieusement l'emprise déclarée.
+  if (geometry.type === "Polygon") {
+    const rings = geometry.coordinates as unknown[];
+    if (!rings.every((ring) => Array.isArray(ring))) {
+      throw new ExtractionError("INVALID_GEOMETRY", `Parcelle #${index + 1} : anneau de polygone invalide`);
+    }
+  }
+  if (geometry.type === "MultiPolygon") {
+    const polys = geometry.coordinates as unknown[];
+    const valide = polys.every(
+      (poly) => Array.isArray(poly) && (poly as unknown[]).every((ring) => Array.isArray(ring)),
+    );
+    if (!valide) {
+      throw new ExtractionError("INVALID_GEOMETRY", `Parcelle #${index + 1} : polygone ou anneau invalide dans le MultiPolygon`);
+    }
+  }
+  if (geometry.type === "Point" && !Array.isArray(geometry.coordinates)) {
+    throw new ExtractionError("EMPTY_COORDINATES", `Parcelle #${index + 1} : coordonnée absente ou invalide`);
+  }
+  if (geometry.type === "MultiPoint" && !Array.isArray(geometry.coordinates)) {
+    throw new ExtractionError("EMPTY_COORDINATES", `Parcelle #${index + 1} : coordonnées absentes ou invalides`);
+  }
+}
+
+/** Nombre d'anneaux par polygone, sans supposer que la forme est correcte. */
+function ringCountsOf(geometry: Record<string, unknown>): number[] {
+  const coords = geometry.coordinates;
+  if (geometry.type === "Polygon") return Array.isArray(coords) ? [coords.length] : [];
+  if (geometry.type === "MultiPolygon") {
+    return Array.isArray(coords) ? coords.map((poly) => (Array.isArray(poly) ? poly.length : 0)) : [];
+  }
+  return [];
+}
+
 // ---------------------------------------------------------------- Extraction
 function collectPlotItems(input: GeoJsonInput): PlotItem[] {
   if (!input || typeof input !== "object" || typeof input.type !== "string") {
@@ -39,13 +111,26 @@ function collectPlotItems(input: GeoJsonInput): PlotItem[] {
     const features = Array.isArray(input.features) ? (input.features as Record<string, unknown>[]) : [];
     const items: PlotItem[] = [];
     features.forEach((f, idx) => {
-      if (f && typeof f === "object" && f.geometry && typeof f.geometry === "object") {
-        items.push({
-          geometry: f.geometry as Record<string, unknown>,
-          properties: (f.properties as Record<string, unknown>) ?? {},
-          featureIndex: idx,
-        });
+      // ⚠️ P2-03 — une feature sans géométrie était **ignorée**. Un lot de
+      // trois parcelles dont l'une n'avait pas de géométrie était donc validé
+      // et analysé sur deux parcelles, sans que rien ne le signale : la surface
+      // totale, l'emprise et le verdict portaient sur un autre lot que celui
+      // déposé. Une géométrie manquante est un refus, pas un détail.
+      if (!f || typeof f !== "object" || Array.isArray(f)) {
+        throw new ExtractionError("INVALID_FEATURE", `Feature #${idx + 1} invalide (objet attendu)`);
       }
+      if (!f.geometry || typeof f.geometry !== "object" || Array.isArray(f.geometry)) {
+        throw new ExtractionError(
+          "MISSING_GEOMETRY",
+          `Parcelle #${idx + 1} : géométrie absente ou invalide — le lot ne peut pas être validé partiellement`,
+        );
+      }
+      assertGeometryShape(f.geometry as Record<string, unknown>, idx);
+      items.push({
+        geometry: f.geometry as Record<string, unknown>,
+        properties: (f.properties as Record<string, unknown>) ?? {},
+        featureIndex: idx,
+      });
     });
     if (items.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "FeatureCollection vide");
     return items;
@@ -53,6 +138,7 @@ function collectPlotItems(input: GeoJsonInput): PlotItem[] {
   if (type === "Feature") {
     const geom = input.geometry as Record<string, unknown> | null | undefined;
     if (!geom) throw new ExtractionError("MISSING_GEOMETRY", "Feature sans géométrie");
+    assertGeometryShape(geom, 0);
     return [
       {
         geometry: geom,
@@ -64,9 +150,17 @@ function collectPlotItems(input: GeoJsonInput): PlotItem[] {
   if (type === "GeometryCollection") {
     const geoms = Array.isArray(input.geometries) ? (input.geometries as Record<string, unknown>[]) : [];
     if (geoms.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "GeometryCollection vide");
-    return geoms.map((g, idx) => ({ geometry: g, properties: {}, featureIndex: idx }));
+    return geoms.map((g, idx) => {
+      if (!g || typeof g !== "object" || Array.isArray(g)) {
+        throw new ExtractionError("INVALID_GEOMETRY", `Géométrie #${idx + 1} invalide (objet attendu)`);
+      }
+      assertGeometryShape(g, idx);
+      return { geometry: g, properties: {}, featureIndex: idx };
+    });
   }
-  return [{ geometry: input as unknown as Record<string, unknown>, properties: {}, featureIndex: 0 }];
+  const naked = input as unknown as Record<string, unknown>;
+  assertGeometryShape(naked, 0);
+  return [{ geometry: naked, properties: {}, featureIndex: 0 }];
 }
 
 // ---------------------------------------------------------------- Utilitaires numériques
@@ -149,26 +243,60 @@ function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
-/** Surface géodésique d'un anneau (m²) — algorithme Chamberlain & Duquette (NASA JPL). */
+/** Fonction q(φ) de l'aplatissement, utilisée pour la latitude authalique. */
+function qAuthalique(phi: number): number {
+  const sinPhi = Math.sin(phi);
+  return (
+    (1 - WGS84_E2) *
+    (sinPhi / (1 - WGS84_E2 * sinPhi * sinPhi) -
+      (1 / (2 * WGS84_E)) * Math.log((1 - WGS84_E * sinPhi) / (1 + WGS84_E * sinPhi)))
+  );
+}
+
+const Q_POLE = qAuthalique(Math.PI / 2);
+/** Rayon de la sphère authalique (m) : même surface que l'ellipsoïde WGS84. */
+const RAYON_AUTHALIQUE = WGS84_A * Math.sqrt(Q_POLE / 2);
+
+/** Latitude authalique (radians) d'une latitude géodésique. */
+function latitudeAuthalique(phi: number): number {
+  const ratio = qAuthalique(phi) / Q_POLE;
+  return Math.asin(Math.max(-1, Math.min(1, ratio)));
+}
+
+/**
+ * Surface ellipsoïdale d'un anneau (m²).
+ *
+ * Somme de Chamberlain & Duquette (NASA JPL) appliquée à la **sphère
+ * authalique** : les longitudes restent géodésiques, les latitudes sont
+ * converties en latitude authalique. Cette combinaison conserve exactement les
+ * surfaces de l'ellipsoïde WGS84 (cf. constantes ci-dessus).
+ */
 function ringArea(ring: Position[]): number {
   const n = ring.length;
-  if (n < 3) return 0;
+  if (n < 3 || !ring.every(isPosition)) return 0;
   let total = 0;
   for (let i = 0; i < n; i++) {
     const lower = ring[i];
     const middle = ring[(i + 1) % n];
     const upper = ring[(i + 2) % n];
-    total += (toRad(upper[0]) - toRad(lower[0])) * Math.sin(toRad(middle[1]));
+    total +=
+      (toRad(upper[0]) - toRad(lower[0])) * Math.sin(latitudeAuthalique(toRad(middle[1])));
   }
-  return (total * WGS84_RADIUS * WGS84_RADIUS) / 2;
+  return (total * RAYON_AUTHALIQUE * RAYON_AUTHALIQUE) / 2;
 }
 
 /** Surface géodésique totale (ha) d'un polygone avec trous éventuels. */
 function polygonAreaHa(coords: Position[][]): number {
-  if (coords.length === 0) return 0;
+  if (!Array.isArray(coords) || coords.length === 0) return 0;
+  // Un anneau extérieur malformé rend le polygone inexploitable : mieux vaut
+  // une surface nulle (refus DEGENERATE_POLYGON) qu'une surface partielle
+  // calculée sur une enclave.
+  if (!Array.isArray(coords[0]) || !coords[0].every(isPosition)) return 0;
   let area = Math.abs(ringArea(coords[0]));
   for (let i = 1; i < coords.length; i++) {
-    area -= Math.abs(ringArea(coords[i]));
+    const ring = coords[i];
+    if (!Array.isArray(ring)) continue;
+    area -= Math.abs(ringArea(ring));
   }
   return Math.max(0, area) / 10000;
 }
@@ -195,7 +323,7 @@ function checkRingsClosed(geom: Record<string, unknown>): string[] {
     rings.push(...((geom.coordinates as Position[][]) ?? []));
   } else if (type === "MultiPolygon") {
     for (const poly of (geom.coordinates as Position[][][]) ?? []) {
-      rings.push(...poly);
+      if (Array.isArray(poly)) rings.push(...poly);
     }
   }
   rings.forEach((ring, idx) => {
@@ -209,6 +337,36 @@ function checkRingsClosed(geom: Record<string, unknown>): string[] {
     }
   });
   return problems;
+}
+
+/**
+ * Détecte un franchissement de l'antiméridien (180°).
+ *
+ * ⚠️ P2-04 — une parcelle fidjienne décrite de 179,9° à -179,9° n'est pas un
+ * polygone de 42,8 millions d'hectares : c'est un polygone qui traverse la
+ * ligne de changement de date. L'ancien calcul prenait la différence brute des
+ * longitudes et produisait une surface et une emprise fausses, sans refus.
+ * Le produit ne sait pas encore traiter ce cas ; le refuser explicitement vaut
+ * mieux que rendre une mesure inventée.
+ */
+function crossesAntimeridian(geom: Record<string, unknown>): boolean {
+  const rings: Position[][] = [];
+  if (geom.type === "Polygon") {
+    rings.push(...((geom.coordinates as Position[][]) ?? []));
+  } else if (geom.type === "MultiPolygon") {
+    for (const poly of (geom.coordinates as Position[][][]) ?? []) {
+      if (Array.isArray(poly)) rings.push(...poly);
+    }
+  }
+  for (const ring of rings) {
+    if (!Array.isArray(ring)) continue;
+    for (let i = 1; i < ring.length; i++) {
+      const [lonA] = ring[i - 1] ?? [];
+      const [lonB] = ring[i] ?? [];
+      if (typeof lonA === "number" && typeof lonB === "number" && Math.abs(lonB - lonA) > 180) return true;
+    }
+  }
+  return false;
 }
 
 function ccw(p1: Position, p2: Position, p3: Position): number {
@@ -540,12 +698,7 @@ export function validateGeometry(geojson: GeoJsonInput, options: ValidateGeometr
   // sûre ; l'opérateur doit découper en deux parcelles distinctes.
   for (const item of plotItems) {
     const g = item.geometry;
-    const ringsPerPolygon: number[] =
-      g.type === "Polygon"
-        ? [(g.coordinates as Position[][]).length]
-        : g.type === "MultiPolygon"
-          ? (g.coordinates as Position[][][]).map((poly) => poly.length)
-          : [];
+    const ringsPerPolygon: number[] = ringCountsOf(g);
     const avecTrous = ringsPerPolygon.findIndex((n) => n > 1);
     if (avecTrous >= 0) {
       errors.push({
@@ -558,6 +711,20 @@ export function validateGeometry(geojson: GeoJsonInput, options: ValidateGeometr
           `Le SI EUDR refuse les trous (anneaux intérieurs). ` +
           `Découpez la parcelle en autant de parcelles distinctes que de zones, ` +
           `ou supprimez l'enclave si elle n'est pas exploitée.`,
+      });
+    }
+  }
+  if (errors.length > 0) return result;
+
+  // ---------------------------------------------------------------- P2-04 — antiméridien
+  for (const item of plotItems) {
+    if (crossesAntimeridian(item.geometry)) {
+      errors.push({
+        code: "ANTIMERIDIAN_UNSUPPORTED",
+        message:
+          `Parcelle #${item.featureIndex + 1} : la géométrie franchit l'antiméridien (180°). ` +
+          `Surface et emprise ne peuvent pas être calculées correctement en degrés ; ` +
+          `découpez la parcelle de part et d'autre de la ligne de changement de date.`,
       });
     }
   }
@@ -587,6 +754,9 @@ export function validateGeometry(geojson: GeoJsonInput, options: ValidateGeometr
     // L'arrêt est immédiat : inutile de continuer à parcourir une géométrie
     // hostile pour lui trouver encore des défauts.
     if (allPositions.length > SOMMETS_MAX) {
+      // Le décompte est renseigné avant le refus : un dossier rejeté doit
+      // indiquer sur quoi il portait, pas « 0 sommet ».
+      result.vertex_count = allPositions.length;
       errors.push({
         code: "TOO_MANY_VERTICES",
         message: `Trop de sommets : plus de ${SOMMETS_MAX.toLocaleString("fr-FR")}. `
@@ -664,7 +834,9 @@ export function validateGeometry(geojson: GeoJsonInput, options: ValidateGeometr
     if (!isPoint) {
       const polys = g.type === "Polygon" ? [(g.coordinates as Position[][])] : (g.coordinates as Position[][][]);
       for (const poly of polys ?? []) {
+        if (!Array.isArray(poly)) continue;
         for (const ring of poly) {
+          if (!Array.isArray(ring)) continue;
           const hit = ringSelfIntersects(ring);
           if (hit) {
             errors.push({
@@ -699,7 +871,7 @@ export function validateGeometry(geojson: GeoJsonInput, options: ValidateGeometr
         const nameStr = (item.properties.name as string) ?? `Parcelle #${item.featureIndex + 1}`;
         errors.push({
           code: "POLYGON_REQUIRED",
-          message: `${nameStr} : surface ${effectivePlotArea.toFixed(2)} ha ≥ ${EUDR_POLYGON_THRESHOLD_HA} ha. L'EUDR exige un polygone (art. 9(1)(d)), un point n'est pas suffisant.`,
+          message: `${nameStr} : surface ${effectivePlotArea.toFixed(2)} ha > ${EUDR_POLYGON_THRESHOLD_HA} ha. L'EUDR exige un polygone (art. 9(1)(d)), un point n'est pas suffisant.`,
         });
       } else if (declaredAreaHa === null || declaredAreaHa === undefined) {
         warnings.push({
@@ -720,6 +892,26 @@ export function validateGeometry(geojson: GeoJsonInput, options: ValidateGeometr
 
   if (errors.some((e) => e.code === "RING_NOT_CLOSED")) {
     return result;
+  }
+
+  // ---------------------------------------------------------------- P2-05 — surface déclarée
+  // ⚠️ La surface déclarée n'est comparée que si le dossier ne contient que
+  // des polygones : pour un lot de points, la surface déclarée est la seule
+  // mesure disponible (un point n'a pas de surface) et la comparer à zéro
+  // n'aurait aucun sens.
+  const aucunPoint = plotItems.every((p) => p.geometry.type !== "Point" && p.geometry.type !== "MultiPoint");
+  if (aucunPoint && declaredAreaHa !== null && declaredAreaHa > 0) {
+    const ecart = Math.abs(declaredAreaHa - totalGeodesicAreaHa);
+    const tolerance = Math.max(0.1, totalGeodesicAreaHa * 0.1);
+    if (ecart > tolerance) {
+      warnings.push({
+        code: "DECLARED_AREA_MISMATCH",
+        message:
+          `Surface déclarée ${declaredAreaHa.toFixed(2)} ha, surface géodésique calculée ` +
+          `${totalGeodesicAreaHa.toFixed(2)} ha : écart de ${ecart.toFixed(2)} ha. ` +
+          `Vérifiez la saisie ou le système de coordonnées du fichier.`,
+      });
+    }
   }
 
   result.area_ha = Number(totalGeodesicAreaHa.toFixed(4));

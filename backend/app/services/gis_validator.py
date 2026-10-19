@@ -25,6 +25,10 @@ from app.core.config import settings
 
 _GEOD = Geod(ellps="WGS84")
 _SUPPORTED_TYPES = {"Point", "MultiPoint", "Polygon", "MultiPolygon"}
+# ⚠️ Même plafond que le validateur TypeScript (P1-07) : sans lui, un fichier
+# de plusieurs centaines de milliers de sommets monopolise le service et les
+# deux validateurs rendent des verdicts différents sur le même fichier.
+SOMMETS_MAX = 10_000
 
 
 class GeometryExtractionError(ValueError):
@@ -120,6 +124,34 @@ class SinglePlotItem:
     feature_index: int
 
 
+def _assert_geometry_shape(geometry: Dict[str, Any], index: int) -> None:
+    """Vérifie la forme minimale d'une géométrie avant tout parcours.
+
+    ⚠️ P2-09 — un MultiPolygon contenant `null` ou une GeometryCollection
+    contenant `null` provoquait un TypeError (erreur 500) au lieu d'un refus.
+    Une entrée hostile ne doit jamais faire tomber le validateur.
+    """
+    gtype = geometry.get("type")
+    if not isinstance(gtype, str):
+        raise GeometryExtractionError("INVALID_GEOMETRY", f"Parcelle #{index + 1} : champ 'type' manquant")
+    coordinates = geometry.get("coordinates")
+    if gtype in {"Polygon", "MultiPolygon"} and not isinstance(coordinates, list):
+        raise GeometryExtractionError(
+            "EMPTY_COORDINATES", f"Parcelle #{index + 1} : tableau 'coordinates' absent ou invalide"
+        )
+    if gtype == "Polygon" and not all(isinstance(ring, list) for ring in coordinates):
+        raise GeometryExtractionError("INVALID_GEOMETRY", f"Parcelle #{index + 1} : anneau de polygone invalide")
+    if gtype == "MultiPolygon":
+        valide = all(
+            isinstance(poly, list) and all(isinstance(ring, list) for ring in poly)
+            for poly in coordinates
+        )
+        if not valide:
+            raise GeometryExtractionError(
+                "INVALID_GEOMETRY", f"Parcelle #{index + 1} : polygone ou anneau invalide dans le MultiPolygon"
+            )
+
+
 def _collect_plot_items(geojson: Dict[str, Any]) -> List[SinglePlotItem]:
     """Retourne la liste des parcelles individuelles contenues dans le GeoJSON."""
     if not isinstance(geojson, dict) or "type" not in geojson:
@@ -132,14 +164,25 @@ def _collect_plot_items(geojson: Dict[str, Any]) -> List[SinglePlotItem]:
             raise GeometryExtractionError("EMPTY_COLLECTION", "FeatureCollection vide")
         items: List[SinglePlotItem] = []
         for idx, feat in enumerate(features):
-            if isinstance(feat, dict) and feat.get("geometry"):
-                items.append(
-                    SinglePlotItem(
-                        geometry=feat["geometry"],
-                        properties=feat.get("properties") or {},
-                        feature_index=idx,
-                    )
+            # ⚠️ P2-03 — une feature sans géométrie était ignorée : le lot était
+            # validé et analysé sur les autres parcelles, sans le signaler. Une
+            # géométrie manquante est un refus, jamais un détail.
+            if not isinstance(feat, dict):
+                raise GeometryExtractionError("INVALID_FEATURE", f"Feature #{idx + 1} invalide (objet attendu)")
+            geometry = feat.get("geometry")
+            if not isinstance(geometry, dict):
+                raise GeometryExtractionError(
+                    "MISSING_GEOMETRY",
+                    f"Parcelle #{idx + 1} : géométrie absente ou invalide — "
+                    "le lot ne peut pas être validé partiellement",
                 )
+            items.append(
+                SinglePlotItem(
+                    geometry=geometry,
+                    properties=feat.get("properties") or {},
+                    feature_index=idx,
+                )
+            )
         if not items:
             raise GeometryExtractionError("EMPTY_COLLECTION", "Aucune géométrie dans la FeatureCollection")
         return items
@@ -148,14 +191,22 @@ def _collect_plot_items(geojson: Dict[str, Any]) -> List[SinglePlotItem]:
         geom = geojson.get("geometry")
         if not geom:
             raise GeometryExtractionError("MISSING_GEOMETRY", "Feature sans géométrie")
+        _assert_geometry_shape(geom, 0)
         return [SinglePlotItem(geometry=geom, properties=geojson.get("properties") or {}, feature_index=0)]
 
     if gtype == "GeometryCollection":
         geoms = geojson.get("geometries") or []
         if not geoms:
             raise GeometryExtractionError("EMPTY_COLLECTION", "GeometryCollection vide")
-        return [SinglePlotItem(geometry=g, properties={}, feature_index=idx) for idx, g in enumerate(geoms)]
+        items: List[SinglePlotItem] = []
+        for idx, g in enumerate(geoms):
+            if not isinstance(g, dict):
+                raise GeometryExtractionError("INVALID_GEOMETRY", f"Géométrie #{idx + 1} invalide (objet attendu)")
+            _assert_geometry_shape(g, idx)
+            items.append(SinglePlotItem(geometry=g, properties={}, feature_index=idx))
+        return items
 
+    _assert_geometry_shape(geojson, 0)
     return [SinglePlotItem(geometry=geojson, properties={}, feature_index=0)]
 
 
@@ -168,7 +219,8 @@ def _check_rings_closed(geom: Dict[str, Any]) -> List[str]:
         rings = list(geom.get("coordinates") or [])
     elif gtype == "MultiPolygon":
         for poly in geom.get("coordinates") or []:
-            rings.extend(poly)
+            if isinstance(poly, list):
+                rings.extend(poly)
     for idx, ring in enumerate(rings):
         if not isinstance(ring, list) or len(ring) < 4:
             problems.append(f"anneau #{idx + 1} : un polygone fermé requiert au moins 4 positions")
@@ -177,6 +229,49 @@ def _check_rings_closed(geom: Dict[str, Any]) -> List[str]:
         if list(first[:2]) != list(last[:2]):
             problems.append(f"anneau #{idx + 1} : première et dernière position différentes (anneau non fermé)")
     return problems
+
+
+def _crosses_antimeridian(geometry: Dict[str, Any]) -> bool:
+    """Vrai si un anneau franchit la ligne de changement de date (180°).
+
+    ⚠️ P2-04 — une parcelle fidjienne décrite de 179,9° à -179,9° n'a pas une
+    surface de 42,8 millions d'hectares : la différence brute des longitudes
+    fabrique une emprise mondiale. Le produit ne sait pas encore traiter ce
+    cas ; le refuser vaut mieux que rendre une mesure inventée.
+    """
+    rings: List[Any] = []
+    gtype = geometry.get("type")
+    if gtype == "Polygon":
+        rings = list(geometry.get("coordinates") or [])
+    elif gtype == "MultiPolygon":
+        for poly in geometry.get("coordinates") or []:
+            if isinstance(poly, list):
+                rings.extend(poly)
+    for ring in rings:
+        if not isinstance(ring, list):
+            continue
+        for previous, current in zip(ring, ring[1:]):
+            if (
+                isinstance(previous, (list, tuple))
+                and isinstance(current, (list, tuple))
+                and len(previous) >= 1
+                and len(current) >= 1
+                and isinstance(previous[0], (int, float))
+                and isinstance(current[0], (int, float))
+                and abs(float(current[0]) - float(previous[0])) > 180
+            ):
+                return True
+    return False
+
+
+def _polygon_ring_counts(geometry: Dict[str, Any]) -> List[int]:
+    """Nombre d'anneaux par polygone (1 = sans trou)."""
+    gtype = geometry.get("type")
+    if gtype == "Polygon":
+        return [len(geometry.get("coordinates") or [])]
+    if gtype == "MultiPolygon":
+        return [len(poly) if isinstance(poly, list) else 0 for poly in (geometry.get("coordinates") or [])]
+    return []
 
 
 def geodesic_area_ha(geom: BaseGeometry) -> float:
@@ -196,7 +291,7 @@ def _round_coords(coords: Any, decimals: Optional[int] = None) -> Any:
     return coords
 
 
-def _round_geometry(geom: BaseGeometry, decimals: int = 8) -> Dict[str, Any]:
+def _round_geometry(geom: BaseGeometry, decimals: int = 6) -> Dict[str, Any]:
     """Sérialise en GeoJSON avec un arrondi stable (8 décimales ≈ 1 mm)."""
     raw = mapping(geom)
     return {"type": raw["type"], "coordinates": _round_coords(raw["coordinates"], decimals or settings.eudr_is_coordinate_decimals)}
@@ -259,6 +354,44 @@ def validate_geometry(
             )
             return result
 
+    # 1bis. Trous (P1-16) — le SI EUDR refuse les anneaux intérieurs.
+    # ⚠️ Le validateur TypeScript les refusait déjà ; le backend les acceptait,
+    # si bien que le même fichier était valide côté frontend et invalide (ou
+    # l'inverse) selon l'interface appelée. Une enclave non exploitée traitée
+    # comme une parcelle pleine surestime la surface et fausse l'analyse.
+    for item in plot_items:
+        counts = _polygon_ring_counts(item.geometry)
+        troue = next((i for i, n in enumerate(counts) if n > 1), None)
+        if troue is not None:
+            errors.append(
+                {
+                    "code": "POLYGON_WITH_HOLES",
+                    "message": (
+                        f"Parcelle #{item.feature_index + 1} : le polygone #{troue + 1} comporte "
+                        f"{counts[troue]} anneaux. Le SI EUDR refuse les trous (anneaux intérieurs). "
+                        "Découpez la parcelle en autant de parcelles distinctes que de zones."
+                    ),
+                }
+            )
+    if errors:
+        return result
+
+    # 1ter. Antiméridien (P2-04)
+    for item in plot_items:
+        if _crosses_antimeridian(item.geometry):
+            errors.append(
+                {
+                    "code": "ANTIMERIDIAN_UNSUPPORTED",
+                    "message": (
+                        f"Parcelle #{item.feature_index + 1} : la géométrie franchit l'antiméridien (180°). "
+                        "Surface et emprise ne peuvent pas être calculées correctement en degrés ; "
+                        "découpez la parcelle de part et d'autre de la ligne de changement de date."
+                    ),
+                }
+            )
+    if errors:
+        return result
+
     # 2. Collecte des coordonnées et vérification précision ------------------
     all_positions: List[Tuple[float, float]] = []
     for item in plot_items:
@@ -273,6 +406,20 @@ def validate_geometry(
             )
             return result
         all_positions.extend(pos)
+
+        # P1-07 — même plafond que le validateur TypeScript.
+        if len(all_positions) > SOMMETS_MAX:
+            result["vertex_count"] = len(all_positions)
+            errors.append(
+                {
+                    "code": "TOO_MANY_VERTICES",
+                    "message": (
+                        f"Trop de sommets : plus de {SOMMETS_MAX:,} (reçu {len(all_positions):,}). "
+                        "Simplifier la géométrie ou découper la parcelle avant import."
+                    ),
+                }
+            )
+            return result
 
     result["vertex_count"] = len(all_positions)
 
@@ -418,6 +565,25 @@ def validate_geometry(
     geodesic_total_ha = sum(geodesic_area_ha(sh) for sh in shapely_geoms)
     result["area_ha"] = round(geodesic_total_ha, 4)
     result["eudr_geometry_rule"] = "POLYGON_REQUIRED" if has_polygon_required else "POINT_ALLOWED"
+
+    # P2-05 — écart entre surface déclarée et surface calculée. Comparaison
+    # réservée aux dossiers sans point : pour un point, la surface déclarée est
+    # la seule mesure disponible et la comparer à zéro n'aurait aucun sens.
+    aucun_point = all(p.geometry.get("type") not in {"Point", "MultiPoint"} for p in plot_items)
+    if aucun_point and declared_area_ha is not None and declared_area_ha > 0:
+        ecart = abs(float(declared_area_ha) - geodesic_total_ha)
+        tolerance = max(0.1, geodesic_total_ha * 0.1)
+        if ecart > tolerance:
+            warnings.append(
+                {
+                    "code": "DECLARED_AREA_MISMATCH",
+                    "message": (
+                        f"Surface déclarée {float(declared_area_ha):.2f} ha, surface géodésique calculée "
+                        f"{geodesic_total_ha:.2f} ha : écart de {ecart:.2f} ha. "
+                        "Vérifiez la saisie ou le système de coordonnées du fichier."
+                    ),
+                }
+            )
 
     # Centroid & Bounding Box
     all_lons = [p[0] for p in all_positions]

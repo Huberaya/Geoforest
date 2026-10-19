@@ -40,8 +40,19 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install frontend dependencies & build
+      - name: Install frontend dependencies
         run: |
           set -euo pipefail
           npm ci || npm install
-          npm run build
+
+      # Les contrôles EUDR ne dépendent ni de la base ni du réseau : ils
+      # vérifient le validateur géospatial et le moteur de risque hors ligne.
+      - name: Frontend EUDR & GIS checks
+        run: npm run test:gis
+
+      # ⚠️ Le build s'exécute SANS base de données, comme chez l'hébergeur.
+      #   Il évaluait auparavant `src/db/admin.ts`, qui construisait un pool au
+      #   niveau du module : le build échouait sur `/api/metrics`. Le test
+      #   `test:demarrage` (inclus dans `test:gis`) verrouille cette propriété.
+      - name: Build frontend
+        run: npm run build

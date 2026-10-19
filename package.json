@@ -13,8 +13,10 @@
     "lint": "eslint .",
     "seed:auth": "tsx scripts/seed-auth.ts",
     "start": "next start",
-    "test:eudr": "tsx scripts/check-eudr-rules.ts",
-    "typecheck": "tsc --noEmit"
+    "test:eudr": "node --conditions=react-server --import tsx scripts/check-eudr-rules.ts",
+    "test:gis": "npm run test:eudr && node --conditions=react-server --import tsx scripts/check-eudr-geo-edge-cases.ts && node --conditions=react-server --import tsx scripts/check-gis-topology.ts && npm run test:demarrage",
+    "typecheck": "tsc --noEmit",
+    "test:demarrage": "node --conditions=react-server --import tsx scripts/check-demarrage-sans-config.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",

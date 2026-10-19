@@ -8,8 +8,13 @@ CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS parcel_audits (
     id               TEXT PRIMARY KEY,
     created_at       TEXT NOT NULL,
-    operator_name    TEXT NOT NULL,
-    operator_eori    TEXT NOT NULL,
+    -- P2-15 — identité FACULTATIVE : NULL = non renseignée.
+    -- Ces colonnes étaient NOT NULL et la route fabriquait un EORI
+    -- « XX0000000000000 » : une valeur qui a la forme d'une identité et se
+    -- confond ensuite avec une donnée réelle. Voir `_migrer_identite_operateur`.
+    operator_name    TEXT,
+    operator_eori    TEXT,
+    operator_country TEXT,
     commodity        TEXT NOT NULL,
     hs_code          TEXT NOT NULL,
     harvest_date     TEXT NOT NULL,
@@ -47,8 +52,9 @@ class ParcelAuditRecord:
 
     id: str
     created_at: str
-    operator_name: str
-    operator_eori: str
+    # P2-15 — None = identité non renseignée. Jamais une valeur de remplissage.
+    operator_name: Optional[str]
+    operator_eori: Optional[str]
     commodity: str
     hs_code: str
     harvest_date: str
@@ -73,5 +79,9 @@ class ParcelAuditRecord:
     analysis_source: str = "unavailable"
     analysis_probative: bool = False
     analysis_evidence: Optional[Dict[str, Any]] = None
+    # P2-15 — pays de l'opérateur, facultatif comme le reste de son identité.
+    # Placé ici parce qu'une dataclass interdit un champ obligatoire après un
+    # champ pourvu d'une valeur par défaut.
+    operator_country: Optional[str] = None
     draft_reference: Optional[str] = None
     draft_generated_at: Optional[str] = None

@@ -7,6 +7,7 @@ Le backend stocke chaque audit de parcelle afin de pouvoir :
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 import threading
@@ -40,7 +41,48 @@ class Database:
     def _init_schema(self) -> None:
         with self._lock:
             self._conn.executescript(CREATE_TABLES_SQL)
+            self._migrer_identite_operateur()
             self._conn.commit()
+
+    def _migrer_identite_operateur(self) -> None:
+        """P2-15 — rend l'identité de l'opérateur facultative (SQLite).
+
+        ⚠️ `CREATE TABLE IF NOT EXISTS` ne touche pas une table déjà créée : une
+        base antérieure conserve donc `operator_eori NOT NULL`, et l'insertion
+        d'un dossier sans identité échouerait. SQLite ne sait pas retirer une
+        contrainte NOT NULL ; il faut reconstruire la table.
+
+        La reconstruction suit la procédure officielle et **ne perd aucune
+        ligne** : renommage, création au nouveau schéma, copie intégrale,
+        suppression de l'ancienne. Les identités existantes sont copiées
+        telles quelles — y compris la valeur de remplissage héritée, qui n'est
+        ni effacée ni réécrite : sa reprise est une décision explicite (cf.
+        `docs/VALIDATION_GEOFOREST_2026-10-19.md`).
+        """
+        colonnes = {
+            ligne["name"]: ligne
+            for ligne in self._conn.execute("PRAGMA table_info(parcel_audits)")
+        }
+        if not colonnes or "operator_eori" not in colonnes:
+            return
+        if not colonnes["operator_eori"]["notnull"]:
+            return  # déjà migrée
+
+        logger = logging.getLogger(__name__)
+        logger.info("P2-15 : migration de parcel_audits (identité opérateur facultative)")
+
+        noms = [ligne["name"] for ligne in self._conn.execute("PRAGMA table_info(parcel_audits)")]
+        liste = ", ".join(f'"{nom}"' for nom in noms)
+
+        self._conn.execute("ALTER TABLE parcel_audits RENAME TO parcel_audits_avant_p2_15")
+        self._conn.executescript(CREATE_TABLES_SQL)
+        self._conn.execute(
+            f"INSERT INTO parcel_audits ({liste}) SELECT {liste} FROM parcel_audits_avant_p2_15"
+        )
+        self._conn.execute("DROP TABLE parcel_audits_avant_p2_15")
+        logger.info("P2-15 : %s ligne(s) conservée(s)", self._conn.execute(
+            "SELECT COUNT(*) AS n FROM parcel_audits"
+        ).fetchone()["n"])
 
     @contextmanager
     def cursor(self) -> Iterator[sqlite3.Cursor]:
@@ -61,19 +103,20 @@ class Database:
             cur.execute(
                 """
                 INSERT INTO parcel_audits (
-                    id, created_at, operator_name, operator_eori, commodity, hs_code,
+                    id, created_at, operator_name, operator_eori, operator_country, commodity, hs_code,
                     harvest_date, geometry_json, geometry_type, area_ha, vertex_count,
                     centroid_lon, centroid_lat, country_code, country_risk,
                     compliant, loss_year, confidence_score, analysis_source,
                     analysis_probative, analysis_evidence, risk_level, status,
                     validation_json, satellite_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.id,
                     record.created_at,
                     record.operator_name,
                     record.operator_eori,
+                    record.operator_country,
                     record.commodity,
                     record.hs_code,
                     record.harvest_date,
@@ -130,6 +173,7 @@ class Database:
             created_at=data["created_at"],
             operator_name=data["operator_name"],
             operator_eori=data["operator_eori"],
+            operator_country=data.get("operator_country"),
             commodity=data["commodity"],
             hs_code=data["hs_code"],
             harvest_date=data["harvest_date"],

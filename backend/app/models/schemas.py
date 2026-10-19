@@ -133,6 +133,8 @@ class AnalysisEvidence(BaseModel):
     """Trace d'exécution d'une analyse probante (reproductibilité)."""
 
     provider: str
+    # P2-08 — vrai uniquement si l'hôte interrogé est le service officiel GFW.
+    is_official_source: bool = False
     dataset: str
     dataset_version: str
     endpoint: str
@@ -159,6 +161,10 @@ class SatelliteCheckResult(BaseModel):
     source: Literal["gfw-live", "simulated", "unavailable"]
     is_probative: bool = False
     evidence: Optional[AnalysisEvidence] = None
+    # P1-10 — méthode, version, paramètres et limites de l'analyse. Un verdict
+    # sans sa méthode n'est pas opposable ; les limites sont conservées avec le
+    # résultat.
+    provenance: Optional[Dict[str, Any]] = None
     disclaimer: Optional[str] = None
     loss_area_ha: float = 0.0
     tree_cover_2000_pct: Optional[float] = None
@@ -176,6 +182,10 @@ class ParcelAuditResponse(BaseModel):
     satellite: Optional[SatelliteCheckResult] = None
     eudr_cutoff_date: date
     summary: str
+    # P2-15 — identité telle qu'elle a été déclarée. `None` = non renseignée ;
+    # aucune valeur de remplissage n'est produite.
+    operator: Optional[OperatorInfo] = None
+    operator_identity: Literal["declared", "missing", "legacy_placeholder"] = "missing"
 
 
 class TracesExportRequest(BaseModel):
@@ -192,20 +202,27 @@ class TracesExportRequest(BaseModel):
     activity_type: Literal["IMPORT", "EXPORT", "DOMESTIC"] = "IMPORT"
     net_weight_kg: Optional[float] = Field(default=None, ge=0)
     internal_reference: Optional[str] = Field(default=None, max_length=50)
-    country_of_activity: str = Field(default="FR", min_length=2, max_length=2)
+    # P2-15 — plus de « FR » par défaut. À défaut, le pays d'activité est déduit
+    # du pays réellement connu de l'opérateur ; s'il n'y en a aucun, l'export est
+    # refusé plutôt que de faire porter au dossier une nationalité inventée.
+    country_of_activity: Optional[str] = Field(default=None, min_length=2, max_length=2)
 
 
 class AuditSummary(BaseModel):
     audit_id: str
     created_at: str
-    operator_name: str
+    # P2-15 — None = identité non renseignée (et non « Opérateur non renseigné »).
+    operator_name: Optional[str]
     commodity: str
     hs_code: str
     harvest_date: str
     area_ha: float
     geometry_type: str
     status: str
-    compliant: bool
+    # Nullable : une analyse non probante n'a pas de verdict. Un `bool` requis
+    # faisait échouer la sérialisation de la liste des audits (erreur 500) dès
+    # qu'un dossier « analyse indisponible » y figurait.
+    compliant: Optional[bool]
     loss_year: Optional[int]
     risk_level: str
     country_code: str

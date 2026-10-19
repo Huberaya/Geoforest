@@ -49,8 +49,15 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
-data/
-/data
+data/*
+/data/*
+# ⚠️ Exception volontaire : le référentiel de frontières est une *source* de
+#   vérité, pas une donnée d'exécution. S'il reste ignoré, un clone ne peut plus
+#   résoudre un pays, et les tests de parité TS/Python échouent sans que rien ne
+#   dise pourquoi. Il est figé (756 Ko) et sa provenance est écrite dans
+#   data/frontieres/PROVENANCE.md.
+!/data/frontieres/
+!/data/frontieres/**
 *.local.db
 
 # Environment variables

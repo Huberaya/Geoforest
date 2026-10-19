@@ -151,6 +151,19 @@ grant execute on function current_org() to geoforest_app;
 grant execute on function auth_user_by_email(text) to geoforest_app;
 grant execute on function auth_user_by_id(uuid) to geoforest_app;
 
+-- ⚠️ P2-15 — la vue de reprise `v_parcel_audits_identite` est en lecture seule.
+--   `grant … on all tables` la couvre comme une table : sans ce retrait, le
+--   rôle applicatif recevrait INSERT et UPDATE sur une vue, et le premier
+--   `INSERT` échouerait à l'exécution au lieu d'échouer à la conception.
+do $vue$
+begin
+  if exists (
+    select 1 from pg_views where schemaname = 'public' and viewname = 'v_parcel_audits_identite'
+  ) then
+    execute 'revoke insert, update, delete, truncate on v_parcel_audits_identite from geoforest_app';
+  end if;
+end $vue$;
+
 -- Aucune de nos tables ne doit rester destructible par l'application.
 do $$
 declare

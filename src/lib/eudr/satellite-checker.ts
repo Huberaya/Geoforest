@@ -1,65 +1,158 @@
 import { createHash } from "node:crypto";
 import { geodesicAreaHa } from "./gis-validator";
+import { resoudrePays } from "./frontieres";
 import { EUDR_CUTOFF_DATE, EUDR_CUTOFF_YEAR, type AnalysisEvidence, type Position, type RiskLevel, type SatelliteCheckResult, type SupportedGeometry } from "./types";
 import { incrementer, noterJauges } from "@/lib/observability/metriques";
 import { journal } from "@/lib/observability/journal";
 
 // ---------------------------------------------------------------- Benchmark pays (Commission UE, art. 29 EUDR)
-interface CountryBox {
-  iso2: string;
-  name: string;
-  box: [number, number, number, number]; // lonMin, latMin, lonMax, latMax
-  risk: RiskLevel;
-}
+/**
+ * P2-16 — table de risque **par pays**, et résolution par frontières réelles.
+ *
+ * ⚠️ Ce qui a changé, et pourquoi.
+ *   La résolution testait l'appartenance à des rectangles (`COUNTRY_BOXES`).
+ *   Or un rectangle n'est pas un pays : la boîte « Union européenne » couvrait
+ *   la Tunisie, l'Algérie, le Maroc, la Serbie et l'Ukraine. Tunis, Alger,
+ *   Tanger et Belgrade étaient donc attribués à l'Union européenne, Kiev et
+ *   Oulan-Bator à la Russie, et Hokkaido à la Russie. Ces attributions étaient
+ *   fausses, et présentées comme des pays.
+ *
+ *   Le pays est désormais résolu par les frontières Natural Earth 1:50m
+ *   versionnées dans `data/frontieres/` (cf. `frontieres.ts` et le
+ *   `PROVENANCE.md` du dossier). Un point qui n'appartient à aucun pays est
+ *   rendu `XX` — « non déterminé » — et non attribué au voisin le plus proche.
+ *
+ * ⚠️ Ce qui n'a pas changé, et ne doit pas être confondu.
+ *   Le niveau de risque reste une **table interne non vérifiée**. Résoudre
+ *   correctement le pays ne rend pas la classification réglementaire exacte :
+ *   ce sont deux contrôles distincts. Un risque `LOW` n'est toujours pas retenu
+ *   au niveau de l'audit (cf. `risqueRetenu`).
+ */
 
-const COUNTRY_BOXES: CountryBox[] = [
-  { iso2: "BY", name: "Biélorussie", box: [23.1, 51.2, 32.8, 56.2], risk: "HIGH" },
-  { iso2: "MM", name: "Myanmar", box: [92.1, 9.5, 101.2, 28.6], risk: "HIGH" },
-  { iso2: "KP", name: "Corée du Nord", box: [124.1, 37.6, 130.7, 43.0], risk: "HIGH" },
-  { iso2: "RU", name: "Russie", box: [27.3, 41.1, 180.0, 81.9], risk: "HIGH" },
-  { iso2: "CI", name: "Côte d'Ivoire", box: [-8.6, 4.3, -2.5, 10.8], risk: "STANDARD" },
-  { iso2: "GH", name: "Ghana", box: [-3.3, 4.7, 1.2, 11.2], risk: "STANDARD" },
-  { iso2: "NG", name: "Nigeria", box: [2.6, 4.2, 14.7, 13.9], risk: "STANDARD" },
-  { iso2: "CM", name: "Cameroun", box: [8.4, 1.6, 16.2, 13.1], risk: "STANDARD" },
-  { iso2: "CD", name: "RD Congo", box: [12.2, -13.5, 31.3, 5.4], risk: "STANDARD" },
-  { iso2: "UG", name: "Ouganda", box: [29.5, -1.5, 35.0, 4.2], risk: "STANDARD" },
-  { iso2: "ET", name: "Éthiopie", box: [32.9, 3.4, 48.0, 14.9], risk: "STANDARD" },
-  { iso2: "KE", name: "Kenya", box: [33.9, -4.7, 41.9, 5.5], risk: "STANDARD" },
-  { iso2: "TZ", name: "Tanzanie", box: [29.3, -11.8, 40.5, -0.9], risk: "STANDARD" },
-  { iso2: "LR", name: "Liberia", box: [-11.5, 4.3, -7.4, 8.6], risk: "STANDARD" },
-  { iso2: "ID", name: "Indonésie", box: [95.0, -11.0, 141.0, 6.1], risk: "STANDARD" },
-  { iso2: "MY", name: "Malaisie", box: [99.6, 0.8, 119.3, 7.4], risk: "STANDARD" },
-  { iso2: "VN", name: "Vietnam", box: [102.1, 8.4, 109.5, 23.4], risk: "STANDARD" },
-  { iso2: "TH", name: "Thaïlande", box: [97.3, 5.6, 105.7, 20.5], risk: "STANDARD" },
-  { iso2: "PG", name: "Papouasie-Nouvelle-Guinée", box: [140.8, -11.7, 156.0, -1.3], risk: "STANDARD" },
-  { iso2: "IN", name: "Inde", box: [68.1, 6.7, 97.4, 35.5], risk: "STANDARD" },
-  { iso2: "BR", name: "Brésil", box: [-74.0, -33.8, -34.8, 5.3], risk: "STANDARD" },
-  { iso2: "CO", name: "Colombie", box: [-79.0, -4.2, -66.9, 12.5], risk: "STANDARD" },
-  { iso2: "PE", name: "Pérou", box: [-81.4, -18.4, -68.7, -0.03], risk: "STANDARD" },
-  { iso2: "EC", name: "Équateur", box: [-81.1, -5.0, -75.2, 1.7], risk: "STANDARD" },
-  { iso2: "BO", name: "Bolivie", box: [-69.6, -22.9, -57.5, -9.7], risk: "STANDARD" },
-  { iso2: "PY", name: "Paraguay", box: [-62.7, -27.6, -54.3, -19.3], risk: "STANDARD" },
-  { iso2: "AR", name: "Argentine", box: [-73.6, -55.1, -53.6, -21.8], risk: "STANDARD" },
-  { iso2: "HN", name: "Honduras", box: [-89.4, 12.9, -83.1, 16.5], risk: "STANDARD" },
-  { iso2: "GT", name: "Guatemala", box: [-92.3, 13.7, -88.2, 17.8], risk: "STANDARD" },
-  { iso2: "NI", name: "Nicaragua", box: [-87.7, 10.7, -83.1, 15.0], risk: "STANDARD" },
-  { iso2: "CR", name: "Costa Rica", box: [-85.9, 8.0, -82.6, 11.2], risk: "STANDARD" },
-  { iso2: "MX", name: "Mexique", box: [-118.4, 14.5, -86.7, 32.7], risk: "STANDARD" },
-  { iso2: "US", name: "États-Unis", box: [-125.0, 24.5, -66.9, 49.4], risk: "LOW" },
-  { iso2: "CA", name: "Canada", box: [-141.0, 41.7, -52.6, 83.1], risk: "LOW" },
-  { iso2: "AU", name: "Australie", box: [113.3, -43.6, 153.6, -10.7], risk: "LOW" },
-  { iso2: "NZ", name: "Nouvelle-Zélande", box: [166.5, -47.3, 178.6, -34.4], risk: "LOW" },
-  { iso2: "JP", name: "Japon", box: [129.4, 31.0, 145.8, 45.5], risk: "LOW" },
-  { iso2: "CN", name: "Chine", box: [73.5, 18.2, 134.8, 53.6], risk: "LOW" },
-  { iso2: "EU", name: "Union européenne", box: [-10.5, 35.0, 31.6, 71.2], risk: "LOW" },
+/**
+ * Risque déclaré par pays, repris de la table interne précédente.
+ *
+ * Les États membres de l'Union européenne sont ajoutés explicitement : la
+ * boîte « EU » ne peut pas être conservée comme entrée, puisqu'un pays résolu
+ * est désormais un vrai pays. Les valeurs elles-mêmes sont inchangées : cette
+ * table n'est pas une classification officielle (cf. `verified: false`).
+ */
+const PAYS_UE: readonly string[] = [
+  "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR", "HR", "HU",
+  "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK",
 ];
 
-export function resolveCountry(lon: number, lat: number): { iso2: string; name: string; risk: RiskLevel } {
-  for (const c of COUNTRY_BOXES) {
-    const [lonMin, latMin, lonMax, latMax] = c.box;
-    if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) return { iso2: c.iso2, name: c.name, risk: c.risk };
-  }
-  return { iso2: "XX", name: "Non déterminé", risk: "STANDARD" };
+/**
+ * Pays à risque « faible » selon la table interne. Les autres pays classés
+ * « élevé » figurent dans `RISQUE_ELEVE` ; tout le reste vaut `STANDARD`.
+ */
+const RISQUE_ELEVE: readonly string[] = ["BY", "MM", "KP", "RU"];
+const RISQUE_FAIBLE: readonly string[] = [
+  ...PAYS_UE,
+  "US", "CA", "AU", "NZ", "JP", "CN",
+];
+
+/** Risque associé à un code ISO 3166-1 alpha-2. */
+export function risquePays(iso2: string): RiskLevel {
+  if (RISQUE_ELEVE.includes(iso2)) return "HIGH";
+  if (RISQUE_FAIBLE.includes(iso2)) return "LOW";
+  return "STANDARD";
+}
+
+/**
+ * Métadonnées du référentiel de risque pays.
+ *
+ * ⚠️ P2-01 — ce référentiel est une **table interne**, pas la classification de
+ * la Commission. Au moment de ce chantier, aucune source vérifiable, aucune
+ * version officielle et aucune date d'application ne sont présentes dans le
+ * dépôt : l'affirmer serait une preuve inventée. Les champs ci-dessous existent
+ * pour que cette absence soit **visible dans chaque résultat**, et non découverte
+ * trois ans plus tard dans un audit.
+ *
+ * Un niveau `LOW` n'est par ailleurs jamais retenu au niveau de l'audit : la
+ * **classification** reste non vérifiée, indépendamment de la qualité de la
+ * résolution géographique (cf. `risqueRetenu`).
+ */
+export const COUNTRY_RISK_BENCHMARK = {
+  /** Origine réelle de la table de risque. */
+  source: "Table interne GeoForest — non confrontée à une publication de la Commission",
+  /** Aucune URL de publication vérifiable n'est connue à ce jour. */
+  source_url: null as string | null,
+  /** Version interne de la table (suit les modifications du fichier). */
+  version: "2026-10-19",
+  /** Date d'application réglementaire : inconnue. */
+  applied_from: null as string | null,
+  /** Vrai uniquement si la classification a été confrontée à sa source. */
+  verified: false,
+  /** Méthode de résolution géographique réellement employée. */
+  resolution_method: "natural-earth-50m",
+  /** Jeu de frontières employé, avec sa provenance. */
+  borders: {
+    dataset: "Natural Earth 1:50m (via world-atlas 2.0.2)",
+    version: "2.0.2",
+    path: "data/frontieres/countries-50m.json",
+  },
+} as const;
+
+/** Limite à joindre à tout résultat qui s'appuie sur ce référentiel. */
+export const LIMITE_BENCHMARK_PAYS =
+  "Risque pays : table interne non vérifiée (aucune source, version ou date d'application " +
+  "officielle disponible). Le pays est déduit des frontières Natural Earth 1:50m — un point " +
+  "situé à moins de quelques centaines de mètres d'une frontière peut être mal attribué, et " +
+  "un point hors couverture est rendu « non déterminé ». La résolution du pays ne vaut pas " +
+  "classification réglementaire : un risque « faible » n'est jamais retenu au niveau de " +
+  "l'audit (plancher STANDARD).";
+
+/** Limite ajoutée lorsqu'aucun pays n'a pu être déterminé. */
+export const LIMITE_PAYS_NON_DETERMINE =
+  "Pays non déterminé : le point n'appartient à aucun polygone du jeu de frontières " +
+  "(haute mer, zone non couverte, entité sans code ISO, ou effet de généralisation). " +
+  "Aucun pays voisin n'a été substitué.";
+
+export interface CountryResolution {
+  iso2: string;
+  name: string;
+  /** Benchmark du pays résolu — informatif, jamais une conclusion d'audit. */
+  risk: RiskLevel;
+  /** Vrai si plusieurs pays contiennent le point (frontière contestée). */
+  ambiguous: boolean;
+  /** Tous les pays candidats, triés. Vide si aucun. */
+  candidates: string[];
+  /** Méthode de résolution, consignée avec l'audit. */
+  method: string;
+}
+
+/**
+ * Résout le pays d'un point par ses frontières réelles.
+ *
+ * P2-16 — remplace la recherche dans des rectangles. Le résultat porte sa
+ * méthode et son ambiguïté : une résolution qui ne peut pas conclure renvoie
+ * `XX`, jamais un pays « probable ».
+ */
+export function resolveCountry(lon: number, lat: number): CountryResolution {
+  const resolution = resoudrePays(lon, lat);
+  return {
+    iso2: resolution.iso2,
+    name: resolution.name,
+    risk: resolution.iso2 === "XX" ? "STANDARD" : risquePays(resolution.iso2),
+    ambiguous: resolution.ambiguous,
+    candidates: resolution.candidates,
+    method: resolution.method,
+  };
+}
+
+/**
+ * Niveau de risque retenu pour un audit.
+ *
+ * ⚠️ P2-01 — un risque « faible » ne peut pas être établi par un géocodage
+ * approximatif : le coût d'un faux « faible » est une déclaration EUDR
+ * favorable non fondée. `STANDARD` est la valeur par défaut du règlement
+ * (art. 29) lorsque le pays n'est pas classé — ce n'est pas une conclusion
+ * favorable. Les niveaux ÉLEVÉ/CRITIQUE restent utilisables : ils sont
+ * conservateurs.
+ */
+export function risqueRetenu(benchmark: RiskLevel): RiskLevel {
+  return benchmark === "LOW" ? "STANDARD" : benchmark;
 }
 
 // ---------------------------------------------------------------- Hotspots déterministes (mode hors-ligne)
@@ -291,7 +384,7 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
     compliant: null,
     loss_year: lossYear,
     confidence_score: null,
-    risk_level: country.risk,
+    risk_level: risqueRetenu(country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
@@ -307,11 +400,17 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
         date_butoir: EUDR_CUTOFF_DATE,
         scenarios_disponibles: LOSS_HOTSPOTS.length,
         scenario_retenu: hotspotLabel,
-        resolution_pays: "boîte englobante",
+        resolution_pays: COUNTRY_RISK_BENCHMARK.resolution_method,
+        pays_candidats: country.candidates,
+        pays_ambigu: country.ambiguous,
+        methode_resolution_pays: country.method,
+        benchmark_pays: COUNTRY_RISK_BENCHMARK,
       },
       limits: [
         "Aucune donnée satellite n'a été consultée : les chiffres sont inventés pour la démonstration.",
-        "Le pays est déterminé par boîte englobante, non par géocodage inverse (cf. P1-09).",
+        "Le pays est déterminé par les frontières Natural Earth 1:50m, non par géocodage inverse.",
+        LIMITE_BENCHMARK_PAYS,
+        ...(country.iso2 === "XX" ? [LIMITE_PAYS_NON_DETERMINE] : []),
         ...LIMITES_METHODE_COUVERT,
       ],
     },
@@ -332,13 +431,33 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
  * remplace par une estimation.
  */
 function unavailableResult(geometry: SupportedGeometry, reason: string): SatelliteCheckResult {
-  const [lon, lat] = centroidOf(geometry);
-  const country = resolveCountry(lon, lat);
+  // ⚠️ P2-07 — le centroïde n'existe pas toujours : une FeatureCollection vide
+  // ou une géométrie sans coordonnée n'en a aucun. L'ancien code levait ici
+  // (« Centroïde incalculable »), si bien qu'une analyse *déjà* indisponible
+  // finissait en exception non gérée au lieu d'un résultat `unavailable`.
+  let centroid: [number, number] | null = null;
+  try {
+    centroid = centroidOf(geometry);
+  } catch {
+    centroid = null;
+  }
+  const country: CountryResolution = centroid
+    ? resolveCountry(centroid[0], centroid[1])
+    : {
+        iso2: "XX",
+        name: "Non déterminé",
+        risk: "STANDARD",
+        ambiguous: false,
+        candidates: [],
+        method: COUNTRY_RISK_BENCHMARK.resolution_method,
+      };
   return {
     compliant: null,
     loss_year: null,
     confidence_score: null,
-    risk_level: country.risk,
+    // ⚠️ P2-01 — une analyse indisponible ne peut pas produire un risque
+    // « faible » : le niveau affiché est le plancher STANDARD du benchmark.
+    risk_level: risqueRetenu(country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
@@ -350,31 +469,121 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
     provenance: {
       method: "aucune",
       version: null,
-      params: {},
-      limits: [reason, "Aucun verdict de conformité n'a été établi.", ...LIMITES_METHODE_COUVERT],
+      params: {
+        resolution_pays: COUNTRY_RISK_BENCHMARK.resolution_method,
+        pays_candidats: country.candidates,
+        pays_ambigu: country.ambiguous,
+        methode_resolution_pays: country.method,
+        benchmark_pays: COUNTRY_RISK_BENCHMARK,
+      },
+      limits: [
+        reason,
+        "Aucun verdict de conformité n'a été établi.",
+        LIMITE_BENCHMARK_PAYS,
+        ...(country.iso2 === "XX" ? [LIMITE_PAYS_NON_DETERMINE] : []),
+        ...LIMITES_METHODE_COUVERT,
+      ],
     },
     disclaimer:
       "Analyse non disponible — aucun verdict de conformité n'a été établi. " +
       "Aucune conclusion ne doit en être tirée pour un dossier EUDR.",
     loss_area_ha: 0,
     tree_cover_2000_pct: null,
-    details: `Analyse satellite impossible : ${reason}. Pays déduit des coordonnées : ${country.name} (${country.iso2}).`,
+    details: centroid
+      ? `Analyse satellite impossible : ${reason}. Pays déduit des coordonnées : ${country.name} (${country.iso2}).`
+      : `Analyse satellite impossible : ${reason}. Aucune coordonnée exploitable : le pays n'a pas pu être déterminé.`,
   };
 }
 
 // ---------------------------------------------------------------- Moteur live Global Forest Watch
-interface GfwRow {
-  umd_tree_cover_loss__year?: number | string | null;
-  area__ha?: number | string | null;
-}
-
 const GFW_SQL =
   "SELECT umd_tree_cover_loss__year, SUM(area__ha) AS area__ha FROM results " +
   "WHERE umd_tree_cover_density_2000__threshold = 30 GROUP BY umd_tree_cover_loss__year ORDER BY umd_tree_cover_loss__year";
 
+/** Observation de perte, après validation stricte de la ligne fournisseur. */
+interface GfwObservation {
+  year: number;
+  area: number;
+}
+
+/**
+ * Réponse du fournisseur qui ne peut pas être interprétée.
+ *
+ * ⚠️ P2-02 — une réponse illisible **n'est pas** une absence de perte. Avant
+ * ce correctif, `payload.data ?? []` transformait `{"data": null}`, un champ
+ * manquant, une ligne sans année ou une surface négative en `0 ha de perte`,
+ * donc en verdict `CONFORME` avec `is_probative: true`. C'est la faute la plus
+ * grave que puisse commettre ce moteur : elle fabrique une preuve.
+ */
+class GfwResponseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GfwResponseError";
+  }
+}
+
+/** Nombre strictement numérique, éventuellement sérialisé en chaîne. */
+function nombreStrict(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value.trim())) {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Valide la charge utile GFW et renvoie les observations.
+ *
+ * Règles, toutes vérifiables par test :
+ *   • la charge utile doit être un objet JSON (pas un tableau, pas `null`) ;
+ *   • `data` doit être un **tableau** — son absence est une réponse
+ *     malformée, pas une absence de perte ;
+ *   • chaque ligne doit porter une année entière plausible et une surface
+ *     finie, positive ou nulle ;
+ *   • un tableau vide est accepté : c'est une observation négative du
+ *     fournisseur, assortie d'une limite de couverture explicite.
+ */
+export function parseGfwRows(payload: unknown): GfwObservation[] {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new GfwResponseError("charge utile JSON inattendue (objet attendu)");
+  }
+  const data = (payload as { data?: unknown }).data;
+  if (!Array.isArray(data)) {
+    throw new GfwResponseError("champ 'data' absent ou non tableau — réponse du fournisseur illisible");
+  }
+  return data.map((row, index) => {
+    if (row === null || typeof row !== "object" || Array.isArray(row)) {
+      throw new GfwResponseError(`ligne #${index + 1} illisible (objet attendu)`);
+    }
+    const year = nombreStrict((row as Record<string, unknown>).umd_tree_cover_loss__year);
+    const area = nombreStrict((row as Record<string, unknown>).area__ha);
+    if (year === null || !Number.isInteger(year) || year < 1900 || year > 2100) {
+      throw new GfwResponseError(`ligne #${index + 1} : année de perte absente ou illisible`);
+    }
+    if (area === null || area < 0) {
+      throw new GfwResponseError(`ligne #${index + 1} : surface de perte absente, illisible ou négative`);
+    }
+    return { year, area };
+  });
+}
+
+/** Limite à joindre quand le fournisseur ne retourne aucune ligne. */
+export const LIMITE_REPONSE_VIDE =
+  "Réponse du fournisseur sans aucune ligne : elle établit l'absence de perte déclarée pour " +
+  "l'emprise interrogée, mais ne distingue pas « aucune perte » d'une « absence de couverture " +
+  "du jeu de données » (océan, zone non couverte, géométrie non intersectée).";
+
+/** Limite à joindre quand la version du jeu de données n'a pas été épinglée. */
+export const LIMITE_VERSION_NON_EPINGLEE =
+  "Version du jeu de données non épinglée (« latest ») : le résultat n'est pas reproductible " +
+  "dans le temps et ne doit pas être présenté comme une mesure figée.";
+
 interface GfwQueryResult {
-  rows: GfwRow[];
+  observations: GfwObservation[];
   evidence: AnalysisEvidence;
+  /** Surface réellement envoyée au fournisseur (ha). */
+  analyzedAreaHa: number;
 }
 
 /** Hôte du service officiel. Toute autre adresse est un service distinct. */
@@ -411,6 +620,14 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
   // retours et, surtout, pour que la version interrogée soit explicite.
   const endpoint = `${base}/dataset/${dataset}/${version}/query/json`;
   const sentGeometry = aplatirPourAnalyse(geometry);
+  // ⚠️ La surface qui décide du seuil de significativité doit être celle qui a
+  // été **réellement envoyée** au fournisseur. L'ancien code retombait sur 1 ha
+  // pour un point, alors que la requête portait sur un disque de ~0,95 ha : le
+  // seuil et la fraction étaient calculés sur une surface qui n'existait pas.
+  const analyzedAreaHa = geodesicAreaHa(sentGeometry);
+  if (!(analyzedAreaHa > 0)) {
+    throw new Error("emprise d'analyse de surface nulle : aucune requête satellite fiable n'est possible");
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Number(process.env.GFW_TIMEOUT_SECONDS ?? "15") * 1000);
@@ -437,12 +654,21 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
     }
     noterJauges("gfw_disponible", 1);
     noterJauges("gfw_latence_ms", Date.now() - debutAppel);
-    const payload = (await res.json()) as { data?: GfwRow[] };
+    let payload: unknown;
+    try {
+      payload = await res.json();
+    } catch {
+      throw new GfwResponseError("corps de réponse non JSON — réponse du fournisseur illisible");
+    }
+    // P2-02 — validation stricte : une réponse malformée lève, elle ne devient
+    // jamais « 0 ha de perte ».
+    const observations = parseGfwRows(payload);
     // La version réellement servie est déduite de l'URL finale : elle est
     // consignée pour qu'un audit ancien reste reproductible.
     const servedVersion = /\/dataset\/[^/]+\/([^/]+)\//.exec(res.url)?.[1] ?? version;
     return {
-      rows: payload.data ?? [],
+      observations,
+      analyzedAreaHa,
       evidence: {
         provider: nommerFournisseur(base).provider,
         is_official_source: nommerFournisseur(base).officiel,
@@ -468,21 +694,46 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
   }
 }
 
-async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckResult> {
-  const { rows, evidence } = await gfwQuery(geometry);
+async function liveCheck(geometry: SupportedGeometry, harvestDate: string): Promise<SatelliteCheckResult> {
+  const { observations, evidence, analyzedAreaHa } = await gfwQuery(geometry);
   const [lon, lat] = centroidOf(geometry);
   const country = resolveCountry(lon, lat);
-  const areaHa = geodesicAreaHa(geometry) || 1;
-  const parsed = rows
-    .map((r) => ({ year: Number(r.umd_tree_cover_loss__year ?? 0), area: Number(r.area__ha ?? 0) }))
-    .filter((r) => r.year > 0);
-  const post = parsed.filter((r) => r.year > EUDR_CUTOFF_YEAR);
+
+  const post = observations.filter((r) => r.year > EUDR_CUTOFF_YEAR);
   const lossArea = Number(post.reduce((acc, r) => acc + r.area, 0).toFixed(4));
-  const significant = lossArea >= Math.max(0.01, areaHa * 0.005);
+  const seuil = Number(Math.max(0.01, analyzedAreaHa * 0.005).toFixed(4));
+  const significant = lossArea >= seuil;
+  const reponseVide = observations.length === 0;
+  const versionEpinglee = evidence.dataset_version !== "latest" && evidence.dataset_version !== "";
+
+  // Limites de l'analyse : elles disent ce que le résultat ne mesure pas.
+  const limites: string[] = [
+    ...LIMITES_METHODE_COUVERT,
+    LIMITE_BENCHMARK_PAYS,
+    ...(reponseVide ? [LIMITE_REPONSE_VIDE] : []),
+    ...(versionEpinglee ? [] : [LIMITE_VERSION_NON_EPINGLEE]),
+    "Le score de confiance est une convention d'affichage du produit, non une mesure de qualité fournie par le fournisseur.",
+  ];
+
+  const paramsCommuns = {
+    jeu_de_donnees: evidence.dataset,
+    version_jeu_de_donnees: evidence.dataset_version,
+    fournisseur: evidence.provider,
+    fournisseur_officiel: evidence.is_official_source,
+    seuil_significativite_ha: seuil,
+    surface_analysee_ha: Number(analyzedAreaHa.toFixed(4)),
+    date_butoir: EUDR_CUTOFF_DATE,
+    date_recolte: harvestDate,
+    resolution_pays: COUNTRY_RISK_BENCHMARK.resolution_method,
+    pays_candidats: country.candidates,
+    pays_ambigu: country.ambiguous,
+    methode_resolution_pays: country.method,
+    benchmark_pays: COUNTRY_RISK_BENCHMARK,
+  };
 
   if (significant) {
     const lossYear = Math.min(...post.map((r) => r.year));
-    const fraction = Math.min(lossArea / areaHa, 1);
+    const fraction = Math.min(lossArea / analyzedAreaHa, 1);
     return {
       compliant: false,
       loss_year: lossYear,
@@ -497,30 +748,27 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
       provenance: {
         method: "gfw-live",
         version: evidence.dataset_version,
-        params: {
-          jeu_de_donnees: evidence.dataset_version,
-          fournisseur: evidence.provider,
-          seuil_significativite_ha: Number(Math.max(0.01, areaHa * 0.005).toFixed(4)),
-          date_butoir: EUDR_CUTOFF_DATE,
-        },
-        limits: LIMITES_METHODE_COUVERT,
+        params: paramsCommuns,
+        limits: limites,
       },
       disclaimer: null,
       loss_area_ha: lossArea,
       tree_cover_2000_pct: null,
       details:
         `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : ${lossArea} ha de perte de couvert ` +
-        `détectés à partir de ${lossYear} (post-2020) sur ${areaHa.toFixed(2)} ha. ` +
+        `détectés à partir de ${lossYear} (post-2020) sur ${analyzedAreaHa.toFixed(2)} ha. ` +
         `Données Hansen/UMD, seuil de densité 30 %.`,
     };
   }
 
-  const historic = parsed.length ? Math.max(...parsed.map((r) => r.year)) : null;
+  const historic = observations.length ? Math.max(...observations.map((r) => r.year)) : null;
   return {
     compliant: true,
     loss_year: historic,
     confidence_score: 0.95,
-    risk_level: country.risk,
+    // P2-01 — plancher STANDARD : un géocodage approximatif ne peut pas
+    // établir un risque faible.
+    risk_level: risqueRetenu(country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
@@ -530,20 +778,18 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     provenance: {
       method: "gfw-live",
       version: evidence.dataset_version,
-      params: {
-        jeu_de_donnees: evidence.dataset_version,
-        fournisseur: evidence.provider,
-        seuil_significativite_ha: Number(Math.max(0.01, areaHa * 0.005).toFixed(4)),
-        date_butoir: EUDR_CUTOFF_DATE,
-      },
-      limits: LIMITES_METHODE_COUVERT,
+      params: paramsCommuns,
+      limits: limites,
     },
     disclaimer: null,
     loss_area_ha: lossArea,
     tree_cover_2000_pct: null,
     details:
-      `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : aucune perte significative ` +
-      `post-2020 (${lossArea} ha). Pays : ${country.name}, benchmark UE : ${country.risk}.`,
+      `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : ` +
+      (reponseVide
+        ? "aucune ligne de perte retournée par le fournisseur (0 ha). "
+        : `aucune perte significative post-2020 (${lossArea} ha). `) +
+      `Pays : ${country.name}, benchmark UE : ${country.risk}.`,
   };
 }
 
@@ -578,7 +824,7 @@ export async function checkDeforestationRisk(
 ): Promise<SatelliteCheckResult> {
   if (gfwConfigured()) {
     try {
-      return await liveCheck(geometry);
+      return await liveCheck(geometry, harvestDate);
     } catch (err) {
       const reason = (err as Error).name === "AbortError"
         ? `délai dépassé (${process.env.GFW_TIMEOUT_SECONDS ?? "15"} s)`
