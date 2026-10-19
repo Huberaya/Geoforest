@@ -7,6 +7,7 @@
  * Règles :
  *   - Aucun résultat n'est fabriqué : une géométrie absente = cas NON EXÉCUTÉ.
  *   - Le mode démonstration est désactivé pour toute la run.
+ *   - Le cas D simule une panne réseau localement : aucun appel externe ni quota consommé.
  *   - Code de sortie 0 uniquement si TOUS les cas sont exécutés et conformes.
  *     Code 2 si au moins un cas n'a pas été exécuté (ne jamais lire un passage partiel comme vert).
  *     Code 1 si un cas exécuté donne un résultat différent de l'attendu.
@@ -40,7 +41,7 @@ async function resultatDe(cas: Cas): Promise<{ issue: Issue; detail: string }> {
 }
 
 async function main(): Promise<void> {
-  // Garde-fou : jamais de simulation dans une validation.
+  // Garde-fou : jamais de simulation métier dans une validation de référence.
   process.env.GFW_DEMO_MODE = "false";
   const fichier = join(__dirname, "reference-cases.json");
   const { cases } = JSON.parse(readFileSync(fichier, "utf-8")) as { cases: Cas[] };
@@ -48,10 +49,6 @@ async function main(): Promise<void> {
   let nonExecutes = 0;
   let echecs = 0;
   for (const cas of cases) {
-    if (cas.id === "D") {
-      // Clé factice : l'appel part vers l'hôte officiel et échoue (réseau ou refus).
-      if (!process.env.GFW_API_KEY) process.env.GFW_API_KEY = "cle-factice-validation-indisponible";
-    }
     if (cas.geometry === null) {
       nonExecutes++;
       console.log(`${cas.id}  NON EXÉCUTÉ — géométrie non fournie (${cas.label})`);
@@ -67,7 +64,24 @@ async function main(): Promise<void> {
       console.log(`${cas.id}  NON EXÉCUTÉ — résultat attendu non pré-enregistré`);
       continue;
     }
-    const obtenu = await resultatDe(cas);
+
+    // Cas D vérifie le chemin d'indisponibilité de manière déterministe.
+    // Une clé factice ne doit jamais déclencher un véritable appel réseau à GFW.
+    const fetchOriginal = globalThis.fetch;
+    if (cas.id === "D") {
+      if (!process.env.GFW_API_KEY) process.env.GFW_API_KEY = "cle-factice-validation-indisponible";
+      globalThis.fetch = (async () => {
+        throw new Error("Indisponibilité réseau simulée par le test D");
+      }) as typeof fetch;
+    }
+
+    let obtenu: { issue: Issue; detail: string };
+    try {
+      obtenu = await resultatDe(cas);
+    } finally {
+      if (cas.id === "D") globalThis.fetch = fetchOriginal;
+    }
+
     const ok = obtenu.issue === cas.expected;
     if (!ok) echecs++;
     console.log(`${cas.id}  ${ok ? "OK    " : "ÉCHEC "} attendu=${cas.expected} obtenu=${obtenu.issue} — ${obtenu.detail}`);
