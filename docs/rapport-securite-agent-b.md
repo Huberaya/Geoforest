@@ -1093,6 +1093,15 @@ lecture impossible.
 | [39323921383](https://github.com/Huberaya/Geoforest/actions/runs/39323921383) | `push` | `9ab78e6` | succès |
 | [39323950729](https://github.com/Huberaya/Geoforest/actions/runs/39323950729) | `pull_request` (PR #8) | `9ab78e6` | succès |
 
+**Tête de branche au moment de la rédaction :**
+`11ca162e7fc9fe2cb4d1ba10e7b49bd2fdebf1b7` (documentation seule) — CI observée
+**verte** sur ce SHA exact, en `push` (exécution `39324238184`) et en
+`pull_request` (exécution `39324246330`), trois tâches en succès. La chaîne
+complète a par ailleurs été rejouée sur cet arbre : `typecheck` 0, `lint` 0
+erreur, `test:unit` 36/36, `test:sql` 42/42, `test:http` 25/25, `build` sans
+variables, `audit:sec` 0, `audit:dev` en échec attendu, `pytest` 55, recette
+serveur 9/9.
+
 **Commits postérieurs.** Le présent rapport est mis à jour par un commit qui ne
 modifie **que ce fichier** : l'arbre du code, des migrations, des tests et des
 scripts de recette reste exactement celui de `9ab78e6`. La PR #8 porte cet
