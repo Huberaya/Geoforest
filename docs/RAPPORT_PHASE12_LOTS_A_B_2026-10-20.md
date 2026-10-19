@@ -411,12 +411,25 @@ n'est un point d'écriture** : aucune route, aucun service ne produit plus cette
 
 | Élément | Valeur |
 |---|---|
-| Run | [39333719902](https://github.com/Huberaya/Geoforest/actions/runs/39333719902) |
-| SHA | `e17bd9d532bd8ab9fe876c796398f4a0451341c5` |
+| Run | [39333719902](https://github.com/Huberaya/Geoforest/actions/runs/39333719902) — puis [39335099679](https://github.com/Huberaya/Geoforest/actions/runs/39335099679) |
+| SHA | `e17bd9d532bd8ab9fe876c796398f4a0451341c5` (code) — `7899778c15c33e9b4cdb9d7f9ef2672240384b3a` (rapport) |
 | Événement | `pull_request` (une poussée sur `arena/*` ne déclenche pas la CI) |
 | Conclusion | **success** |
 | Job « Verify Frontend & Backend » | success — Python, `Workflow regression tests`, `Typecheck`, `Lint`, `Unit tests`, `EUDR rules tests`, `Build` |
 | Job « Database & HTTP contracts (Neon branch) » | success — `Create ephemeral Neon branch`, **`Apply migrations on the test branch`**, `Database controls`, `Build production bundle`, `Start production server`, `End-to-end journey`, `Cross-tenant HTTP controls`, `Supplier journey HTTP controls` |
+
+**Deux runs, tous deux vérifiés** :
+
+1. `39333719902` sur `e17bd9d…` — **success**, 2 jobs, 12 + 16 étapes vertes : c'est le run
+   qui qualifie le **code** (lots A et B).
+2. `39335099679` sur `7899778…` — **success**, mêmes jobs et mêmes étapes : c'est le run du
+   commit qui ajoute ce rapport. Il ne contient **aucune modification de code** (un seul
+   fichier `docs/`), et la migration 0009 y est de nouveau appliquée sur une branche Neon
+   éphémère.
+
+> Un fichier versionné ne peut pas citer le run du commit qui le contient : le commit
+> d'ajout de ce rapport est **documentaire**, et son run est consigné dans la description de
+> la pull request #9.
 
 ---
 
