@@ -476,12 +476,34 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
       "réponse GFW vide : absence de perte et absence de donnée ne sont pas distinguables ; aucun verdict de conformité",
     );
   }
+  const currentYear = new Date().getUTCFullYear();
+  const parsed = rows.map((r) => {
+    const year = Number(r.umd_tree_cover_loss__year);
+    const area = Number(r.area__ha);
+    const missingYear = r.umd_tree_cover_loss__year == null ||
+      (typeof r.umd_tree_cover_loss__year === "string" && r.umd_tree_cover_loss__year.trim() === "");
+    const missingArea = r.area__ha == null ||
+      (typeof r.area__ha === "string" && r.area__ha.trim() === "");
+    return { year, area, missingYear, missingArea };
+  });
+  const malformed = parsed.some(({ year, area, missingYear, missingArea }) =>
+    missingYear ||
+    missingArea ||
+    !Number.isInteger(year) ||
+    year < 2001 ||
+    year > currentYear ||
+    !Number.isFinite(area) ||
+    area < 0
+  );
+  if (malformed || parsed.length === 0) {
+    return unavailableResult(
+      geometry,
+      "réponse GFW malformée : année ou surface absente, invalide ou hors plage ; aucun verdict de conformité",
+    );
+  }
   const [lon, lat] = centroidOf(geometry);
   const country = resolveCountry(lon, lat);
   const areaHa = geodesicAreaHa(geometry) || 1;
-  const parsed = rows
-    .map((r) => ({ year: Number(r.umd_tree_cover_loss__year ?? 0), area: Number(r.area__ha ?? 0) }))
-    .filter((r) => r.year > 0);
   const post = parsed.filter((r) => r.year > EUDR_CUTOFF_YEAR);
   const lossArea = Number(post.reduce((acc, r) => acc + r.area, 0).toFixed(4));
   // ------------------------------------------------------------ P0 (recette 2026-10-08)

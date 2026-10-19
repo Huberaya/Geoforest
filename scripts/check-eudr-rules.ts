@@ -460,6 +460,30 @@ async function testReponseGfw(): Promise<void> {
       "https://evil.example/dataset/umd_tree_cover_loss/latest/query/json");
     const redirection = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("redirection vers un hôte non officiel : aucun verdict", redirection.source === "unavailable" && redirection.compliant === null);
+
+    const malformedRows: Array<{ label: string; row: unknown }> = [
+      { label: "année absente", row: { area__ha: 0.4 } },
+      { label: "année nulle", row: { umd_tree_cover_loss__year: null, area__ha: 0.4 } },
+      { label: "année vide", row: { umd_tree_cover_loss__year: "", area__ha: 0.4 } },
+      { label: "année non numérique", row: { umd_tree_cover_loss__year: "inconnue", area__ha: 0.4 } },
+      { label: "année future", row: { umd_tree_cover_loss__year: new Date().getUTCFullYear() + 1, area__ha: 0.4 } },
+      { label: "surface absente", row: { umd_tree_cover_loss__year: 2023 } },
+      { label: "surface nulle", row: { umd_tree_cover_loss__year: 2023, area__ha: null } },
+      { label: "surface vide", row: { umd_tree_cover_loss__year: 2023, area__ha: "" } },
+      { label: "surface négative", row: { umd_tree_cover_loss__year: 2023, area__ha: -0.4 } },
+      { label: "surface infinie", row: { umd_tree_cover_loss__year: 2023, area__ha: "Infinity" } },
+    ];
+    for (const { label, row } of malformedRows) {
+      avecReponse([row]);
+      const result = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+      check(`GFW ${label} : aucun verdict probant`, result.source === "unavailable" && result.compliant === null && result.is_probative === false,
+        `compliant=${result.compliant} · source=${result.source}`);
+      // Une ligne valide ne doit pas masquer une autre ligne malformée.
+      avecReponse([{ umd_tree_cover_loss__year: 2015, area__ha: 0.5 }, row]);
+      const mixed = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+      check(`GFW mélange valide + ${label} : indisponible`,
+        mixed.source === "unavailable" && mixed.compliant === null && mixed.is_probative === false);
+    }
   } finally {
     restaurer();
   }
