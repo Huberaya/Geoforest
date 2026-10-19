@@ -1,6 +1,6 @@
 # GeoForest Trace — lancement complet : `docker-compose up --build`
 #   Frontend (Next.js)  : http://localhost:3000
-#   Backend  (FastAPI)  : http://localhost:8000/docs
+#   Backend  (FastAPI)  : retiré du déploiement (chantier 2, « B-8 ») : le produit ne l'appelle pas
 #   PostgreSQL          : localhost:5432 (persistance des audits côté Next.js)
 services:
   db:
@@ -8,7 +8,9 @@ services:
     container_name: geoforest-db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # P0 (recette 2026-10-08) : aucun mot de passe par défaut. Renseigné par
+      # l'environnement d'exécution (fichier .env non versionné).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}
       POSTGRES_DB: app_db
     ports:
       - "5432:5432"
@@ -20,43 +22,28 @@ services:
       timeout: 5s
       retries: 10
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: geoforest-backend
-    environment:
-      DATABASE_PATH: /app/data/geoforest.db
-      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
-      GFW_API_KEY: ${GFW_API_KEY:-}
-      GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
-    ports:
-      - "8000:8000"
-    volumes:
-      - geoforest-backend-data:/app/data
-    restart: unless-stopped
-
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: geoforest-frontend
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
-      # Laisser vide pour utiliser les routes API Next.js intégrées (PostgreSQL),
-      # ou pointer vers le backend FastAPI : http://localhost:8000
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      # L'application se connecte avec le rôle geoforest_app, soumis à la RLS.
+      # Le superutilisateur ne sert qu'aux migrations (DATABASE_URL_ADMIN).
+      DATABASE_URL: postgresql://geoforest_app:${GF_APP_DB_PASSWORD:?définir GF_APP_DB_PASSWORD}@db:5432/app_db
+      DATABASE_URL_ADMIN: postgresql://postgres:${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}@db:5432/app_db
       GFW_API_KEY: ${GFW_API_KEY:-}
       GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
+      # B-2 (chantier 5) : secrets obligatoires en production. Sans eux, l'application
+      # refuse de démarrer (AUTH_SECRET) ou refuse tout téléchargement de pièce (signature).
+      AUTH_SECRET: ${AUTH_SECRET:?définir AUTH_SECRET (≥ 32 caractères)}
+      GF_STORAGE_SIGNING_SECRET: ${GF_STORAGE_SIGNING_SECRET:?définir GF_STORAGE_SIGNING_SECRET (≥ 32 caractères)}
     ports:
       - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
-      backend:
-        condition: service_started
     restart: unless-stopped
 
 volumes:
   geoforest-pgdata:
-  geoforest-backend-data:

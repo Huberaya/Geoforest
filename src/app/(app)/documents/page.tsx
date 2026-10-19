@@ -72,7 +72,7 @@ export default function DocumentsPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [status]);
 
   const submit = async (e: React.FormEvent) => {

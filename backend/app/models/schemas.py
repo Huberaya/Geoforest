@@ -205,7 +205,8 @@ class AuditSummary(BaseModel):
     area_ha: float
     geometry_type: str
     status: str
-    compliant: bool
+    # None = aucun verdict (ANALYSIS_UNAVAILABLE) : ne doit pas faire échouer la sérialisation.
+    compliant: Optional[bool]
     loss_year: Optional[int]
     risk_level: str
     country_code: str

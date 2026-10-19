@@ -1,11 +1,13 @@
 """Endpoints REST v1 de GeoForest Trace."""
 from __future__ import annotations
 
+import hmac
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 
 from app.core.config import settings
 from app.core.database import Database, get_db
@@ -57,6 +59,27 @@ def _summary_text(status_value: str, validation: Dict[str, Any], satellite: Dict
     )
 
 
+# ------------------------------------------------------------------ P0 (recette 2026-10-08)
+# Les routes d'analyse et d'export n'étaient protégées par rien : quiconque
+# joignait ce service pouvait créer une analyse, lire les dossiers et exporter
+# un TRACES. Elles exigent désormais un jeton Bearer dédié, comparé en temps
+# constant. Sans jeton configuré, elles sont FERMÉES (503), jamais ouvertes.
+# Le point de santé reste public.
+JETON_VARIABLE = "GF_BACKEND_API_TOKEN"
+
+
+def exiger_jeton(authorization: str | None = Header(default=None)) -> None:
+    attendu = os.environ.get(JETON_VARIABLE, "")
+    if not attendu:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Service fermé : la variable {JETON_VARIABLE} n'est pas configurée.",
+        )
+    presente = authorization[len("Bearer "):] if authorization and authorization.startswith("Bearer ") else ""
+    if not presente or not hmac.compare_digest(presente.encode(), attendu.encode()):
+        raise HTTPException(status_code=401, detail="Authentification requise.")
+
+
 @router.get("/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
     return HealthResponse(
@@ -72,6 +95,7 @@ def health() -> HealthResponse:
     status_code=status.HTTP_201_CREATED,
     tags=["audit"],
     summary="Audit EUDR complet d'une parcelle (GIS + satellite)",
+    dependencies=[Depends(exiger_jeton)],
 )
 def audit_parcel(
     payload: ParcelAuditRequest,
@@ -154,7 +178,7 @@ def audit_parcel(
     )
 
 
-@router.get("/audits", response_model=List[AuditSummary], tags=["audit"])
+@router.get("/audits", response_model=List[AuditSummary], tags=["audit"], dependencies=[Depends(exiger_jeton)])
 def list_audits(limit: int = Query(default=50, ge=1, le=500), db: Database = Depends(get_db)) -> List[AuditSummary]:
     return [
         AuditSummary(
@@ -176,7 +200,7 @@ def list_audits(limit: int = Query(default=50, ge=1, le=500), db: Database = Dep
     ]
 
 
-@router.get("/audits/{audit_id}", tags=["audit"])
+@router.get("/audits/{audit_id}", tags=["audit"], dependencies=[Depends(exiger_jeton)])
 def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     record = db.get_audit(audit_id)
     if record is None:
@@ -189,6 +213,7 @@ def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     tags=["export"],
     summary="Export du dossier DDS vers TRACES-NT (XML ou JSON)",
     responses={200: {"content": {"application/xml": {}, "application/json": {}}}},
+    dependencies=[Depends(exiger_jeton)],
 )
 def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) -> Response:
     if not payload.audit_id:
@@ -200,6 +225,13 @@ def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) 
         raise HTTPException(
             status_code=409,
             detail="Impossible d'exporter un dossier dont la géométrie est invalide : corrigez la parcelle puis relancez l'audit.",
+        )
+    # P0 (recette 2026-10-08) : une parcelle déforestée après 2020 n'est pas
+    # exportable comme déclaration de conformité — blocage, pas simple signalement.
+    if record.status == "NON_COMPLIANT" or record.compliant is False:
+        raise HTTPException(
+            status_code=409,
+            detail="Export bloqué : la parcelle présente une déforestation post-2020. Mitigation et revue humaine requises.",
         )
     # P0-04 : une analyse simulée ou indisponible ne peut pas alimenter une
     # déclaration de diligence raisonnée. Le contrôle est serveur : l'interface

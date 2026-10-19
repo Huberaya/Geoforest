@@ -1,12 +1,15 @@
 import { lireCorpsJson } from "@/lib/api/body";
-import { parcelAudits } from "@/db/schema";
+import { dueDiligenceStatements, parcelAudits } from "@/db/schema";
 import { logAction } from "@/lib/api/audit-log";
 import { buildDdsPayload, buildReference, buildTracesXml, producteurDe, type TracesOptions } from "@/lib/eudr/traces-exporter";
 import { buildEudrIsGeoJson } from "@/lib/eudr/eudr-is-geojson";
 import type { ActivityType, OperatorInfo, TracesFormat } from "@/lib/eudr/types";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { estFige, TRANSITION_EXPORT } from "@/lib/eudr/dds-etats";
+import { aujourdhuiIso, chargerDossier } from "@/lib/eudr/readiness-db";
+import type { DdsStatus } from "@/lib/eudr/types";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +58,26 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     );
   }
 
+  // ------------------------------------------------------------ P0 (recette 2026-10-08)
+  // Une parcelle dont la déforestation post-2020 est établie ne peut pas faire
+  // l'objet d'une déclaration de conformité : son export est BLOQUÉ, pas
+  // simplement signalé. Le brouillon ne doit pas pouvoir servir de véhicule à
+  // une mise sur le marché d'une marchandise non conforme (art. 3 du règlement).
+  if (row.status === "NON_COMPLIANT" || row.compliant === false) {
+    return NextResponse.json(
+      {
+        detail:
+          `Export bloqué : la parcelle présente une déforestation post-2020` +
+          (row.lossYear ? ` (perte détectée en ${row.lossYear})` : "") +
+          `. Aucune déclaration ne peut être établie pour cette parcelle en l'état. ` +
+          `Mitigation et revue humaine requises.`,
+        blocked: true,
+        analysis_status: row.status,
+        compliant: false,
+      },
+      { status: 409 },
+    );
+  }
   let operator: OperatorInfo = {
     name: row.operatorName,
     eori: row.operatorEori,
@@ -132,6 +155,48 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
       { status: 409 },
     );
   }
+  // ------------------------------------------------------------------ B-12
+  // Analyse rattachée à un dossier figé : l'export doit encore être valable. Un dossier
+  // prêt qui ne tient plus la readiness (pièce expirée, parcelle devenue bloquante) est
+  // refusé ici, avant toute écriture. Un dossier SUBMITTED ou DECLARED ne reçoit pas d'export.
+  let dossierAExporter: { id: string; statut: DdsStatus } | null = null;
+  if (row.dueDiligenceId) {
+    const [dds] = await tx
+      .select({ id: dueDiligenceStatements.id, status: dueDiligenceStatements.status })
+      .from(dueDiligenceStatements)
+      .where(
+        and(
+          eq(dueDiligenceStatements.id, row.dueDiligenceId),
+          eq(dueDiligenceStatements.organizationId, organizationId),
+          isNull(dueDiligenceStatements.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (dds && estFige(dds.status as DdsStatus)) {
+      if (dds.status !== "READY_FOR_DECLARATION" && dds.status !== "EXPORTED") {
+        return NextResponse.json(
+          { detail: `Export refusé : le dossier rattaché est au statut « ${dds.status} », qui n'admet aucun export.` },
+          { status: 409 },
+        );
+      }
+      const charge = await chargerDossier(tx, organizationId, dds.id, aujourdhuiIso());
+      if (!charge || charge.resultat.etat !== "READY_FOR_DDS") {
+        return NextResponse.json(
+          {
+            detail:
+              "Export refusé : le dossier rattaché n'est plus prêt pour déclaration. " +
+              (charge?.resultat.explication ?? "Dossier introuvable."),
+            readiness: charge
+              ? { etat: charge.resultat.etat, blocages: charge.resultat.blocages, manquants: charge.resultat.manquants }
+              : null,
+          },
+          { status: 409 },
+        );
+      }
+      dossierAExporter = { id: dds.id, statut: dds.status as DdsStatus };
+    }
+  }
+
   if (row.producerName === null) {
     // Déclaré à l'export : on l'attache à l'audit pour que la traçabilité soit
     // complète et que les exports suivants n'aient pas à le redemander.
@@ -183,6 +248,36 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
       producteur: producteur?.name ?? null,
     },
   });
+
+  // B-12 — seule action qui pose EXPORTED : READY_FOR_DECLARATION → EXPORTED, tracé au journal.
+  // La condition porte sur le statut lu plus haut, et le UPDATE le revérifie : un export
+  // concurrent ne peut pas faire deux fois la même transition.
+  if (dossierAExporter && dossierAExporter.statut === TRANSITION_EXPORT.de) {
+    const [maj] = await tx
+      .update(dueDiligenceStatements)
+      .set({ status: TRANSITION_EXPORT.vers, updatedAt: new Date() })
+      .where(
+        and(
+          eq(dueDiligenceStatements.id, dossierAExporter.id),
+          eq(dueDiligenceStatements.organizationId, organizationId),
+          eq(dueDiligenceStatements.status, TRANSITION_EXPORT.de),
+        ),
+      )
+      .returning({ id: dueDiligenceStatements.id });
+    if (maj) {
+      await logAction(tx, organizationId, {
+        userEmail: session.user.email,
+        acteurId: session.user.id,
+        acteurRole: session.user.role,
+        action: "EXPORT",
+        entityType: "DDS",
+        entityId: dossierAExporter.id,
+        avant: { status: TRANSITION_EXPORT.de },
+        apres: { status: TRANSITION_EXPORT.vers, reference, transmissionStatus: "NOT_TRANSMITTED" },
+        details: { nature: "brouillon_non_transmis", audit: row.id },
+      });
+    }
+  }
 
   // Le nom du fichier doit se lire comme ce qu'il est : un brouillon.
   const filename = `BROUILLON_DDS_${reference}`;

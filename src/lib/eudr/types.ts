@@ -425,10 +425,15 @@ export const DDS_STATUSES = [
   "RISK_IDENTIFIED",
   "ACTION_REQUIRED",
   "READY_FOR_DECLARATION",
+  "EXPORTED",
+  "SUBMITTED",
   "DECLARED",
   "ARCHIVED",
 ] as const;
 export type DdsStatus = (typeof DDS_STATUSES)[number];
+// Libellés : « EXPORTED » est un brouillon non transmis ; « SUBMITTED » et « DECLARED »
+// ne sont atteignables par aucune action (TRACES_SCOPE.md §3 : « Déclaré » est interdit
+// tant qu'aucun accusé officiel n'existe).
 export const DDS_STATUS_LABELS: Record<DdsStatus, string> = {
   DRAFT: "Brouillon",
   MISSING_DATA: "Données manquantes",
@@ -437,7 +442,9 @@ export const DDS_STATUS_LABELS: Record<DdsStatus, string> = {
   RISK_IDENTIFIED: "Risque identifié",
   ACTION_REQUIRED: "Action requise",
   READY_FOR_DECLARATION: "Prêt à déclarer",
-  DECLARED: "Déclaré",
+  EXPORTED: "Brouillon exporté (non transmis)",
+  SUBMITTED: "Soumission officielle (non disponible)",
+  DECLARED: "Déclaration officielle (non disponible)",
   ARCHIVED: "Archivé",
 };
 
@@ -535,6 +542,7 @@ export interface PlotDetail extends Plot {
     analysisProbative: boolean | null;
     createdAt: string;
   }>;
+  /** plot_id : rattachement fiable · reference : analyses antérieures sans plot_id · aucune_reference : aucune analyse rattachée. */
   audits_linked_by: string;
 }
 

@@ -55,7 +55,7 @@ export default function RisksPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [status]);
 
   const submit = async (e: React.FormEvent) => {
