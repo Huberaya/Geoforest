@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -212,6 +213,11 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
             f"GFW HTTP {response.status_code} — {response.text[:200]}", response=response
         )
     payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Réponse GFW invalide : le corps JSON doit être un objet")
+    data = payload.get("data")
+    if not isinstance(data, list):
+        raise ValueError("Réponse GFW invalide : le champ data doit être un tableau")
     # Version réellement servie, déduite de l'URL finale après redirection.
     served = version
     match = re.search(r"/dataset/[^/]+/([^/]+)/", response.url or "")
@@ -226,11 +232,48 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
         "geometry_type": analysis_geometry.get("type", "Unknown"),
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    return list(payload.get("data") or []), evidence
+    return data, evidence
 
+
+def _normalize_gfw_rows(rows: List[Any]) -> List[Dict[str, Any]]:
+    """Valide le contrat GFW avec les mêmes règles que le moteur TypeScript."""
+    current_year = datetime.now(timezone.utc).year
+    normalized: List[Dict[str, Any]] = []
+    for index, raw in enumerate(rows):
+        if not isinstance(raw, dict):
+            raise ValueError(f"Réponse GFW invalide : ligne {index + 1} non objet")
+        raw_year = raw.get("umd_tree_cover_loss__year")
+        raw_area = raw.get("area__ha")
+
+        # Les booléens sont des entiers en Python, mais ne sont pas des années.
+        if isinstance(raw_year, bool) or raw_year is None:
+            year = 0
+        else:
+            try:
+                year_number = float(raw_year.strip() if isinstance(raw_year, str) else raw_year)
+                year = int(year_number) if math.isfinite(year_number) and year_number.is_integer() else 0
+            except (TypeError, ValueError, OverflowError):
+                year = 0
+
+        # Ne pas convertir True/False en 1.0/0.0, contrairement à float(bool).
+        if isinstance(raw_area, bool) or raw_area is None:
+            area = float("nan")
+        else:
+            try:
+                area = float(raw_area.strip() if isinstance(raw_area, str) else raw_area)
+            except (TypeError, ValueError, OverflowError):
+                area = float("nan")
+
+        if year < 2001 or year > current_year:
+            raise ValueError(f"Réponse GFW invalide : année de perte absente ou hors plage à la ligne {index + 1}")
+        if not math.isfinite(area) or area < 0:
+            raise ValueError(f"Réponse GFW invalide : surface absente, non finie ou négative à la ligne {index + 1}")
+        normalized.append({"umd_tree_cover_loss__year": year, "area__ha": area})
+    return normalized
 
 def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     rows, evidence = _gfw_query(_analysis_polygon(geom))
+    rows = _normalize_gfw_rows(rows)
     # Réponse vide : absence de perte et absence de donnée ne sont pas distinguables.
     # Aucun verdict de conformité (miroir de la version TypeScript).
     if not rows:
