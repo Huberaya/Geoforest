@@ -2,6 +2,7 @@
   "name": "nextjs-postgresql-template",
   "private": true,
   "scripts": {
+    "audit:dev": "npm audit --audit-level=high",
     "audit:sec": "npm audit --omit=dev --audit-level=high",
     "build": "next build",
     "db:generate": "drizzle-kit generate",
@@ -11,15 +12,17 @@
     "db:tenancy": "psql -h 127.0.0.1 -U postgres -d app_db -f scripts/sql/post-migrate/010_row_level_security.sql",
     "dev": "next dev",
     "lint": "eslint .",
+    "recette:postgres": "bash scripts/recette/postgresql-recette.sh",
     "seed:auth": "tsx scripts/seed-auth.ts",
     "start": "next start",
-    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test tests/unit/*.test.ts",
-    "test:sql": "NODE_OPTIONS=--conditions=react-server tsx --test tests/sql/*.test.ts",
+    "test:eudr": "tsx scripts/check-eudr-rules.ts",
     "test:http": "NODE_OPTIONS=--conditions=react-server tsx --test tests/http/isolation.test.ts",
     "test:securite": "npm run test:unit && npm run test:sql && npm run test:http",
-    "test:eudr": "tsx scripts/check-eudr-rules.ts",
+    "test:sql": "NODE_OPTIONS=--conditions=react-server tsx --test tests/sql/*.test.ts",
+    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test tests/unit/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "audit:dev": "npm audit --audit-level=high"
+    "verif:chaine": "tsx scripts/verifier-chaine.ts",
+    "verif:comptes-demo": "tsx scripts/verifier-comptes-demo.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",

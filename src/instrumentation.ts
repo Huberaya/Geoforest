@@ -31,7 +31,11 @@
  *     local se connecte en superutilisateur, ce qui est sans conséquence sur
  *     des données de démonstration.
  */
-import { comparerConnexions, verifierRoleApplication } from "./db/controle-role";
+import {
+  comparerConnexions,
+  verifierRoleAdministration,
+  verifierRoleApplication,
+} from "./db/controle-role";
 
 export async function register(): Promise<void> {
   // `register()` est appelé pour chaque exécution (Node.js et Edge). Le
@@ -70,7 +74,26 @@ export async function register(): Promise<void> {
     lignes.push(`  ${message}`);
   }
 
-  // --- 2. séparation des deux connexions ---------------------------------
+  // --- 2. la connexion d'administration peut-elle lire hors contexte ? ---
+  //
+  // ⚠️ Sans `BYPASSRLS` (ou sans superutilisateur), cette connexion est
+  //   soumise à la RLS forcée : `auth_user_by_email()` ne rend aucune ligne et
+  //   la connexion répondrait « compte inconnu », sans que rien d'autre ne
+  //   signale la cause. Constaté en recette PostgreSQL serveur.
+  try {
+    const admin = await verifierRoleAdministration();
+    lignes.push(
+      `  rôle d'administration     : ${admin.role}`,
+      `  RLS appliquée à ce rôle   : ${admin.rlsAppliquee ? "OUI" : "non"}`,
+    );
+    if (!admin.ok && admin.message) constats.push(admin.message);
+  } catch (erreur) {
+    // Table absente (base non migrée) : on ne conclut pas, mais on le dit.
+    const detail = erreur instanceof Error ? erreur.message : String(erreur);
+    lignes.push(`  contrôle d'administration : non exécuté (${detail.slice(0, 120)})`);
+  }
+
+  // --- 3. séparation des deux connexions ---------------------------------
   const separation = comparerConnexions();
   lignes.push(
     `  rôle applicatif           : ${separation.roleApplicatif ?? "indéterminé"}`,

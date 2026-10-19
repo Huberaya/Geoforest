@@ -184,13 +184,37 @@ test("les fonctions nécessaires restent exécutables, sous contrôle du tenant"
 });
 
 test("les secrets des comptes ne sont pas lisibles depuis le rôle applicatif", async () => {
+  // 1. Cloisonnement : dans le contexte de A, aucun compte de B n'est visible.
   const r = await avecTenant(client, ORG_A, (tx) =>
-    tx.query<{ email: string; hash: string | null; secret: string | null }>(
-      `select email, password_hash as hash, mfa_secret as secret
-         from gf_users where organization_id = '${ORG_B}'`,
+    tx.query<{ email: string }>(
+      `select email from gf_users where organization_id = '${ORG_B}'`,
     ),
   );
   assert.deepEqual(r.rows, [], "aucun compte d'un autre tenant ne doit être lisible");
+
+  // 2. Colonnes d'authentification : même dans son propre tenant, le rôle
+  //    applicatif n'y a pas accès. La RLS limite les lignes, pas les colonnes ;
+  //    c'est un privilège de colonne qui le fait (cf. fin de `010`).
+  for (const colonne of ["password_hash", "mfa_secret", "mfa_recovery_codes"]) {
+    await assert.rejects(
+      avecTenant(client, ORG_A, (tx) => tx.query(`select ${colonne} from gf_users`)),
+      refuseParPostgres("42501"),
+    );
+  }
+
+  // 3. `select *` échoue également : une colonne sensible ajoutée plus tard ne
+  //    deviendra pas lisible par accident.
+  await assert.rejects(
+    avecTenant(client, ORG_A, (tx) => tx.query("select * from gf_users")),
+    refuseParPostgres("42501"),
+  );
+
+  // 4. Les colonnes non sensibles restent lisibles : les parcours qui
+  //    affichent un nom ou un rôle continuent de fonctionner.
+  const visible = await avecTenant(client, ORG_A, (tx) =>
+    tx.query<{ email: string; role: string }>("select email, role from gf_users"),
+  );
+  assert.deepEqual(visible.rows, [{ email: "a@exemple.test", role: "viewer" }]);
 
   const colonnes = await client.query<{ column_name: string }>(`
     select column_name::text from information_schema.columns
@@ -198,6 +222,57 @@ test("les secrets des comptes ne sont pas lisibles depuis le rôle applicatif", 
        and column_name in ('password_hash', 'mfa_secret', 'mfa_recovery_codes')
   `);
   assert.equal(colonnes.rows.length, 3, "les colonnes sensibles existent bien en base");
+});
+
+test("aucune surcharge des fonctions d'authentification n'échappe à la révocation", async () => {
+  // ⚠️ `REVOKE` porte sur une **signature** précise. Une surcharge ajoutée plus
+  //   tard — `auth_user_by_email(text, uuid)`, par exemple — hériterait de
+  //   `EXECUTE` pour `PUBLIC` par défaut, sans qu'aucun test ne le signale.
+  //   On vérifie donc l'inventaire complet, pas seulement les deux signatures
+  //   connues.
+  const r = await client.query<{ proname: string; args: string }>(`
+    select p.proname::text as proname,
+           pg_get_function_identity_arguments(p.oid) as args
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname like 'auth\\_user\\_by\\_%'
+     order by 1, 2
+  `);
+  assert.deepEqual(r.rows, [
+    { proname: "auth_user_by_email", args: "p_email text" },
+    { proname: "auth_user_by_id", args: "p_id uuid" },
+  ]);
+
+  const exécutables = await client.query<{ proname: string }>(`
+    select p.proname::text as proname
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname like 'auth\\_user\\_by\\_%'
+       and has_function_privilege('geoforest_app', p.oid, 'execute')
+  `);
+  assert.deepEqual(exécutables.rows, []);
+});
+
+test("seule la fonction de suppression logique est SECURITY DEFINER pour l'application", async () => {
+  // Une fonction `SECURITY DEFINER` s'exécute avec les droits de son
+  // propriétaire : elle échappe à la RLS par construction. Chacune est donc une
+  // porte qui doit être justifiée, et `gf_marquer_suppression` est la seule à
+  // l'être (elle revérifie elle-même le tenant, cf. `022`).
+  const r = await client.query<{ proname: string }>(`
+    select p.proname::text as proname
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prosecdef
+       and has_function_privilege('geoforest_app', p.oid, 'execute')
+     order by 1
+  `);
+  assert.deepEqual(
+    r.rows.map((l) => l.proname),
+    ["gf_marquer_suppression"],
+  );
 });
 
 test("une écriture dans un autre tenant est refusée par la RLS, pas ignorée", async () => {
