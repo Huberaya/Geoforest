@@ -40,7 +40,8 @@
 **Commit validé :** `eacab9bf248860ec0bcdad230c83e60978906e7b`
 (parent `1c95f4c585ed8303f887089ae7450c9235523fd0`, branche
 `arena/837c5c36-geoforest`, poussée sur `origin`). Les cinq suites ci-dessous
-ont été **relancées depuis ce commit**, après le push.
+ont été **relancées depuis ce commit**, après le push. Le présent document est
+mis à jour par un commit séparé qui ne touche aucun fichier de code.
 
 ### 1.2 Classement des résultats
 
@@ -893,6 +894,71 @@ du commit `1c95f4c`, avec les mêmes dépendances, puis le worktree a été supp
 
 Aucun secret n'a été ajouté. Aucune donnée de production n'a été modifiée. Aucun
 déploiement n'a été effectué.
+
+---
+
+## 7. Rapport final par chantier (phase 2)
+
+Un tableau par chantier : cause confirmée, correction, preuve, risque résiduel.
+
+### 7.1 Build `/api/metrics`
+
+| | |
+|---|---|
+| **Cause confirmée** | `src/db/admin.ts` construisait le pool au niveau du module ; `next build` évalue ce module pendant la collecte des données, sans base ni secret. Reproduit deux fois, y compris sur le commit de base. |
+| **Fichiers** | `src/db/admin.ts`, `scripts/check-demarrage-sans-config.ts` (**nouveau**), `package.json`, `.github/workflows/ci.yml` |
+| **Correction** | Connexion créée au premier usage, derrière un `Proxy` ; message d'erreur d'origine conservé ; aucune valeur de repli |
+| **Tests** | `test:demarrage` 7/7 (dont 2 vérifiant que l'usage **lève** sans configuration) + `npm run build` |
+| **Résultat** | build **exit 0**, 18/18 pages, 0 erreur ; 8 avertissements de traçage non bloquants |
+| **SHA** | `eacab9b` |
+| **Risque résiduel** | le proxy ne piège que `get`/`has` ; un `Object.keys` verrait un objet vide (aucun appelant) |
+
+### 7.2 Identité de l'opérateur
+
+| | |
+|---|---|
+| **Cause confirmée** | la route d'audit fabriquait `XX0000000000000` / `XX` pour un opérateur absent, dans des colonnes `NOT NULL` (`DEFAULT 'FR'` pour le pays) ; le triplet devenait indiscernable d'une identité réelle |
+| **Fichiers** | `src/db/schema.ts`, `drizzle/0007_*`, `src/app/api/v1/audit/parcel/route.ts`, `src/lib/eudr/{types,traces-exporter}.ts`, `src/app/api/v1/export/traces/route.ts`, `backend/app/{models/schemas.py,models/sql_models.py,core/database.py,api/v1/endpoints.py,services/traces_exporter.py}`, `backend/tests/test_operateur_identite.py` (**nouveau**), `scripts/sql/post-migrate/010_row_level_security.sql` |
+| **Correction** | trois états (`declared` / `missing` / `legacy_placeholder`) ; absence = `NULL` ; export **422** ; pays d'activité déduit ; nœuds producteur vidés ; vue de reprise `security_invoker` en lecture seule |
+| **Tests** | 10 tests Python (création, lecture, mise à jour, export accepté/refusé, migration, historique, idempotence) + 7 contrôles TS |
+| **Résultat** | `pytest` 117 passed ; `test:gis` 110/110 |
+| **SHA** | `eacab9b` |
+| **Risque résiduel** | les dossiers historiques portent encore la valeur de remplissage ; leur reprise est une **décision produit** non prise |
+
+### 7.3 Attribution du pays
+
+| | |
+|---|---|
+| **Cause confirmée** | résolution par rectangles (`COUNTRY_BOXES`) ; la boîte « UE » couvrait la Tunisie, l'Algérie, le Maroc, la Serbie et l'Ukraine |
+| **Fichiers** | `src/lib/eudr/frontieres.ts` (**nouveau**), `backend/app/services/frontieres.py` (**nouveau**), `src/lib/eudr/satellite-checker.ts`, `backend/app/services/satellite_checker.py`, `data/frontieres/*` (**nouveau**, 756 Ko + table ISO + provenance) |
+| **Correction** | Natural Earth 1:50m (world-atlas 2.0.2), TopoJSON décodé à l'identique en TS et Python ; `XX` hors couverture ; analyse **refusée** si le référentiel manque |
+| **Tests** | `TestPays` 39 tests Python ; 10 points + 6 gardes TS ; parité sur les mêmes coordonnées |
+| **Résultat** | Tunis `TN`, Alger `DZ`, Tanger `MA`, Belgrade `RS`, Kiev `UA`, Hokkaido `JP`, Oulan-Bator `MN`, Nassau `BS`, San Salvador `SV`, Pristina `XX` |
+| **SHA** | `eacab9b` |
+| **Risque résiduel** | précision de quelques centaines de mètres ; territoires contestés rattachés par le jeu (Crimée `RU`, Cachemire `IN`, Sahara occidental `MA`) — attribution rapportée, non endossée ; classification de risque **toujours** non vérifiée |
+
+### 7.4 Moteur GIS et validation externe
+
+| | |
+|---|---|
+| **Cause confirmée** | deux tests encodaient l'ambiguïté des rectangles comme un attendu ; les autres défauts (surface sphérique, `data: []` lu comme conforme) étaient déjà corrigés avant cette phase |
+| **Fichiers** | `backend/tests/test_gis_edge_cases.py`, `scripts/check-eudr-geo-edge-cases.ts`, `docs/RECETTE_VALIDATION_EXTERNE_2026-10-19.md` (**nouveau**) |
+| **Correction** | attendus réécrits vers la certitude géométrique (et non assouplis) ; gardes anti-régression ; recette externe formalisée |
+| **Tests** | `test:gis` 110/110 ; `tsc` 0 erreur ; `pytest` 117 passed ; `lint` 0 erreur ; `build` exit 0 |
+| **Résultat** | les 5 suites passent ; **aucun** cas de la recette externe n'a été exécuté |
+| **SHA** | `eacab9b` |
+| **Risque résiduel** | GFW, SI EUDR et terrain restent **non validés** ; la question de la date de récolte n'est **pas tranchée** |
+
+### 7.5 Intégration
+
+| | |
+|---|---|
+| Branche | `arena/837c5c36-geoforest` |
+| Commit de code | `eacab9b` (parent `1c95f4c`) |
+| `main` | **intacte** — `1c95f4c`, aucun commit ajouté, aucun merge |
+| Push | non destructif (`git push -u origin`), pas de force push, pas de reset |
+| `git diff --check` | propre |
+| Secrets | aucun ajouté (scan du diff indexé) |
 
 ---
 
