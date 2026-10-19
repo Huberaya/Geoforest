@@ -68,6 +68,7 @@ async function main(): Promise<void> {
     // Cas D vérifie le chemin d'indisponibilité de manière déterministe.
     // Une clé factice ne doit jamais déclencher un véritable appel réseau à GFW.
     const fetchOriginal = globalThis.fetch;
+    const apiKeyOriginal = process.env.GFW_API_KEY;
     if (cas.id === "D") {
       if (!process.env.GFW_API_KEY) process.env.GFW_API_KEY = "cle-factice-validation-indisponible";
       globalThis.fetch = (async () => {
@@ -79,7 +80,11 @@ async function main(): Promise<void> {
     try {
       obtenu = await resultatDe(cas);
     } finally {
-      if (cas.id === "D") globalThis.fetch = fetchOriginal;
+      if (cas.id === "D") {
+        globalThis.fetch = fetchOriginal;
+        if (apiKeyOriginal === undefined) delete process.env.GFW_API_KEY;
+        else process.env.GFW_API_KEY = apiKeyOriginal;
+      }
     }
 
     const ok = obtenu.issue === cas.expected;
