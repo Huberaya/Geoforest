@@ -127,21 +127,24 @@ def _collect_plot_items(geojson: Dict[str, Any]) -> List[SinglePlotItem]:
 
     gtype = geojson.get("type")
     if gtype == "FeatureCollection":
-        features = geojson.get("features") or []
-        if not features:
-            raise GeometryExtractionError("EMPTY_COLLECTION", "FeatureCollection vide")
+        features = geojson.get("features")
+        if not isinstance(features, list) or not features:
+            raise GeometryExtractionError("EMPTY_COLLECTION", "FeatureCollection vide ou invalide")
         items: List[SinglePlotItem] = []
         for idx, feat in enumerate(features):
-            if isinstance(feat, dict) and feat.get("geometry"):
-                items.append(
-                    SinglePlotItem(
-                        geometry=feat["geometry"],
-                        properties=feat.get("properties") or {},
-                        feature_index=idx,
-                    )
+            if not isinstance(feat, dict):
+                raise GeometryExtractionError("INVALID_FEATURE", f"Feature #{idx + 1} invalide dans la FeatureCollection")
+            geom = feat.get("geometry")
+            if feat.get("type") != "Feature" or not isinstance(geom, dict):
+                raise GeometryExtractionError("MISSING_GEOMETRY", f"Feature #{idx + 1} sans géométrie GeoJSON valide")
+            properties = feat.get("properties")
+            items.append(
+                SinglePlotItem(
+                    geometry=geom,
+                    properties=properties if isinstance(properties, dict) else {},
+                    feature_index=idx,
                 )
-        if not items:
-            raise GeometryExtractionError("EMPTY_COLLECTION", "Aucune géométrie dans la FeatureCollection")
+            )
         return items
 
     if gtype == "Feature":
