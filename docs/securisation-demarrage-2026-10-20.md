@@ -12,11 +12,11 @@
 > `arena/569eff1a-geoforest` ; il n'était donc pas possible d'en créer une
 > seconde. Aucune branche source n'a été touchée : `main` est resté à
 > `1c95f4c`, la branche de la PR #7 n'a pas été modifiée, aucune fusion ni
-> aucun déploiement n'a eu lieu. Les commits de cette phase s'ajoutent à la
+> aucun déploiement en production n'a été déclenché. Les commits de cette phase s'ajoutent à la
 > branche de session, qui est la tête de la PR #8.
 
 **Ce qui n'a pas été fait, par construction** : aucune fusion, aucun
-déploiement, aucune migration contre une base réelle, aucun accès à un secret
+déploiement en production, aucune migration contre une base réelle, aucun accès à un secret
 ou à une donnée de production, aucun `force push`, aucun `reset --hard`, aucun
 `clean -fd`. Toutes les bases utilisées sont des clusters PostgreSQL 16.2
 temporaires, avec des données synthétiques.
@@ -392,6 +392,8 @@ faut pas le confondre avec une panne.
   les tests locaux. Elle ne l'est pas pour l'exploitation : validation sur base
   hébergée **BLOQUÉE**, proposition géospatiale **non approuvée**, et
   `npm audit --include=dev` toujours rouge sur `braces`.
-- Aucune fusion, aucun déploiement, aucune migration sur une base réelle n'a
-  été effectué. Toute mise en production reste soumise à une autorisation
+- Aucune fusion, aucun déploiement en production, aucune migration sur une
+  base réelle n'a été effectué. L'intégration Vercel préexistante peut créer
+  une **prévisualisation** de la PR ; elle n'est pas une mise en service et
+  n'a pas été promue. Toute mise en production reste soumise à une autorisation
   distincte.
