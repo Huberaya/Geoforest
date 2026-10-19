@@ -26,7 +26,8 @@ Le cas D remplace maintenant temporairement `globalThis.fetch` par une fonction 
 ### État de vérification
 
 - Code poussé sur la branche de travail isolée.
-- La CI du nouveau head doit encore être consultée avant de qualifier la correction de vérifiée.
+- Vérification réalisée sur le head `0c74c5e0c876b25aa80ff470535a7338638902c7` : workflow GitHub Actions `39183371600` terminé avec succès pour les deux jobs. Le job frontend/backend a passé tests Python, typecheck, lint, tests unitaires, règles EUDR et build. Le job Neon éphémère a passé migrations, contrôles DB, parcours end-to-end, contrôles HTTP inter-tenant, parcours fournisseur et nettoyage.
+- Le statut Vercel associé à ce head est `success` (Preview prête), pas un déploiement de production.
 - Aucun appel GFW réel n'est revendiqué.
 
 ## Chantier 2 — protocole de validation
@@ -47,9 +48,9 @@ Points à maintenir bloqués :
 ## Conditions de sortie
 
 Le chantier n'est pas terminé tant que :
-1. la CI n'a pas terminé en succès sur le head courant de la PR #6 ;
-2. les résultats des tests de régression sont consultés sur ce SHA exact ;
-3. les cas A/B/E ne sont pas renseignés et exécutés avec des données de référence vérifiables ;
-4. les limites scientifiques, géographiques et juridiques sont toujours affichées clairement.
+1. les contrôles techniques sur le head `0c74c5e0c876b25aa80ff470535a7338638902c7` sont réussis ; un éventuel commit documentaire doit lui aussi repasser la CI ;
+2. les cas A/B/E sont renseignés avec des géométries de référence documentées et des attentes pré-enregistrées avant tout appel réel ;
+3. la validation GFW réelle est exécutée avec une clé fournie via le secret GitHub Actions `GFW_API_KEY` (ne jamais la coller dans le dépôt ou le chat) ;
+4. les limites scientifiques, géographiques et juridiques restent affichées clairement.
 
 Ce rapport ne déclare ni le moteur validé scientifiquement, ni le produit prêt à commercialiser, ni la conformité EUDR.
