@@ -117,7 +117,8 @@ export interface OperatorInfo {
   name: string;
   eori: string;
   address?: string | null;
-  country?: string;
+  /** `null` = non déclaré. Aucun pays par défaut n'est fourni. */
+  country?: string | null;
   email?: string | null;
 }
 
@@ -210,7 +211,17 @@ export interface ParcelAuditResponse {
 export interface AuditSummary {
   audit_id: string;
   created_at: string;
-  operator_name: string;
+  /**
+   * Lot A — `null` = identité non renseignée. Ce champ était `string`, ce qui
+   * obligeait la route d'audit à fabriquer une valeur pour rester typée : une
+   * contrainte de type ne doit pas pousser à inventer une donnée.
+   */
+  operator_name: string | null;
+  /**
+   * Lot A — état de l'identité, pour que l'appelant distingue un dossier
+   * réellement renseigné d'un dossier hérité portant la valeur de remplissage.
+   */
+  operator_identity: "declared" | "missing" | "legacy_placeholder";
   commodity: string;
   hs_code: string;
   harvest_date: string;

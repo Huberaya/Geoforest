@@ -24,14 +24,22 @@ import type { DdsStatus } from "@/lib/eudr/types";
 export const dynamic = "force-dynamic";
 
 const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
-const ANONYMOUS_OPERATOR: OperatorInfo = { name: "Opérateur non renseigné", eori: "XX0000000000000", country: "XX" };
 
 function badRequest(detail: string, status = 422): NextResponse {
   return NextResponse.json({ detail }, { status });
 }
 
-function parseOperator(raw: unknown): { operator: OperatorInfo } | { error: string } {
-  if (raw === null || raw === undefined) return { operator: ANONYMOUS_OPERATOR };
+/**
+ * Lot A — l'opérateur absent reste absent.
+ *
+ * ⚠️ Cette fonction renvoyait `ANONYMOUS_OPERATOR`
+ * (`"Opérateur non renseigné"` / `XX0000000000000` / `XX`), qui était ensuite
+ * persisté tel quel. Le dossier devenait alors **indiscernable** d'un dossier
+ * dont l'opérateur est réellement connu, et partait en déclaration.
+ * `null` est désormais la seule représentation de l'absence.
+ */
+function parseOperator(raw: unknown): { operator: OperatorInfo | null } | { error: string } {
+  if (raw === null || raw === undefined) return { operator: null };
   if (typeof raw !== "object") return { error: "operator doit être un objet" };
   const o = raw as Record<string, unknown>;
   const name = typeof o.name === "string" ? o.name.trim() : "";
@@ -40,7 +48,12 @@ function parseOperator(raw: unknown): { operator: OperatorInfo } | { error: stri
   if (!EORI_PATTERN.test(eori)) {
     return { error: "EORI invalide : format attendu = code pays ISO (2 lettres) + 1 à 15 caractères alphanumériques" };
   }
-  const country = typeof o.country === "string" && o.country.trim().length === 2 ? o.country.trim().toUpperCase() : eori.slice(0, 2);
+  // `null` = pays non déclaré. On stocke ce qui est déclaré, pas une valeur
+  // déduite : `FR` (ancienne valeur par défaut) et le préfixe de l'EORI sont
+  // des déductions, pas des déclarations. L'export les utilise le cas échéant,
+  // sans jamais les présenter comme fournies par l'opérateur.
+  const country =
+    typeof o.country === "string" && o.country.trim().length === 2 ? o.country.trim().toUpperCase() : null;
   return {
     operator: {
       name,
@@ -157,9 +170,12 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
   const operator = parsedOperator.operator;
   const parsedProducer = parseProducteur(body.producer);
   if ("error" in parsedProducer) return badRequest(parsedProducer.error);
+  // `same_as_operator` recopie une identité **qui existe**. Sans opérateur
+  // déclaré, il n'y a rien à recopier : le producteur reste inconnu plutôt que
+  // de se voir attribuer une identité de synthèse.
   const producer =
-    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true
-      ? { name: operator.name, country: operator.country }
+    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true && operator !== null
+      ? { name: operator.name, country: operator.country ?? null }
       : parsedProducer.producer;
   const parcelReference = typeof body.parcel_reference === "string" ? body.parcel_reference.slice(0, 100) : null;
 
@@ -232,10 +248,13 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       .insert(parcelAudits)
       .values({
         organizationId,
-        operatorName: operator.name,
-        operatorEori: operator.eori,
-        operatorCountry: operator.country ?? "FR",
-        operatorAddress: operator.address ?? null,
+        // Lot A — aucune identité de remplissage : `null` reste `null`.
+        // `operator.country ?? "FR"` fabriquait un pays d'activité (`FR`) pour
+        // tout opérateur qui n'en déclarait pas — un pays inventé, silencieux.
+        operatorName: operator?.name ?? null,
+        operatorEori: operator?.eori ?? null,
+        operatorCountry: operator?.country ?? null,
+        operatorAddress: operator?.address ?? null,
         // Nullables : un producteur inconnu reste inconnu, il n'est pas
         // remplacé par l'opérateur.
         producerName: producer.name,

@@ -7,6 +7,7 @@ Le backend stocke chaque audit de parcelle afin de pouvoir :
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 import threading
@@ -16,6 +17,27 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from app.core.config import settings
 from app.models.sql_models import CREATE_TABLES_SQL, ParcelAuditRecord
+
+
+def _instructions_sql(script: str) -> list[str]:
+    """Découpe un script SQL en instructions complètes.
+
+    ``sqlite3.complete_statement`` gère les points-virgules internes (chaînes,
+    déclencheurs), contrairement à un ``split(";")`` naïf.
+    """
+    instructions: list[str] = []
+    tampon = ""
+    for ligne in script.splitlines(keepends=True):
+        tampon += ligne
+        if sqlite3.complete_statement(tampon):
+            instruction = tampon.strip()
+            if instruction:
+                instructions.append(instruction)
+            tampon = ""
+    reste = tampon.strip()
+    if reste:
+        instructions.append(reste)
+    return instructions
 
 
 class Database:
@@ -41,6 +63,108 @@ class Database:
         with self._lock:
             self._conn.executescript(CREATE_TABLES_SQL)
             self._conn.commit()
+            self._migrer_identite_operateur()
+
+    def _migrer_identite_operateur(self) -> None:
+        """Lot A — rend l'identité de l'opérateur facultative (SQLite).
+
+        ⚠️ ``CREATE TABLE IF NOT EXISTS`` ne touche pas une table déjà créée :
+        une base antérieure conserve donc ``operator_eori NOT NULL`` (et, selon
+        son millésime, pas de colonne ``operator_country``). Insérer un dossier
+        sans identité échouerait. SQLite ne sait pas retirer une contrainte
+        ``NOT NULL`` : il faut reconstruire la table.
+
+        La reconstruction suit la procédure officielle et **ne perd aucune
+        ligne**. Trois précautions, chacune apprise d'un échec mesuré :
+
+          1. la copie porte sur l'**intersection** des colonnes anciennes et
+             cibles — une colonne ancienne absente du nouveau schéma ferait
+             échouer l'INSERT après le renommage ;
+          2. tout s'exécute dans une transaction explicite : en cas d'échec,
+             ``ROLLBACK`` rend la base exactement dans son état d'avant, au lieu
+             de laisser une table vivante vide et des données orphelines ;
+          3. le nombre de lignes est **comparé** avant de supprimer l'ancienne
+             table — une copie partielle est un échec, pas un succès.
+
+        Les identités existantes sont copiées **telles quelles**, y compris la
+        valeur de remplissage héritée : sa reprise est une décision explicite
+        (cf. ``classer_identite_operateur``), jamais un effet de bord.
+        """
+        colonnes = {
+            ligne["name"]: ligne
+            for ligne in self._conn.execute("PRAGMA table_info(parcel_audits)")
+        }
+        if not colonnes or "operator_eori" not in colonnes:
+            return
+        # Déjà migrée : plus de NOT NULL et la colonne pays existe.
+        if not colonnes["operator_eori"]["notnull"] and "operator_country" in colonnes:
+            return
+
+        logger = logging.getLogger(__name__)
+        logger.info("Lot A : migration de parcel_audits (identité opérateur facultative)")
+
+        anciennes = [ligne["name"] for ligne in self._conn.execute("PRAGMA table_info(parcel_audits)")]
+
+        # Procédure officielle SQLite : on pilote la transaction à la main, car
+        # le mode « legacy » de sqlite3 ouvre et ferme des transactions
+        # implicites autour des DDL, ce qui rendrait le ROLLBACK inopérant.
+        mode_initial = self._conn.isolation_level
+        self._conn.isolation_level = None
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            self._conn.execute("ALTER TABLE parcel_audits RENAME TO parcel_audits_avant_lot_a")
+
+            # ⚠️ `executescript()` émet un COMMIT implicite : l'utiliser ici
+            #   fermerait la transaction et le ROLLBACK serait impossible
+            #   (« cannot rollback - no transaction is active », mesuré).
+            for instruction in _instructions_sql(CREATE_TABLES_SQL):
+                self._conn.execute(instruction)
+
+            cibles = [
+                ligne["name"]
+                for ligne in self._conn.execute("PRAGMA table_info(parcel_audits)")
+            ]
+            communes = [nom for nom in anciennes if nom in cibles]
+            if not communes:  # pragma: no cover — schémas disjoints
+                raise RuntimeError(
+                    "aucune colonne commune entre l'ancien et le nouveau schéma "
+                    "de parcel_audits : migration impossible sans perte"
+                )
+            liste = ", ".join(f'"{nom}"' for nom in communes)
+            ecartees = sorted(set(anciennes) - set(communes))
+            if ecartees:
+                logger.warning(
+                    "Lot A : colonne(s) absente(s) du schéma cible, non copiée(s) : %s",
+                    ", ".join(ecartees),
+                )
+
+            self._conn.execute(
+                f"INSERT INTO parcel_audits ({liste}) "
+                f"SELECT {liste} FROM parcel_audits_avant_lot_a"
+            )
+
+            avant = self._conn.execute(
+                "SELECT COUNT(*) AS n FROM parcel_audits_avant_lot_a"
+            ).fetchone()["n"]
+            apres = self._conn.execute("SELECT COUNT(*) AS n FROM parcel_audits").fetchone()["n"]
+            if avant != apres:
+                raise RuntimeError(
+                    f"copie incomplète : {avant} ligne(s) avant, {apres} après — "
+                    "migration annulée, l'ancienne table est conservée"
+                )
+
+            self._conn.execute("DROP TABLE parcel_audits_avant_lot_a")
+            self._conn.execute("COMMIT")
+            logger.info("Lot A : %s ligne(s) conservée(s)", apres)
+        except BaseException:
+            try:
+                self._conn.execute("ROLLBACK")
+            except sqlite3.Error:  # pragma: no cover — transaction déjà close
+                logger.exception("Lot A : échec du ROLLBACK après une migration ratée")
+            logger.exception("Lot A : migration annulée, base laissée intacte")
+            raise
+        finally:
+            self._conn.isolation_level = mode_initial
 
     @contextmanager
     def cursor(self) -> Iterator[sqlite3.Cursor]:
@@ -61,19 +185,20 @@ class Database:
             cur.execute(
                 """
                 INSERT INTO parcel_audits (
-                    id, created_at, operator_name, operator_eori, commodity, hs_code,
+                    id, created_at, operator_name, operator_eori, operator_country, commodity, hs_code,
                     harvest_date, geometry_json, geometry_type, area_ha, vertex_count,
                     centroid_lon, centroid_lat, country_code, country_risk,
                     compliant, loss_year, confidence_score, analysis_source,
                     analysis_probative, analysis_evidence, risk_level, status,
                     validation_json, satellite_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.id,
                     record.created_at,
                     record.operator_name,
                     record.operator_eori,
+                    record.operator_country,
                     record.commodity,
                     record.hs_code,
                     record.harvest_date,
@@ -130,6 +255,7 @@ class Database:
             created_at=data["created_at"],
             operator_name=data["operator_name"],
             operator_eori=data["operator_eori"],
+            operator_country=data.get("operator_country"),
             commodity=data["commodity"],
             hs_code=data["hs_code"],
             harvest_date=data["harvest_date"],

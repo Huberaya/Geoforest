@@ -64,6 +64,13 @@
       "when": 1791988917202,
       "tag": "0008_fournisseur_invitation",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792447869531,
+      "tag": "0009_operateur_non_renseigne",
+      "breakpoints": true
     }
   ],
   "prevId": "0004_document_mime_mismatch"

@@ -24,10 +24,17 @@ from app.models.sql_models import ParcelAuditRecord
 from app.services.gis_validator import validate_geometry
 from app.services.satellite_checker import check_deforestation_risk
 from app.services.traces_exporter import build_reference, export_traces_json, export_traces_xml
+from app.services.identite_operateur import classer_identite_operateur
 
 router = APIRouter()
 
-_ANONYMOUS_OPERATOR = OperatorInfo(name="Opérateur non renseigné", eori="XX0000000000000", country="XX")
+# ⚠️ Lot A — il existait ici une identité de remplissage (`_ANONYMOUS_OPERATOR`)
+#   écrite en base pour tout opérateur absent : « Opérateur non renseigné » /
+#   XX0000000000000 / XX. Elle a la forme d'une identité réelle, devient
+#   indiscernable d'une déclaration véritable, et part en export. Supprimée :
+#   l'absence est représentée par `None`. La constante n'est définie qu'à un
+#   seul endroit (`app.services.identite_operateur`) : deux copies d'une même
+#   sentinelle finissent toujours par diverger.
 
 
 def _summary_text(status_value: str, validation: Dict[str, Any], satellite: Dict[str, Any] | None) -> str:
@@ -113,7 +120,8 @@ def audit_parcel(
     audit_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     hs_code = COMMODITY_HS_CODES[payload.commodity.value]
-    operator = payload.operator or _ANONYMOUS_OPERATOR
+    # Aucune fabrication : l'absence d'identité reste une absence.
+    operator: OperatorInfo | None = payload.operator
 
     satellite: Dict[str, Any] | None = None
     if validation["valid"]:
@@ -137,8 +145,9 @@ def audit_parcel(
     record = ParcelAuditRecord(
         id=audit_id,
         created_at=created_at,
-        operator_name=operator.name,
-        operator_eori=operator.eori,
+        operator_name=operator.name if operator else None,
+        operator_eori=operator.eori if operator else None,
+        operator_country=operator.country if operator else None,
         commodity=payload.commodity.value,
         hs_code=hs_code,
         harvest_date=payload.harvest_date.isoformat(),
@@ -185,6 +194,7 @@ def list_audits(limit: int = Query(default=50, ge=1, le=500), db: Database = Dep
             audit_id=r.id,
             created_at=r.created_at,
             operator_name=r.operator_name,
+            operator_identity=classer_identite_operateur(r.operator_name, r.operator_eori).etat,
             commodity=r.commodity,
             hs_code=r.hs_code,
             harvest_date=r.harvest_date,
@@ -263,17 +273,43 @@ def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) 
             ),
         )
 
+    # ------------------------------------------------------------------ Lot A
+    # L'identité vient du dossier **ou** de la requête, jamais d'un remplissage.
+    #
+    # ⚠️ Cette branche reprenait `record.operator_eori` sans contrôle, et
+    #   faisait `record.operator_eori[:2]` : un dossier sans identité (colonne
+    #   désormais NULL) aurait levé une TypeError, et un dossier hérité
+    #   `XX0000000000000` serait parti avec un EORI de synthèse — un dossier
+    #   faussement complet.
+    identite = classer_identite_operateur(record.operator_name, record.operator_eori)
     operator: Dict[str, Any]
     if payload.operator is not None:
         operator = payload.operator.model_dump()
-    else:
+    elif identite.exportable:
+        eori_stocke = (record.operator_eori or "").strip()
         operator = {
-            "name": record.operator_name,
-            "eori": record.operator_eori,
-            "country": record.country_code if record.operator_eori[:2] == "XX" else record.operator_eori[:2],
+            "name": record.operator_name or "",
+            "eori": eori_stocke,
+            "country": record.operator_country or eori_stocke[:2],
             "address": "",
             "email": "",
         }
+    else:
+        # Aucune identité exploitable : refus explicite, distinct d'un refus
+        # pour analyse non probante (409) déjà traité plus haut.
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "OPERATOR_IDENTITY_MISSING",
+                "operator_identity": identite.etat,
+                "message": (
+                    f"Export refusé : {identite.raison} "
+                    "Renseignez l'identité dans la requête (champ `operator`), "
+                    "puis relancez l'export. Aucune identité de remplacement "
+                    "n'est fabriquée."
+                ),
+            },
+        )
 
     options = {
         "activity_type": payload.activity_type,

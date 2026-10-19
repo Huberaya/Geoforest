@@ -552,9 +552,24 @@ export const parcelAudits = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    operatorName: text("operator_name").notNull(),
-    operatorEori: text("operator_eori").notNull(),
-    operatorCountry: text("operator_country").notNull().default("FR"),
+    /**
+     * Lot A — identité de l'opérateur **facultative** : `null` = non renseignée.
+     *
+     * ⚠️ Ces trois colonnes étaient `NOT NULL`, et l'opérateur absent était
+     * remplacé par un triplet de remplissage
+     * (`"Opérateur non renseigné"` / `XX0000000000000` / `XX`). Une fois en
+     * base, ce triplet était indiscernable d'une identité réelle et partait en
+     * déclaration. `operator_country` avait en plus `DEFAULT 'FR'` : un pays
+     * inventé pour tout dossier ne le précisant pas.
+     *
+     * Aucune valeur par défaut : l'absence doit rester représentable. La
+     * classification des dossiers existants est faite par
+     * `classerIdentiteOperateur()` (cf. `src/lib/eudr/identite-operateur.ts`) et,
+     * en base, par la vue `v_parcel_audits_identite` — sans réécriture.
+     */
+    operatorName: text("operator_name"),
+    operatorEori: text("operator_eori"),
+    operatorCountry: text("operator_country"),
     operatorAddress: text("operator_address"),
     /**
      * P1-16 — identité du **producteur**, distincte de l'opérateur.

@@ -3,17 +3,17 @@ import { dueDiligenceStatements, parcelAudits } from "@/db/schema";
 import { logAction } from "@/lib/api/audit-log";
 import { buildDdsPayload, buildReference, buildTracesXml, producteurDe, type TracesOptions } from "@/lib/eudr/traces-exporter";
 import { buildEudrIsGeoJson } from "@/lib/eudr/eudr-is-geojson";
-import type { ActivityType, OperatorInfo, TracesFormat } from "@/lib/eudr/types";
+import type { ActivityType, TracesFormat } from "@/lib/eudr/types";
 import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { estFige, TRANSITION_EXPORT } from "@/lib/eudr/dds-etats";
 import { aujourdhuiIso, chargerDossier } from "@/lib/eudr/readiness-db";
 import type { DdsStatus } from "@/lib/eudr/types";
+import { resoudreIdentiteExport } from "@/lib/eudr/identite-operateur";
 
 export const dynamic = "force-dynamic";
 
-const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIVITIES: ActivityType[] = ["IMPORT", "EXPORT", "DOMESTIC"];
 
@@ -78,28 +78,47 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
       { status: 409 },
     );
   }
-  let operator: OperatorInfo = {
-    name: row.operatorName,
-    eori: row.operatorEori,
-    country: row.operatorCountry,
-    address: row.operatorAddress ?? "",
-    email: "",
-  };
-  if (body.operator && typeof body.operator === "object") {
-    const o = body.operator as Record<string, unknown>;
-    const eori = typeof o.eori === "string" ? o.eori.replace(/\s+/g, "").toUpperCase() : "";
-    const name = typeof o.name === "string" ? o.name.trim() : "";
-    if (name.length < 2 || !EORI_PATTERN.test(eori)) {
-      return NextResponse.json({ detail: "Opérateur invalide (nom ≥ 2 caractères et EORI conforme requis)" }, { status: 422 });
-    }
-    operator = {
-      name,
-      eori,
-      country: typeof o.country === "string" && o.country.length === 2 ? o.country.toUpperCase() : eori.slice(0, 2),
-      address: typeof o.address === "string" ? o.address : "",
-      email: typeof o.email === "string" ? o.email : "",
-    };
+  // ---------------------------------------------------------------- Lot A
+  // L'identité vient du dossier **ou** de la requête, jamais d'un remplissage.
+  //
+  // ⚠️ Cette route reprenait `row.operatorEori` sans contrôle. Un dossier créé
+  // par les versions antérieures portait `XX0000000000000`, écrit en base par
+  // la route d'audit : la déclaration partait donc avec un EORI de synthèse,
+  // c'est-à-dire un dossier **faussement complet**.
+  //
+  // La décision est prise par `resoudreIdentiteExport()` — une fonction pure,
+  // donc testable — et non ici : la route ne fait que traduire le verdict en
+  // réponse HTTP. Une règle « pas d'identité, pas d'export » qui ne serait
+  // vérifiable qu'en lisant le code ne serait pas une règle.
+  const identite = resoudreIdentiteExport(
+    {
+      name: row.operatorName,
+      eori: row.operatorEori,
+      country: row.operatorCountry,
+      address: row.operatorAddress,
+    },
+    body.operator,
+  );
+
+  if (identite.statut === "invalide") {
+    return NextResponse.json({ detail: identite.detail }, { status: 422 });
   }
+
+  if (identite.statut === "refus") {
+    return NextResponse.json(
+      {
+        detail:
+          `Export refusé : ${identite.raison} ` +
+          "Renseignez l'identité dans la requête (champ `operator`), puis relancez l'export. " +
+          "Aucune identité de remplacement n'est fabriquée.",
+        code: "OPERATOR_IDENTITY_MISSING",
+        operator_identity: identite.etat,
+      },
+      { status: 422 },
+    );
+  }
+
+  const identiteRetenue = identite.operator;
 
   const format: TracesFormat =
     body.format === "geojson" ? "geojson" : body.format === "json" ? "json" : "xml";
@@ -128,8 +147,10 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
   if (producerName === null && brutProducer && typeof brutProducer === "object") {
     const p = brutProducer as Record<string, unknown>;
     if (p.same_as_operator === true) {
-      producerName = operator.name;
-      producerCountry = operator.country ?? null;
+      producerName = identiteRetenue.name;
+      // `country` est toujours renseigné dans l'identité retenue (déclaré, ou
+      // déduit de l'EORI) : aucun pays inventé n'est recopié ici.
+      producerCountry = identiteRetenue.country;
     } else {
       const nom = typeof p.name === "string" ? p.name.trim() : "";
       const pays = typeof p.country === "string" ? p.country.trim().toUpperCase() : "";
@@ -306,7 +327,7 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
   }
 
   if (format === "json") {
-    return new Response(JSON.stringify(buildDdsPayload(row, operator, options), null, 2), {
+    return new Response(JSON.stringify(buildDdsPayload(row, identiteRetenue, options), null, 2), {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
@@ -316,7 +337,7 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     });
   }
 
-  return new Response(buildTracesXml(row, operator, options), {
+  return new Response(buildTracesXml(row, identiteRetenue, options), {
     status: 200,
     headers: {
       "Content-Type": "application/xml; charset=utf-8",

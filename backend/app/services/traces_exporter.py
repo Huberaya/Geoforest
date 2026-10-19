@@ -93,7 +93,11 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
         "operator": {
             "reference_number": {"type": "EORI", "identifier": operator["eori"]},
             "name": operator["name"],
-            "country": operator.get("country", "FR"),
+            # Lot A — `operator.get("country", "FR")` déclarait « France »
+            # pour tout opérateur silencieux, dans un document destiné au SI
+            # EUDR. Le pays n'est jamais inventé : à défaut de déclaration, il
+            # est déduit du préfixe de l'EORI (fait attaché à l'identifiant).
+            "country": operator.get("country") or operator["eori"][:2],
             "address": operator.get("address") or "",
             "email": operator.get("email") or "",
         },

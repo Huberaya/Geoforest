@@ -116,7 +116,12 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
     operator: {
       reference_number: { type: "EORI", identifier: operator.eori },
       name: operator.name,
-      country: operator.country ?? "FR",
+      // Lot A — `operator.country ?? "FR"` déclarait « France » pour tout
+      // opérateur silencieux, dans un document destiné au SI EUDR. Le pays
+      // n'est jamais inventé : à défaut de déclaration, il est déduit du
+      // préfixe de l'EORI, qui est un fait attaché à l'identifiant (et non une
+      // valeur par défaut arbitraire).
+      country: operator.country ?? operator.eori.slice(0, 2),
       address: operator.address ?? "",
       email: operator.email ?? "",
     },
