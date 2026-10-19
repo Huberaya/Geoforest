@@ -8,6 +8,8 @@
 | Branche de travail | `arena/569eff1a-geoforest` |
 | Commit de référence | `1c95f4c585ed8303f887089ae7450c9235523fd0` (`main` au moment de l'audit) |
 | Commit de vérification (phase 2) | `4f5970bff00387b0eb8e0654a15a32f9be2552b2` (parent : `04c9cc5f11fd7c455297022c3a4903ee89434aaa`) |
+| Commit de vérification (phase 3) | `9ab78e645db0b0b6d5b5bb09b975acb4641c84ad` (parent : `256acdcc9bed022685db41a0581fbd1703eb32bb`) |
+| Demande de fusion | [PR #8](https://github.com/Huberaya/Geoforest/pull/8) — `arena/569eff1a-geoforest` → `main`, **non fusionnée** |
 | Date | 19 octobre 2026 |
 | Périmètre | Next.js 16 (39 routes API), schéma PostgreSQL et politiques RLS, backend FastAPI (SQLite), scripts d'exploitation |
 | Hors périmètre | hébergement, fournisseur d'identité, S3/SMTP réels, tests de charge, audit de dépendances exhaustif |
@@ -55,15 +57,19 @@ Les contraintes de la mission ont été respectées : `main` n'a pas été modif
 | V14 | Script d'amorçage : mot de passe publié et réinitialisation des comptes existants | Élevée | Corrigé | `seed-gardes.test.ts` (8) |
 | V15 | Backend : documentation interactive ouverte, CORS `allow_methods: ["*"]` | Faible-moyenne | Corrigé | `test_backend_auth.py` (8 nouveaux) |
 | V16 | Le build exigeait une base configurée ; la CI n'exécutait aucun test front | Moyenne (détection) | Corrigé | `admin-pool.test.ts`, `npm run build` sans variables |
+| V17 | `010` : `alter role … nobypassrls` échouait sans `BYPASSRLS` et annulait **toute** la post-migration (RLS non installée) | Élevée | Corrigé | recette serveur, étape 3 |
+| V18 | Connexion d'administration soumise à la RLS : authentification cassée **silencieusement** | Élevée | Corrigé | `controle-role-admin.test.ts` (3), recette étape 6b |
+| V19 | `password_hash`, `mfa_secret`, `mfa_recovery_codes` lisibles par le rôle applicatif dans son tenant | Moyenne | Corrigé | `privileges.test.ts` (colonnes), recette |
 | — | RLS, permissions, FK composites, URL signées, journal scellé, suppressions logiques | — | **Déjà satisfaisants** | tests SQL + HTTP (voir §4) |
 
 **Résultats finaux** (arbre de travail de la branche, après la phase 2) :
 
 | Commande | Résultat |
 |---|---|
-| `npm run test:unit` | **22/22** |
-| `npm run test:sql` | **40/40** (13 isolation/RLS, 10 privilèges, 8 connexion applicative, 6 cadence, 3 consommation de jetons) |
+| `npm run test:unit` | **36/36** |
+| `npm run test:sql` | **42/42** (13 isolation/RLS, 12 privilèges, 8 connexion applicative, 6 cadence, 3 consommation de jetons) |
 | `npm run test:http` | **25/25** |
+| `bash scripts/recette/postgresql-recette.sh` | **9 étapes, 21 assertions** (PostgreSQL 16.2) |
 | `npx tsc --noEmit` | **0 erreur** |
 | `npm run lint` | **0 erreur** (9 avertissements, aucun bloquant) |
 | `pytest -q` (backend) | **55 passed, 3 skipped** |
@@ -621,16 +627,17 @@ Ces points ne sont **pas** des corrections ; ils sont documentés pour la recett
 
 1. **Limitation de cadence : partagée pour les actions sensibles, en mémoire ailleurs.** La connexion, le renouvellement, le changement de mot de passe et le second facteur passent désormais par `gf_login_attempts` (fenêtre en base, partagée entre instances, cf. V11/V12). Les autres routes (journal, exports, etc.) utilisent encore `src/lib/rate-limit.ts`, dont les fenêtres vivent dans la mémoire du processus : la limite y est multipliée par le nombre d'instances. Un stockage partagé reste nécessaire pour un déploiement horizontal complet.
 2. **`GF_TRUSTED_PROXY_HOPS` est un fait de déploiement.** Une valeur trop basse fait compter l'adresse d'un mandataire (tout le monde partage un quota) ; une valeur trop haute laisse le client choisir son adresse. La valeur par défaut (1) doit être confirmée contre l'infrastructure réelle.
-3. **Pas de test HTTP sous le rôle applicatif — limite mesurée, pas supposée.** PGlite n'ouvre qu'**une session** PostgreSQL : un `SET ROLE` posé par une connexion s'applique à toutes les autres, ce qui casse la connexion d'administration dont dépend l'authentification (401 `compte_inconnu`). Le harnais HTTP ne peut donc pas tourner sous `geoforest_app` ; cette limite est écrite en tête de `tests/http/harness.ts` et les preuves sont conservées (`var/preuves/06`, `07`). Les privilèges et la RLS sont prouvés **séparément**, sous le rôle réel, par `tests/sql/{privileges,connexion-applicative,isolation}.test.ts`. Une recette sur PostgreSQL serveur, avec `DATABASE_URL` en `geoforest_app` et `DATABASE_URL_ADMIN` distinct, reste indispensable.
+3. **Pas de test HTTP sous le rôle applicatif — limite mesurée, pas supposée.** PGlite n'ouvre qu'**une session** PostgreSQL : un `SET ROLE` posé par une connexion s'applique à toutes les autres, ce qui casse la connexion d'administration dont dépend l'authentification (401 `compte_inconnu`). Le harnais HTTP ne peut donc pas tourner sous `geoforest_app` ; cette limite est écrite en tête de `tests/http/harness.ts` et les preuves sont conservées (`var/preuves/06`, `07`). Les privilèges et la RLS sont prouvés **séparément**, sous le rôle réel, par `tests/sql/*` **et désormais sur PostgreSQL serveur** (`scripts/recette/`, 21 assertions). Ce qui reste non prouvé : le parcours HTTP de bout en bout sous `geoforest_app` et la recette sur l'hébergeur réel.
 4. **Backend mono-tenant.** Le jeton de service ferme l'accès, mais tout porteur voit les données de l'unique base SQLite. Il ne doit jamais être exposé à plusieurs organisations ni publié au-delà de `127.0.0.1`.
-5. **CI : corrigée localement, pas encore observée sur GitHub.** Le workflow exécute désormais typage, lint, tests unitaires, build, tests SQL, tests HTTP, `pytest` et l'audit des dépendances de production, sans aucune variable factice (V16). Chaque commande a été jouée à la main sur le SHA de vérification, mais le premier passage réel sur GitHub Actions reste à constater : un écart d'environnement (version de Node, ressources) ne peut être exclu avant cette observation.
-6. **Dépendances : production assainie, outillage à surveiller.** `source-map-js` est forcé en `1.2.2` (V13) et `npm audit --omit=dev` ne signale **plus aucune vulnérabilité**. En revanche, `npm audit` complet signale `braces` (chaîne `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` → `braces@3.0.3`), avis **high** `GHSA-vfj7-8cjw-p6xm` publié le 18/09/2026, **sans version corrigée** à ce jour. Dépendance de développement uniquement, jamais chargée par l'application en production ; l'impact se limite à l'analyse de motifs par l'outil de lint. Le script `audit:sec` contrôle donc les dépendances de **production** ; `audit:dev` reste disponible et **échoue** tant que l'avis existe, ce qui est le comportement attendu et documenté.
+5. **CI : vérifiée sur GitHub.** Le workflow exécute typage, lint, tests unitaires, build, tests SQL, tests HTTP, `pytest` et l'audit des dépendances de production, sans aucune variable factice (V16). Il a été observé **vert** sur les SHA successifs de la branche, y compris `9ab78e6` en `push` et en `pull_request` (PR #8), trois tâches à chaque fois. Il ne couvre en revanche **pas** la recette PostgreSQL serveur : elle demande un cluster, donc un service externe que la CI n'a pas.
+6. **Dépendances : production assainie, outillage à surveiller.** `source-map-js` est forcé en `1.2.2` (V13) et `npm audit --omit=dev` ne signale **plus aucune vulnérabilité**. En revanche, `npm audit` complet signale `braces@3.0.3` (chaîne `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch`), avis **high** `GHSA-vfj7-8cjw-p6xm` publié le 18/09/2026. Recontrôlé le 19/10/2026 : plage `<= 3.0.3`, **`first_patched_version: null`** — aucune version corrigée n'existe, et 3.0.3 est la dernière publiée. Dépendance de **développement** uniquement, jamais chargée en production ; les motifs analysés viennent de la configuration, pas d'une entrée utilisateur. `audit:sec` contrôle la production à 0 ; `audit:dev` **échoue** volontairement et reste le signal de suivi (voir R2, § 10.2).
 7. **Stockage et intégrations non réels.** Le chemin « pièce absente » est testé ; S3, l'analyse antivirus, SMTP et les webhooks ne le sont pas. Les erreurs de ces intégrations peuvent avoir leurs propres fuites de détail.
-8. **Comptes de démonstration déjà créés.** Le script refuse désormais de s'exécuter sans mot de passe fourni, en production, sur une base distante non autorisée, et ne réinitialise les comptes existants que sur `SEED_REINITIALISER=oui` (V14). Le mot de passe historique reste toutefois **public** : toute base qui l'a reçu doit voir ces comptes réinitialisés ou supprimés. Aucun script d'amorçage n'a été exécuté contre une base réelle pendant cette mission.
+8. **Comptes de démonstration déjà créés.** Le script refuse désormais de s'exécuter sans mot de passe fourni, en production, sur une base distante non autorisée, et ne réinitialise les comptes existants que sur `SEED_REINITIALISER=oui` (V14). Le mot de passe historique reste toutefois **public** : toute base qui l'a reçu doit voir ces comptes réinitialisés ou supprimés. L'inventaire est désormais outillé (`npm run verif:comptes-demo`, lecture seule, testé) et la procédure écrite (`docs/EXPLOITATION-secrets-et-audit.md` § 3). **L'inventaire des bases concernées n'est pas établi et aucune rotation n'a été exécutée** : voir R3, § 10.3.
 9. **Vérification de chaîne non planifiée.** `verifier_chaine_audit()` est appelée à la lecture de l'historique et par le script `verifier-chaine.ts` ; aucun contrôle périodique n'est câblé dans l'exploitation.
 10. **FK composites et suppression physique.** Les clés `ON DELETE SET NULL` portent sur `(id, organization_id)` : si un `DELETE` physique était un jour autorisé, PostgreSQL mettrait les deux colonnes à `NULL`, ce que le `NOT NULL` d'`organization_id` refuserait. C'est cohérent avec l'interdiction de destruction, mais toute évolution du privilège `DELETE` doit être rouverte avec cette contrainte en tête.
 11. **Avis `braces` sans correctif.** Décrit au §5.6 : dépendance de développement, aucune version corrigée publiée. À revoir quand `braces` ou `fast-glob` publieront une version corrigée ; `npm run audit:dev` le signalera.
-12. **Rotation des secrets.** `AUTH_SECRET`, `GF_METRICS_TOKEN`, `GF_BACKEND_TOKEN` et le secret de signature des URL n'ont pas de procédure de rotation testée. Une rotation invalide toutes les sessions (ou toutes les URL) ; elle doit être planifiée.
+12. **Rotation des secrets.** `AUTH_SECRET`, `GF_METRICS_TOKEN`, `GF_BACKEND_TOKEN` et le secret de signature des URL n'ont pas de procédure de rotation *testée*. La procédure est désormais écrite et complète (`docs/EXPLOITATION-secrets-et-audit.md` § 2), y compris l'ordre, la validation et le retour arrière ; elle n'a pas été exécutée. Une rotation invalide toutes les sessions (ou toutes les URL) ; il n'existe pas de période de recouvrement à deux secrets.
+13. **`DATABASE_URL_ADMIN` doit porter `BYPASSRLS`.** L'authentification et l'écriture du journal d'audit s'exécutent hors contexte d'organisation : sur une base à RLS forcée, ce rôle doit contourner la RLS (c'est le cas de `neondb_owner` sur Neon, et c'était déjà le cas en pratique). Ce qui change depuis la phase 3 : le serveur **refuse de démarrer** sans cet attribut (V18) au lieu d'échouer plus tard en « compte inconnu ». Toute nouvelle cible d'hébergement doit en tenir compte, et `verifier-chaine.ts` doit tourner avec le même type de rôle.
 
 ---
 
@@ -642,9 +649,10 @@ plus aucune variable.
 
 ```bash
 npm ci                 # lockfile strict (vérifié : npm ci --dry-run, exit 0)
-npm run test:unit      # 22/22
-npm run test:sql       # 40/40   (PGlite, rôles réels)
+npm run test:unit      # 36/36
+npm run test:sql       # 42/42   (PGlite, rôles réels)
 npm run test:http      # 25/25   (démarre next dev + un socket PGlite)
+PG_BIN=… bash scripts/recette/postgresql-recette.sh   # PostgreSQL 16.2 jetable
 npm run typecheck      # 0 erreur
 npm run lint           # 0 erreur
 npm run build          # succès, SANS variable de base (V16)
@@ -672,7 +680,10 @@ Les sorties sont conservées dans `var/preuves/` (répertoire ignoré par Git) :
 - `09-phase2-backend-build-audit.log` — `pytest`, build sans variables, audits ;
 - `10-phase2-avis-braces.txt` — avis `GHSA-vfj7-8cjw-p6xm`, sans correctif ;
 - `11-avant-023-fonctions-auth.log` — `privileges` 9/10 sans `023` : la fonction
-  d'authentification reste exécutable par le rôle applicatif (V10).
+  d'authentification reste exécutable par le rôle applicatif (V10) ;
+- `12-recette-postgresql-serveur.log` — les 9 étapes de la recette serveur ;
+- `13-phase3-unitaire-lint.log`, `14-phase3-sql-http.log` — suites sur le SHA final ;
+- `15-phase3-build-audit.log` — build sans variables, `audit:sec`, `audit:dev`.
 
 ### Inventaire des tests
 
@@ -683,16 +694,22 @@ Les sorties sont conservées dans `var/preuves/` (répertoire ignoré par Git) :
 | `tests/unit/db-error.test.ts` | 3 | 503 sans fuite, erreur métier / indisponibilité | 1 |
 | `tests/unit/seed-gardes.test.ts` | 8 | refus de l'amorçage (mot de passe, production, hôte, réinitialisation) | 2 |
 | `tests/unit/admin-pool.test.ts` | 1 | pool d'administration différé : build sans base | 2 |
+| `tests/unit/routes-garde.test.ts` | 5 | inventaire des 39 routes : aucune sans garde déclarée | 3 |
+| `tests/unit/controle-role-admin.test.ts` | 3 | rôle d'administration soumis à la RLS refusé au démarrage | 3 |
+| `tests/unit/comptes-demo.test.ts` | 6 | règle d'alerte de l'inventaire des comptes de démonstration | 3 |
 | `tests/sql/refresh-consommation.test.ts` | 3 | consommation unique, rejeu, révocation de famille | 1 |
 | `tests/sql/isolation.test.ts` | 13 | RLS par table, suppression logique, FK composites, journal scellé, idempotence | 1 |
-| `tests/sql/privileges.test.ts` | 10 | privilèges effectifs du rôle, RLS forcée, RPC d'authentification révoquées | 2 |
+| `tests/sql/privileges.test.ts` | 12 | privilèges effectifs, RLS forcée, RPC révoquées, surcharges, `SECURITY DEFINER`, colonnes de secret | 2-3 |
 | `tests/sql/connexion-applicative.test.ts` | 8 | connexion réelle sous `geoforest_app`, échec fermé, écritures croisées | 2 |
 | `tests/sql/cadence-partagee.test.ts` | 6 | fenêtre partagée, atomicité, expiration, unicité de clé | 2 |
 | `tests/http/isolation.test.ts` | 25 | parcours HTTP réels : 401/403/404, MFA, refresh, journal, URL signées, cadence, base coupée | 1-2 |
 | `backend/tests/test_backend_auth.py` | 14 | jeton de service, échec fermé, CORS, documentation, méthodes, erreurs | 1-2 |
 | `tests/helpers/relais-role.ts` | — | relais TCP qui applique `SET ROLE` sur la connexion PGlite | 2 |
+| `scripts/recette/recette-serveur.test.ts` | 21 | **PostgreSQL serveur** : rôles, RLS, secrets, journal, cadence concurrente | 3 |
 
-Total : **22 tests unitaires + 40 tests SQL + 25 tests HTTP + 55 tests backend**.
+Total en CI : **36 tests unitaires + 42 tests SQL + 25 tests HTTP + 55 tests
+backend**. Hors CI (demande un serveur PostgreSQL) : **21 assertions de recette**,
+plus les 9 étapes du script d'orchestration.
 
 ### Fichiers modifiés
 
@@ -713,9 +730,17 @@ Total : **22 tests unitaires + 40 tests SQL + 25 tests HTTP + 55 tests backend**
 - **Backend** : `backend/app/core/config.py`, `backend/app/main.py`,
   `backend/tests/test_backend_auth.py`, `backend/app/api/v1/endpoints.py`,
   `backend/app/core/security.py`.
+- **Recette et exploitation (phase 3)** :
+  `scripts/recette/postgresql-recette.sh` et
+  `scripts/recette/recette-serveur.test.ts` (nouveaux),
+  `scripts/verifier-comptes-demo.ts` (nouveau), `scripts/verifier-chaine.ts`
+  (exposé en script), `scripts/sql/post-migrate/010_row_level_security.sql`
+  (V17, V19), `src/db/controle-role.ts` et `src/instrumentation.ts` (V18),
+  `tests/sql/privileges.test.ts`.
 - **Intégration** : `.github/workflows/ci.yml`, `package.json`,
-  `package-lock.json`, `.env.example`, `README.md`, `docker-compose.yml`.
-- **Banc d'essai** : `tests/**` (voir tableau ci-dessus).
+  `package-lock.json`, `.env.example`, `README.md`, `docker-compose.yml`,
+  `docs/EXPLOITATION-secrets-et-audit.md` (nouveau).
+- **Banc d'essai** : `tests/**` et `scripts/recette/**` (voir tableau ci-dessus).
 
 ---
 
@@ -748,51 +773,561 @@ Trois principes ont guidé l'écriture :
 
 ---
 
-## 8. Vérification sur le SHA final
+## 8. Phase 3 — intégration, recette PostgreSQL serveur, levée des risques
 
-Commit de vérification : **`4f5970bff00387b0eb8e0654a15a32f9be2552b2`**, dont le parent est
-`04c9cc5f11fd7c455297022c3a4903ee89434aaa` (commit de référence `1c95f4c585ed8303f887089ae7450c9235523fd0`).
+Cette phase répond à une exigence précise : **ne rien déclarer résolu sur la
+foi d'une intention, d'un script préparé ou d'un test exécuté ailleurs que dans
+l'environnement qu'il prétend valider**. Chaque affirmation ci-dessous est
+accompagnée de la commande exacte, du résultat observé, du SHA testé et de la
+preuve conservée.
+
+### 8.1 Chantier A — état Git réel et demande de fusion
+
+**État : terminé.**
+
+**Constat initial, et un écart à signaler.** L'espace de travail de cette
+session avait été reconstitué à partir de `1c95f4c` : l'arbre de travail
+contenait bien les 24 fichiers non suivis annoncés, mais les huit commits de
+la branche n'étaient pas présents localement, et `HEAD` pointait sur la base.
+La vérification a établi, fichier par fichier, que **les 221 fichiers suivis
+de `256acdc` étaient identiques, octet pour octet, à l'arbre local**
+(`git hash-object` comparé à `git rev-parse FETCH_HEAD:<fichier>` : 221
+identiques, 0 absent, 0 différent). Aucune modification étrangère, aucun
+fichier inconnu, aucune perte n'a donc été introduite par le réalignement
+(`git reset --soft` + `git read-tree`, sans `--hard`, sans perte de fichier).
+`HEAD` a ensuite été replacé sur le SHA distant réel.
+
+| Vérification | Résultat |
+|---|---|
+| Dépôt | `https://github.com/Huberaya/Geoforest.git` |
+| Branche courante | `arena/569eff1a-geoforest` |
+| `HEAD` au départ de la phase 3 | `256acdcc9bed022685db41a0581fbd1703eb32bb` (confirmé par `git ls-remote`) |
+| `origin/main` | `1c95f4c585ed8303f887089ae7450c9235523fd0` — **inchangée** |
+| Modifications locales / fichiers non suivis / conflits | aucun (`git status --porcelain -uall` vide) |
+| Graphe | 8 commits sur `1c95f4c`, linéaire, aucun merge |
+| Diff cumulatif à l'ouverture de la phase 3 | 50 fichiers, +4812 / −609 (24 ajouts, 0 suppression) |
+| Diff cumulatif après la phase 3 (PR #8) | **60 fichiers, +6400 / −612** (31 ajouts, 0 suppression), 9 commits |
+| `data/frontieres/` | **absent** — et ignoré (`data/` est dans `.gitignore`) ; aucune donnée géographique versionnée dans ce diff |
+| Secrets dans le diff | recherche par motifs (`api_key`, `secret`, `password`, `token`, `AKIA…`, `ghp_…`, `sk-…`, clés privées) : uniquement des noms de variables, des libellés de test et de la documentation. Aucune valeur exploitable |
+| Fichiers binaires ou générés | aucun ; plus gros ajout : le rapport lui-même (798 lignes) |
+| Conflits | aucun |
+
+**Cause racine de l'écart.** L'état de session avait été reconstitué sans les
+objets Git de la branche ; rien n'indique une modification du contenu. La
+preuve par empreintes, plutôt que par confiance dans le récit, est ce qui
+permet de l'affirmer.
+
+**Demande de fusion.** Aucune PR n'existait pour cette branche (les six PR
+existantes concernent les chantiers `forest/**` et `security/**`, avec d'autres
+branches sources). La PR **[#8](https://github.com/Huberaya/Geoforest/pull/8)**
+a été créée : `arena/569eff1a-geoforest` → `main`, état `OPEN`,
+`MERGEABLE`. Elle n'a **pas** été fusionnée, et aucun déploiement n'a été
+déclenché par sa création.
+
+### 8.2 Chantier B — audit de V10 et des fonctions privilégiées
+
+**État : terminé.**
+
+**Signatures et surcharges.** L'inventaire du catalogue sur la base de recette
+donne exactement deux fonctions `auth_user_by_*`, sans surcharge :
+
+```sql
+select p.proname, pg_get_function_identity_arguments(p.oid) as args
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and p.proname like 'auth\_user\_by\_%';
+-- auth_user_by_email | p_email text
+-- auth_user_by_id    | p_id uuid
+```
+
+Un test le verrouille : **une surcharge ajoutée plus tard** — par exemple
+`auth_user_by_email(text, uuid)` — hériterait de `EXECUTE` pour `PUBLIC` par
+défaut (PostgreSQL l'accorde à toute fonction créée) et échapperait au
+`REVOKE`, qui porte sur une signature. Le test énumère l'inventaire complet,
+puis vérifie qu'aucune de ces fonctions n'est exécutable par `geoforest_app`.
+
+**Propriétaire, `SECURITY DEFINER`, ACL effectives** (base de recette, après
+migration) :
+
+| Fonction | `SECURITY DEFINER` | ACL |
+|---|---|---|
+| `auth_user_by_email(text)` | oui | `geoforest_owner=X` seulement |
+| `auth_user_by_id(uuid)` | oui | `geoforest_owner=X` seulement |
+| `gf_marquer_suppression(regclass, uuid, text)` | oui | `geoforest_owner`, `geoforest_app` |
+| `current_org()` | non | `PUBLIC`, `geoforest_owner`, `geoforest_app` |
+| `verifier_chaine_audit(uuid)` | non | `PUBLIC`, `geoforest_owner`, `geoforest_app` |
+| `gf_audit_chainer()`, `gf_audit_empreinte()`, `gf_audit_refuser_modification()` | non | défaut (`PUBLIC`) |
+
+Deux constats en découlent, tous deux vérifiés par test :
+
+1. **Aucune autre fonction `SECURITY DEFINER` n'est exécutable par le rôle
+   applicatif** que `gf_marquer_suppression`, qui revérifie elle-même le tenant
+   (`022`). C'est désormais un test — une nouvelle fonction privilégiée
+   accordée par mégarde fera échouer la suite.
+2. **Les privilèges par défaut** (`alter default privileges … grant select,
+   insert, update on tables`) ne s'appliquent qu'aux **tables**, jamais aux
+   fonctions : une fonction créée plus tard n'est donc pas accordée
+   automatiquement à l'application. C'est ce qui a rendu le défaut V10
+   durablement invisible.
+
+**Défaut supplémentaire trouvé par la recette — V19.** Le `GRANT SELECT` de
+`010` portait sur la **table** `gf_users`, donc sur toutes ses colonnes. La RLS
+limitait les lignes, pas les colonnes : sous le rôle applicatif et dans le
+contexte d'un tenant, `select password_hash, mfa_secret from gf_users` était
+autorisé. C'est la même donnée que celle exposée par V10, à l'échelle d'un
+tenant au lieu de tous — sans aucun usage légitime : **toutes** les lectures de
+`gf_users` du dépôt passent par `dbAdmin` (vérifié : chaque `from(users)`
+importe `dbAdmin as db`).
+
+**Correction (V19).** Le privilège de table est retiré et remplacé par une
+liste explicite de colonnes non sensibles :
+
+```sql
+revoke select on gf_users from geoforest_app;
+grant select (id, organization_id, email, name, role, status,
+              created_at, updated_at, password_updated_at, token_version,
+              last_login_at, failed_logins, locked_until)
+  on gf_users to geoforest_app;
+```
+
+Conséquence assumée : `select * from gf_users` échoue désormais sous ce rôle,
+et une colonne ajoutée demain n'est pas lisible par accident. Les tests
+vérifient les trois refus (`password_hash`, `mfa_secret`, `mfa_recovery_codes`,
+`select *`) **et** que les colonnes lisibles le restent.
+
+**Usages légitimes préservés.** Le propriétaire conserve `EXECUTE` sur les deux
+fonctions (test de privilège), et l'appel réel est vérifié par la recette
+(étape 6b), avec l'attribut que la production lui connaît.
+
+### 8.3 Chantier C — recette sur PostgreSQL serveur isolé
+
+**État : terminé** — c'est le contrôle qui manquait aux phases précédentes.
+
+**Environnement, et pourquoi il est sûr.** Aucun PostgreSQL serveur n'était
+installé dans l'espace de travail ; un binaire PostgreSQL 16.2 a été obtenu par
+le paquet Python `pgserver` (binaires officiels, 11 Mo, installés **hors** du
+dépôt). Le script `scripts/recette/postgresql-recette.sh` crée ensuite :
+
+- un **cluster neuf** dans un répertoire temporaire, sur un port dédié,
+  `initdb --auth=trust`, écoute sur `127.0.0.1` seulement ;
+- une base `geoforest_recette` dont le propriétaire, `geoforest_owner`, est
+  `NOSUPERUSER NOBYPASSRLS` — donc **soumis à `force row level security`**,
+  cas plus exigeant que la production ;
+- des mots de passe **tirés au sort à chaque exécution** (`openssl rand`),
+  jamais affichés, jamais écrits dans le dépôt ;
+- des données **synthétiques** uniquement ;
+- **destruction complète** du cluster en fin d'exécution, y compris en cas
+  d'échec (`trap … EXIT`).
+
+Aucune base réelle, partagée ou de production n'a été contactée. Aucune
+migration n'a été appliquée ailleurs que sur ce cluster jetable.
+
+**Résultats — `bash scripts/recette/postgresql-recette.sh` (PostgreSQL 16.2)**
+
+| Étape | Contenu | Résultat |
+|---|---|---|
+| 1–2 | cluster, rôles, base | `geoforest_app : login=true, bypassrls=false, super=false` |
+| 3 | migrations sur base neuve, propriétaire sans `BYPASSRLS` | 7 migrations + 6 scripts de sûreté, `RLS : 13/13`, 34 politiques |
+| 4 | mot de passe du rôle applicatif posé par l'exploitant | ok |
+| 5 | reprise de la migration | schéma déjà à jour ; **aucune réouverture** des fonctions d'authentification |
+| 6 | `recette-serveur.test.ts` | **21/21** |
+| 6b | usage légitime de l'authentification | `auth_user_by_email` et `auth_user_by_id` répondent au propriétaire |
+| 7 | `024` sur base déjà migrée avec doublons | **1 ligne, 5 essais** (compteurs cumulés) |
+| 8 | intégrité du journal | chaîne intacte → code 0 ; ligne falsifiée par superutilisateur → **détectée**, code 1 |
+| 9 | inventaire des comptes de démonstration | avant rotation → signalé (code 1) ; après → code 0 |
+
+Les 21 assertions de l'étape 6 couvrent, **sous le rôle applicatif réel et sur
+un serveur qui a de vraies sessions concurrentes** : rôle et attributs
+effectifs, RLS activée **et forcée** sur les 13 tables à `organization_id`,
+absence de `DELETE`/`TRUNCATE`, refus de `CREATE`, échec fermé hors contexte,
+cloisonnement par contexte, non-persistance du contexte hors transaction,
+écriture et modification croisées refusées, clé étrangère composite (`23503`),
+fonctions d'authentification inaccessibles, colonnes de secret inaccessibles,
+`select *` refusé, colonnes non sensibles lisibles, journal scellé et
+`verifier_chaine_audit` sans anomalie, marquage de suppression limité au
+tenant, index unique réel, doublon refusé (`23505`), **20 appels simultanés sur
+8 connexions → 9 autorisés / 11 refusés, une seule ligne, compteur à 20**,
+compteur partagé entre deux instances, expiration de fenêtre et remise à zéro.
+
+**Deux défauts trouvés par cette recette, et corrigés.**
+
+**V17 — la post-migration entière échouait sur un rôle de migration ordinaire.**
+`010_row_level_security.sql` exécutait sans condition :
+
+```sql
+execute 'alter role geoforest_app nobypassrls';
+```
+
+Or PostgreSQL exige, pour changer cet attribut, que **l'auteur** de la commande
+porte lui-même `BYPASSRLS` ou soit superutilisateur. Mesuré sur 16.2 :
+
+```
+ERROR:  permission denied to alter role
+DETAIL:  Only roles with the BYPASSRLS attribute may change the BYPASSRLS attribute.
+```
+
+L'instruction échouait donc **même quand le rôle applicatif n'avait déjà pas
+l'attribut**, c'est-à-dire quand il n'y avait rien à corriger. Le script
+s'exécutant en une seule transaction, l'échec annulait **toute** la
+post-migration : schéma migré, **RLS non installée**, politiques absentes,
+et pour seul signal un `exit 1`. Sur un PostgreSQL auto-hébergé avec un rôle
+propriétaire ordinaire, le cloisonnement n'aurait jamais été posé.
+
+*Correction :* l'ordre n'est exécuté que si l'attribut est réellement présent,
+puis l'invariant est **vérifié** et son échec est franc (`raise exception`).
+La garantie est identique — `geoforest_app` ne peut pas rester `BYPASSRLS` —
+l'exigence de privilège disparaît.
+
+**V18 — l'authentification échouait silencieusement.** Sur cette même base,
+`auth_user_by_email('b@exemple.test')` rendait **zéro ligne** : le propriétaire
+sans `BYPASSRLS` est soumis à la RLS forcée, y compris à l'intérieur d'une
+fonction `SECURITY DEFINER`. La connexion aurait répondu « compte inconnu »,
+et l'incident aurait été diagnostiqué comme un mauvais mot de passe. Rien au
+démarrage ne signalait que `DATABASE_URL_ADMIN` ne pouvait pas lire hors
+contexte.
+
+*Correction :* `verifierRoleAdministration()` mesure
+`row_security_active('gf_users')` sur la connexion d'administration et
+`src/instrumentation.ts` refuse le démarrage en production si la RLS s'y
+applique. Le message nomme la cause et la correction. Testé par
+`tests/unit/controle-role-admin.test.ts` (3 cas) et par la recette
+(étape 6b), qui vérifie les deux côtés : sans l'attribut, la RLS s'applique
+bien ; avec, l'authentification fonctionne.
+
+**Limites de cette recette, explicitement.**
+
+- Elle tourne sur **PostgreSQL 16.2 local**, pas sur l'infrastructure
+  d'hébergement (Neon). Les versions et les rôles de l'hébergeur restent à
+  confirmer par une recette sur une branche éphémère de l'environnement réel.
+- Le chemin HTTP complet (`next dev` + rôle applicatif) n'a pas été rejoué sur
+  serveur : le banc HTTP reste sur PGlite et superutilisateur. Ce qui est
+  prouvé sur serveur, c'est l'**accès aux données** sous le rôle réel, pas le
+  parcours HTTP de bout en bout sous ce rôle.
+- La restauration après échec de migration n'est **pas** démontrée : `023` et
+  `024` n'ont pas de script descendant (`024` en aurait un : supprimer l'index,
+  ce qui rouvrirait le défaut ; il n'est délibérément pas fourni). Ce qui est
+  démontré, c'est la **reprise** (rejeu idempotent) et le refus franc en cas
+  d'incohérence.
+
+### 8.4 Chantier D — autres correctifs
+
+**D1 — authentification et sessions. État : terminé.**
+
+Un test structurel (`tests/unit/routes-garde.test.ts`, 5 cas) parcourt les
+**39 routes API** et exige que chacune soit, soit déclarée publique avec sa
+justification, soit protégée par `guard()` ou `getSession()` visibles dans le
+fichier. Il vérifie en outre que la liste publique du test correspond
+exactement à celle du proxy, qu'aucune route publique n'interroge une table
+métier, et que les routes d'écriture portent toutes une garde (13 routes).
+C'est la réponse structurelle au défaut V1 : les tests HTTP prouvent des
+parcours, celui-ci prouve l'**inventaire**.
+
+**D2 — amorçage des comptes. État : terminé côté code ; opérations non
+exécutées.** Voir `docs/EXPLOITATION-secrets-et-audit.md` §3 et le risque R3
+ci-dessous.
+
+**D3 — dépendances. État : production assainie, outillage en risque résiduel
+documenté.** `source-map-js` est verrouillé en `1.2.2` (surcharge ciblée,
+`npm ls source-map-js` → `1.2.2 deduped`) ; `npm run audit:sec` (production,
+`--omit=dev --audit-level=high`) → **0 vulnérabilité**. `npm run audit:dev`
+échoue sur `braces` (voir R2). Aucun audit ne permet de conclure que les
+dépendances de développement sont sans risque : c'est écrit tel quel.
+
+**D4 — documentation et CORS. État : terminé.** `/docs`, `/redoc` et
+`/openapi.json` répondent **404** par défaut (test), et s'ouvrent par
+`GF_BACKEND_DOCS=on`. CORS : méthodes limitées à `GET, POST, OPTIONS`,
+en-têtes à `Authorization, Content-Type`, origine `*` refusée au démarrage ;
+préflight accepté pour l'origine déclarée, refusé pour une autre. Ces tests
+n'élargissent aucun droit : ils constatent la restriction.
+
+### 8.5 Chantier E — validations sur le SHA réellement testé
+
+**État : terminé.**
+
+Commandes exactes et résultats, sur `9ab78e645db0b0b6d5b5bb09b975acb4641c84ad` :
+
+| Commande | Résultat | Preuve |
+|---|---|---|
+| `npm ci` (lockfile strict) | exit 0 | `var/preuves/…` |
+| `npm run typecheck` | 0 erreur | `13-phase3-unitaire-lint.log` |
+| `npm run lint` | 0 erreur, 5 avertissements | idem |
+| `npm run test:unit` | **36/36** | idem |
+| `npm run test:sql` | **42/42** | `14-phase3-sql-http.log` |
+| `npm run test:http` | **25/25** | idem |
+| `npm run build` **sans variable de base** | succès | `15-phase3-build-audit.log` |
+| `npm run audit:sec` | 0 vulnérabilité (production) | idem |
+| `npm run audit:dev` | **échec attendu** : 5 avis `braces` (outillage) | idem |
+| `pytest -q` | 55 passed, 3 skipped | idem |
+| `bash scripts/recette/postgresql-recette.sh` | 9 étapes, 21 assertions | `12-recette-postgresql-serveur.log` |
+
+Aucune de ces commandes n'est enrobée de `|| true` ni d'un `--force`. Aucun
+test n'a été modifié pour passer : les deux adaptations de tests de cette phase
+(`privileges.test.ts`) **renforcent** l'assertion — elles remplacent un contrôle
+de lignes par un contrôle de colonnes, après que la correction a rendu la
+lecture impossible.
+
+## 9. Vérification sur le SHA final
+
+**Commit de vérification : `9ab78e645db0b0b6d5b5bb09b975acb4641c84ad`**
+(parent `256acdcc9bed022685db41a0581fbd1703eb32bb`, base
+`1c95f4c585ed8303f887089ae7450c9235523fd0`).
 
 | Commande | Résultat | Où |
 |---|---|---|
-| `npm run test:unit` | 22/22 | local, Node 22.22.3 |
-| `npm run test:sql` | 40/40 | local, PGlite 0.5.10 |
-| `npm run test:http` | 25/25 | local, `next dev` |
+| `npm ci` (lockfile strict) | exit 0 | local, Node 22.22.3 |
 | `npm run typecheck` | 0 erreur | local |
 | `npm run lint` | 0 erreur, 5 avertissements | local |
-| `npm run build` sans variables | succès | local |
-| `npm run audit:sec` | 0 vulnérabilité (production) | local |
+| `npm run test:unit` | **36/36** | local |
+| `npm run test:sql` | **42/42** | local, PGlite 0.5.10 |
+| `npm run test:http` | **25/25** | local, `next dev` |
+| `npm run build` **sans variable de base** | succès | local |
+| `npm run audit:sec` | 0 vulnérabilité de production | local |
+| `npm run audit:dev` | échec **attendu** (avis `braces`, outillage) | local |
 | `pytest -q` | 55 passed, 3 skipped | local, Python 3.12 |
+| `bash scripts/recette/postgresql-recette.sh` | **9 étapes, 21 assertions** | local, PostgreSQL 16.2 jetable |
 
-**Commits suivants.** Les commits postérieurs au commit de vérification ne
-touchent que ce rapport et les **versions des actions** du workflow
-(`checkout@v7`, `setup-node@v7`, `setup-python@v7`, pour supprimer
-l'avertissement de dépréciation observé au premier passage). L'arbre du code,
-des migrations et des tests est donc exactement celui du commit final de la
-branche. La chaîne complète (unitaires, SQL, HTTP, typage, lint, backend, build
-sans variables, audit) a été **rejouée sur ce commit final** : résultats du
-tableau, à l'identique.
+**CI GitHub sur ce SHA** — deux exécutions, toutes deux vertes, trois tâches
+`frontend`, `base-et-http`, `backend` en succès :
 
-Le workflow a par ailleurs été observé **vert** sur le commit de vérification
-(exécution `39288687216`, commit `8e9d570`), puis sur chacun des commits
-suivants de la branche : `39288933418` (`465a19b`), `39289230068` (`56fbdac`),
-`39289584616` (`bf813c4`), `39289736851` (`afb01e6`) — trois tâches
-`frontend`, `base-et-http` et `backend` en succès à chaque fois.
-
-**Statut de la CI GitHub.** Le workflow est versionné, sa syntaxe a été
-validée, et il a été **observé vert** sur `GitHub Actions` :
-
-| Exécution | Commit | Tâches | Conclusion |
+| Exécution | Événement | Commit | Conclusion |
 |---|---|---|---|
-| [39288687216](https://github.com/Huberaya/Geoforest/actions/runs/39288687216) | `8e9d570` (arbre de code identique au commit vérifié) | `frontend`, `base-et-http`, `backend` | **succès**, aucune étape en échec |
+| [39323921383](https://github.com/Huberaya/Geoforest/actions/runs/39323921383) | `push` | `9ab78e6` | succès |
+| [39323950729](https://github.com/Huberaya/Geoforest/actions/runs/39323950729) | `pull_request` (PR #8) | `9ab78e6` | succès |
 
-Ce passage a aussi servi de banc d'essai aux versions d'actions employées :
-il a révélé un avertissement de dépréciation (actions ciblant Node 20), corrigé
-en passant aux versions majeures courantes (`checkout@v7`, `setup-node@v7`,
-`setup-python@v7`). Les lignes du tableau ci-dessus restent des **exécutions
-locales** sur le SHA indiqué ; aucune n'est une déduction.
+**Commits postérieurs.** Le présent rapport est mis à jour par un commit qui ne
+modifie **que ce fichier** : l'arbre du code, des migrations, des tests et des
+scripts de recette reste exactement celui de `9ab78e6`. La PR #8 porte cet
+arbre.
+
+**Ce qui distingue, sans ambiguïté** :
+
+1. **corrections présentes dans le code** — V1 à V19, fichiers listés au § 10.1 ;
+2. **tests locaux réellement exécutés** — tableau ci-dessus, sur ce SHA ;
+3. **tests CI réussis sur le SHA final** — les deux exécutions ci-dessus ;
+4. **tests sur PostgreSQL serveur réellement exécutés** — recette § 8.3, sur un
+   cluster **jetable et isolé**, pas sur l'infrastructure d'hébergement ;
+5. **validations non exécutées** — recette sur Neon, rotation des secrets,
+   planification de la vérification du journal, rotation des comptes de
+   démonstration (§ 10.2) ;
+6. **changements appliqués à une base réelle** — **aucun**. Aucune base
+   partagée ou de production n'a été ouverte, migrée ou modifiée.
 
 **Ce qui n'a pas été fait, et ne le sera pas sans autorisation** : aucun commit
 sur `main`, aucune fusion de PR, aucun déploiement, aucune modification de
 secret ni de réglage de production, aucune base partagée réinitialisée, aucun
 test destructif sur des données réelles.
+
+---
+
+## 10. Phase 3 — levée des quatre risques résiduels
+
+Statuts imposés, et employés sans nuance : `CORRIGÉ ET VÉRIFIÉ`,
+`ATTÉNUÉ — RISQUE RÉSIDUEL`, `NON VÉRIFIÉ`, `BLOQUÉ`.
+
+### 10.1 R1 — PGlite, rôle applicatif et validation PostgreSQL serveur
+
+**État : `CORRIGÉ ET VÉRIFIÉ` pour la validation serveur ; la limite PGlite
+reste un fait documenté.**
+
+**État initial.** Les phases précédentes prouvaient la RLS sous `geoforest_app`
+avec PGlite, et documentaient que le banc HTTP ne pouvait pas tourner sous ce
+rôle. Ce document disait qu'une recette serveur restait nécessaire ; elle
+n'existait pas.
+
+**Cause.** PGlite n'ouvre **qu'une session** PostgreSQL : `SET ROLE` y est
+global, ce qui casse la connexion d'administration dont l'authentification a
+besoin. Aucun serveur PostgreSQL n'était disponible dans l'environnement de
+travail, et rien n'avait été préparé pour en obtenir un.
+
+**Correction / mesure.** Un PostgreSQL 16.2 réel est désormais utilisé, sur un
+cluster jetable, avec les **rôles réels** et des données synthétiques
+(`scripts/recette/`). Les 21 assertions s'exécutent sous `geoforest_app`, et
+les scénarios concurrents sont réels (8 connexions).
+
+**Fichiers.** `scripts/recette/postgresql-recette.sh`,
+`scripts/recette/recette-serveur.test.ts`, `package.json`
+(`recette:postgres`).
+
+**Commande exacte.**
+```bash
+PG_BIN=/tmp/gfvenv2/lib/python3.11/site-packages/pgserver/pginstall/bin \
+  bash scripts/recette/postgresql-recette.sh
+```
+**Résultat observé.** `✅ Recette PostgreSQL serveur terminée sans échec.` —
+9 étapes, 21/21 assertions, exit 0. Journal : `var/preuves/12-…` (le journal de
+la dernière exécution est régénéré à chaque lancement ; il est ignoré par Git).
+
+**SHA testé.** `9ab78e6` (arbre du code identique à la tête de la PR).
+
+**Preuve consultable.** `var/preuves/12-recette-postgresql-serveur.log`
+(ignoré par Git) et la sortie reproductible de la commande.
+
+**Risque résiduel.** La recette n'a pas été jouée sur l'infrastructure
+d'hébergement (Neon) : versions, rôles et paramètres de l'hébergeur restent à
+confirmer. Le chemin HTTP complet sous `geoforest_app` n'est pas rejoué non
+plus — seule la couche d'accès aux données l'est.
+
+**Pour lever le blocage restant.** Exécuter la même recette contre une branche
+éphémère de l'environnement réel, avec `DATABASE_URL_ADMIN` fourni par
+l'exploitation. Ce qui exige un accès absent aujourd'hui — d'où le statut
+« vérifié pour le serveur isolé, non vérifié pour l'hébergeur ».
+
+### 10.2 R2 — `braces` / GHSA-vfj7-8cjw-p6xm
+
+**État : `ATTÉNUÉ — RISQUE RÉSIDUEL`.**
+
+**État initial.** `npm audit` complet signalait `braces@3.0.3` (avis *high*
+publié le 18/09/2026), via `eslint-config-next` → `@next/eslint-plugin-next` →
+`fast-glob` → `micromatch` → `braces`.
+
+**Recontrôle au 19/10/2026** (`api.github.com/advisories/GHSA-vfj7-8cjw-p6xm`) :
+plage vulnérable `<= 3.0.3`, `first_patched_version: null` — **aucune version
+corrigée n'existe**, et `3.0.3` est la dernière publiée. Il n'y a donc rien à
+mettre à jour : toute « correction » par changement de version serait une
+invention, et un `npm audit fix --force` rétrograderait `eslint-config-next`
+(breaking change) pour un avis qui ne serait pas corrigé pour autant.
+
+**Mesures prises.**
+- `npm run audit:sec` = `npm audit --omit=dev --audit-level=high` : **0
+  vulnérabilité de production** (exigence maintenue).
+- `npm run audit:dev` = `npm audit --audit-level=high` : **échoue** (5 avis,
+  `braces` et ses porteurs). Échec conservé, non masqué, non exclu par un
+  `allowlist` : c'est le signal de suivi.
+- Le chemin est **hors production** : `eslint-config-next` est une dépendance
+  de développement, jamais chargée par l'application déployée.
+- **Exposition résiduelle** : `braces` analyse des motifs de glob. Les motifs
+  viennent de la configuration ESLint et du dépôt, pas d'une entrée
+  utilisateur ; un attaquant devrait déjà contrôler le dépôt ou la CI pour
+  atteindre la condition de déclenchement. L'impact est une exhaustion de pile
+  dans le processus de lint.
+
+**Commandes exactes et résultats.**
+```
+npm run audit:sec  → found 0 vulnerabilities            (exit 0)
+npm run audit:dev  → 5 high severity vulnerabilities    (exit 1, attendu)
+npm ls braces      → braces@3.0.3 via micromatch@4.0.8 via fast-glob@3.3.1
+```
+Preuve : `var/preuves/15-phase3-build-audit.log`, `var/preuves/10-phase2-avis-braces.txt`.
+
+**Risque résiduel.** Un avis *high* subsiste dans l'outillage. Il n'est pas
+caché : il est visible dans `audit:dev`, documenté ici, et rappelé au § 5.6.
+
+**Décision de suivi.** Recontrôler à chaque montée de version de `next` /
+`eslint-config-next` ; passer à `braces` corrigé dès qu'une version sort. Aucun
+contournement du contrôle n'est mis en place, et **il n'est pas affirmé que
+les dépendances de développement sont sans risque**.
+
+### 10.3 R3 — comptes de démonstration et ancien mot de passe public
+
+**État : `ATTÉNUÉ — RISQUE RÉSIDUEL`** (code corrigé et vérifié ; remédiation
+des données **non exécutée**, faute d'autorisation et d'inventaire).
+
+**État initial.** Cinq comptes — dont un administrateur — créés par
+`scripts/seed-auth.ts` avec un mot de passe écrit dans le dépôt, et réinitialisés
+silencieusement à chaque exécution.
+
+**Correction (vérifiée).** `scripts/seed-gardes.ts`, 8 tests : mot de passe
+obligatoire et jamais affiché, refus de la valeur publiée, longueur minimale,
+refus en production, refus d'une base non locale sans autorisation explicite,
+réinitialisation seulement sur `SEED_REINITIALISER=oui`, cumul des motifs de
+refus.
+
+**Ce qui manquait : l'inventaire et la vérification post-opération.** Ajout de
+`scripts/verifier-comptes-demo.ts` (`npm run verif:comptes-demo`) — **lecture
+seule**, aucun secret affiché : organisation, rôle, statut, date du dernier
+changement de mot de passe, MFA. `--apres=AAAA-MM-JJ` signale les comptes
+actifs dont le mot de passe n'a pas été changé depuis et sort en code 1.
+Testé par `tests/unit/comptes-demo.test.ts` (6 cas) **et** par la recette
+serveur (étape 9 : signalé avant rotation, silencieux après).
+
+**Procédure de rotation.** `docs/EXPLOITATION-secrets-et-audit.md` § 3 :
+inventaire, réinitialisation explicite ou désactivation, vérification
+post-opération, et ce qui ne peut pas être affirmé.
+
+**Commandes exactes.**
+```
+npm run test:unit                       → 36/36 (dont comptes-demo 6/6)
+npm run verif:comptes-demo              → inventaire, code 0
+npm run verif:comptes-demo -- --apres=… → code 1 tant qu'un compte reste à traiter
+```
+Recette, étape 9 : `compte non tourné : signalé (code 1)` puis
+`compte tourné : plus signalé (code 0)`.
+
+**SHA testé.** `9ab78e6`.
+
+**Risque résiduel.** L'inventaire des bases ayant exécuté l'ancien script
+**n'est pas établi**, et aucune base réelle n'a été ouverte. Les comptes
+peuvent donc encore exister, actifs, avec le mot de passe public. Le risque
+reste **ouvert** jusqu'à ce que l'exploitation exécute l'inventaire et la
+rotation sur chaque environnement.
+
+**Pour lever le blocage.** Autorisation d'accès aux environnements concernés,
+puis : `npm run verif:comptes-demo` → rotation → `--apres=` → code 0. Aucune
+de ces actions n'a été tentée sans autorisation.
+
+### 10.4 R4 — limitation de débit, rotation des secrets, chaîne d'audit
+
+**État : `CORRIGÉ ET VÉRIFIÉ` pour la limitation persistante et la détection
+d'altération ; `ATTÉNUÉ — RISQUE RÉSIDUEL` pour la planification et la
+rotation opérationnelle.**
+
+**a) Limitation — inventaire et correction.** Les quatre actions qui
+consomment un secret sont comptées **en base** et donc partagées entre
+instances et persistantes : connexion (IP + e-mail), second facteur (60/min/IP),
+changement de mot de passe (10/15 min/utilisateur), renouvellement (60/min/IP).
+Les quotas génériques par IP et par organisation restent en mémoire,
+**volontairement** : compter chaque requête en base ferait de la base le goulot
+d'un déni de service. Cette distinction est écrite dans
+`docs/EXPLOITATION-secrets-et-audit.md` § 1 et dans l'en-tête de
+`cadence-partagee.ts`.
+
+**Tests de seuil, de fenêtre et de concurrence** : `cadence-partagee` (6, sous
+PGlite) **et** la recette serveur — 20 appels simultanés sur 8 connexions →
+9 autorisés, 11 refusés avec `Retry-After` positif, **une seule ligne**,
+compteur à 20 ; compteur partagé entre deux instances distinctes ; expiration
+de fenêtre ; remise à zéro. C'est la première fois que la concurrence est
+réellement exercée : PGlite ne le permettait pas.
+
+**b) Rotation des secrets — documentée, non exécutée.** Procédure complète
+(périmètre des cinq secrets, ordre, validation, retour arrière, prévention de
+divulgation, ce qui n'est pas implémenté) dans
+`docs/EXPLOITATION-secrets-et-audit.md` § 2. **Aucune valeur n'y figure, et
+aucune rotation n'a été faite** : elle exige un accès aux environnements réels.
+
+**c) Chaîne d'audit — détection démontrée, planification non déployée.**
+`npm run verif:chaine` (existant, désormais exposé comme script) parcourt
+chaque organisation, recalcule les condensats et sort en **code 1** à la
+première anomalie. La recette serveur le prouve dans les deux sens : chaîne
+intacte → code 0 (avec vérification qu'au moins une ligne a été lue, sinon le
+résultat serait vide et donc non concluant) ; ligne falsifiée par un
+**superutilisateur** (déclencheurs désactivés) → **détectée**, code 1.
+La procédure périodique (cron, conservation de l'ancre hors base, consigne
+d'alerte « ne pas réparer ») est écrite au § 4 du document d'exploitation,
+mais **aucune tâche planifiée n'est déployée** : la cible dépend de
+l'infrastructure, et le contrôle exige un rôle qui contourne la RLS.
+
+**Un défaut trouvé précisément là** : lors du premier essai, le vérificateur
+concluait « chaîne intacte » en ayant lu **zéro ligne**, parce que la connexion
+d'administration était soumise à la RLS (V18). C'est ce qui a conduit au
+contrôle de démarrage : sans lui, l'outil de contrôle d'intégrité aurait lui
+aussi menti silencieusement.
+
+**Commande exacte.** `npm run verif:chaine` (ou `--org=<uuid> --json`), avec
+`DATABASE_URL_ADMIN` d'un rôle `BYPASSRLS`.
+
+**Risque résiduel.** Aucune planification déployée, aucune alerte branchée sur
+un canal réel, ancre non exportée automatiquement. La détection existe et est
+prouvée ; sa **périodicité** reste à installer.
+
+### 10.5 Tableau de clôture des risques
+
+| Risque | Statut | Ce qui est prouvé | Ce qui reste à faire |
+|---|---|---|---|
+| R1 — PGlite / PostgreSQL serveur | `CORRIGÉ ET VÉRIFIÉ` (serveur isolé) | 21 assertions sous rôle réel, concurrence réelle, migrations, RLS, secrets, journal | recette sur l'hébergeur (Neon) |
+| R2 — `braces` | `ATTÉNUÉ — RISQUE RÉSIDUEL` | production à 0 vulnérabilité ; échec `audit:dev` visible et documenté | recontrôle à chaque montée de version |
+| R3 — comptes de démonstration | `ATTÉNUÉ — RISQUE RÉSIDUEL` | seed refusant 8 cas ; inventaire en lecture seule testé | inventaire et rotation sur chaque environnement réel |
+| R4 — débit / secrets / audit | `CORRIGÉ ET VÉRIFIÉ` (code) · `ATTÉNUÉ` (exploitation) | fenêtres en base et concurrence ; altération détectée ; procédures écrites | planifier le contrôle, exécuter la rotation |
+
+**Le chantier n'est donc pas « entièrement sécurisé »** au sens opérationnel :
+trois actions de remédiation dépendent d'un accès ou d'une autorisation qui
+n'était pas disponible. La clôture porte sur les corrections de code, vérifiées
+et rejouées sur le SHA final.
