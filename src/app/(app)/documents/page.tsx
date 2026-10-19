@@ -72,7 +72,7 @@ export default function DocumentsPage() {
     return () => {
       cancelled = true;
     };
-     
+
   }, [status]);
 
   const submit = async (e: React.FormEvent) => {

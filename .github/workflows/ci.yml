@@ -55,6 +55,9 @@ jobs:
           set -euo pipefail
           npm ci
 
+      - name: Workflow regression tests
+        run: npm run test:ci
+
       - name: Typecheck
         run: npm run typecheck
 

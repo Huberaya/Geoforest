@@ -41,7 +41,7 @@ export default function PlotsPage() {
   useEffect(() => {
     const t = setTimeout(() => void load(), 200);
     return () => clearTimeout(t);
-     
+
   }, [q]);
 
   const submit = async (e: React.FormEvent) => {

@@ -58,7 +58,7 @@ export default function DueDiligencePage() {
     return () => {
       cancelled = true;
     };
-     
+
   }, []);
 
   const submit = async (e: React.FormEvent) => {

@@ -105,3 +105,35 @@ def test_live_clean_signal_does_not_invent_country_risk_or_confidence(monkeypatc
     assert result["country_risk"] == "UNKNOWN"
     assert result["risk_level"] == "UNKNOWN"
     assert result["confidence_score"] is None
+
+
+# Exact PR1 matrix, exercised through the Python public decision boundary too.
+@pytest.mark.parametrize("row", [
+    {"area__ha": 0.4},
+    {"umd_tree_cover_loss__year": None, "area__ha": 0.4},
+    {"umd_tree_cover_loss__year": "", "area__ha": 0.4},
+    {"umd_tree_cover_loss__year": "inconnue", "area__ha": 0.4},
+    {"umd_tree_cover_loss__year": date.today().year + 1, "area__ha": 0.4},
+    {"umd_tree_cover_loss__year": 2023},
+    {"umd_tree_cover_loss__year": 2023, "area__ha": None},
+    {"umd_tree_cover_loss__year": 2023, "area__ha": ""},
+    {"umd_tree_cover_loss__year": 2023, "area__ha": -0.4},
+    {"umd_tree_cover_loss__year": 2023, "area__ha": "Infinity"},
+], ids=["missing-year", "null-year", "blank-year", "invalid-year", "future-year",
+        "missing-area", "null-area", "blank-area", "negative-area", "infinite-area"])
+@pytest.mark.parametrize("mixed", [False, True], ids=["alone", "mixed"])
+def test_pr1_matrix_fail_closed_at_public_boundary(monkeypatch, row, mixed):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(sc, "settings", SimpleNamespace(
+        gfw_live_available=True,
+        gfw_api_url="https://data-api.globalforestwatch.org",
+        gfw_demo_mode=False,
+        eudr_cutoff_date=date(2020, 12, 31),
+    ))
+    rows = ([{"umd_tree_cover_loss__year": 2015, "area__ha": 0.5}] if mixed else []) + [row]
+    monkeypatch.setattr(sc, "_gfw_query", lambda _poly: (rows, EVIDENCE))
+    result = sc.check_deforestation_risk(GEOM, "2025-01-01")
+    assert result["source"] == "unavailable"
+    assert result["compliant"] is None
+    assert result["is_probative"] is False

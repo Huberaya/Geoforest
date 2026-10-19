@@ -42,7 +42,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-     
+
   }, []);
 
   const submit = async (e: React.FormEvent) => {

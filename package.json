@@ -25,7 +25,8 @@
     "test:unit": "tsx --conditions=react-server scripts/check-eudr-rules.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts && tsx scripts/check-evidence-pack.ts",
     "typecheck": "tsc --noEmit",
     "test:evidence:http": "tsx --conditions=react-server scripts/check-evidence-pack-http.ts",
-    "verifier:pack": "tsx scripts/verifier-pack.ts"
+    "verifier:pack": "tsx scripts/verifier-pack.ts",
+    "test:ci": "node --test scripts/ci/check-workflow.test.cjs"
   },
   "overrides": {
     "esbuild": "^0.25.12",
@@ -55,6 +56,7 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.8",
+    "js-yaml": "4.3.2",
     "postcss": "8.5.28",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"

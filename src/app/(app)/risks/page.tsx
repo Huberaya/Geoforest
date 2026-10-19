@@ -55,7 +55,7 @@ export default function RisksPage() {
     return () => {
       cancelled = true;
     };
-     
+
   }, [status]);
 
   const submit = async (e: React.FormEvent) => {

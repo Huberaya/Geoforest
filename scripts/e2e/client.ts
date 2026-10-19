@@ -102,4 +102,3 @@ export async function connecter(email: string, label: string): Promise<Session> 
   }
   throw new Error(`Connexion impossible pour ${email} (HTTP ${r.status})`);
 }
-
