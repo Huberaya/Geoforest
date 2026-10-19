@@ -1,4 +1,5 @@
 import { lireCorpsJson } from "@/lib/api/body";
+import { exigerSchemaOuReponse } from "@/lib/api/schema-error";
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import QRCode from "qrcode";
@@ -43,6 +44,11 @@ interface LoginBody {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // R-05 — une base à moitié migrée ne doit pas répondre « identifiants
+  // invalides » ni 500 : elle n'est pas prête, et le dit.
+  const schema = await exigerSchemaOuReponse();
+  if (schema) return schema;
+
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
   const lecture = await lireCorpsJson(request);
   if (!lecture.ok) return lecture.response;

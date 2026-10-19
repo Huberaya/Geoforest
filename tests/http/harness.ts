@@ -179,6 +179,8 @@ export async function demarrerBanc(): Promise<Banc> {
       // masquerait les scénarios d'authentification derrière des 429.
       GF_RATE_LIMIT: "off",
       GF_LOG_FILE: "off",
+      // R-05 : les tests doivent observer un changement de schéma immédiat.
+      GF_SCHEMA_TTL_MS: "0",
       GF_STORAGE_DIR: "/tmp/geoforest-http-storage",
       NEXT_TELEMETRY_DISABLED: "1",
     },

@@ -3,6 +3,7 @@
 import { ApiError, exportTraces, triggerDownload } from "@/lib/api";
 import { COMMODITY_LABELS, type ParcelAuditResponse, type RiskLevel, type TracesFormat } from "@/lib/eudr/types";
 import { useState } from "react";
+import { paysValide } from "@/lib/eudr/identite-operateur";
 
 interface AuditResultCardProps {
   result: ParcelAuditResponse | null;
@@ -34,10 +35,16 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
   const [exporting, setExporting] = useState<TracesFormat | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [netWeight, setNetWeight] = useState("");
+  // P0 — le pays d'activité n'est plus codé en dur à « FR ».
+  const [countryOfActivity, setCountryOfActivity] = useState("");
   const [exportedRef, setExportedRef] = useState<string | null>(null);
 
   const handleExport = async (format: TracesFormat) => {
     if (!result) return;
+    if (!paysValide(countryOfActivity)) {
+      setExportError("Pays d'activité requis : code ISO à deux lettres, XX interdit.");
+      return;
+    }
     setExporting(format);
     setExportError(null);
     try {
@@ -46,7 +53,7 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
         format,
         activity_type: "IMPORT",
         net_weight_kg: netWeight.trim() === "" ? null : Number(netWeight.replace(",", ".")),
-        country_of_activity: "FR",
+        country_of_activity: countryOfActivity.trim().toUpperCase(),
       });
       triggerDownload(file);
       setExportedRef(file.filename);
@@ -147,7 +154,9 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
           </div>
           <div className="flex flex-wrap gap-2">
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.country_risk]}`}>
-              Risque pays : {RISK_LABELS[satellite.country_risk]} ({satellite.country_code})
+              {satellite.country_reliable ? "Risque pays" : "Pays estimé (non fiable EUDR)"} :{" "}
+              {RISK_LABELS[satellite.country_risk]} (
+              {satellite.country_code === "XX" ? "non déterminé" : satellite.country_code})
             </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
               Risque parcelle : {RISK_LABELS[satellite.risk_level]}
@@ -165,6 +174,13 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
             )}
           </div>
           <p className="text-xs leading-relaxed text-slate-600">{satellite.details}</p>
+
+          {!satellite.country_reliable && (
+            <p className="rounded-lg bg-orange-50 px-3 py-2 text-xs font-medium leading-relaxed text-orange-900 ring-1 ring-inset ring-orange-300">
+              ⚠️ Pays estimé par boîte englobante, sans frontières versionnées : cette
+              attribution n&apos;est pas fiable pour une déclaration EUDR.
+            </p>
+          )}
 
           {satellite.disclaimer && (
             <p className="rounded-lg bg-orange-50 px-3 py-2 text-xs font-medium leading-relaxed text-orange-900 ring-1 ring-inset ring-orange-300">
@@ -198,6 +214,20 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
       )}
 
       <div className="mt-auto space-y-2 border-t border-slate-100 pt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="countryOfActivity" className="text-xs font-medium text-slate-600">
+            Pays d&apos;activité (ISO 2)
+          </label>
+          <input
+            id="countryOfActivity"
+            value={countryOfActivity}
+            onChange={(e) => setCountryOfActivity(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2))}
+            maxLength={2}
+            placeholder="ex. FR"
+            className="w-20 rounded-md border border-slate-200 px-2 py-1 text-xs uppercase outline-none focus:border-emerald-500"
+            disabled={!exportable}
+          />
+        </div>
         <div className="flex items-center gap-2">
           <label htmlFor="netWeight" className="text-xs font-medium text-slate-600">
             Poids net (kg)

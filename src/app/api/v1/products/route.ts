@@ -4,6 +4,7 @@ import { COMMODITY_HS_CODES, type Commodity, type Product } from "@/lib/eudr/typ
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { paysValide } from "@/lib/eudr/identite-operateur";
 import { logAction } from "@/lib/api/audit-log";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,18 @@ export const GET = guard("product:read")(async (_request: Request, _ctx, { tx, o
   return NextResponse.json(result);
 });
 
+/**
+ * P0 — normalise un pays d'origine sans en inventer un.
+ * Absent → `null`. Présent mais invalide (XX, « FRANCE », etc.) → refus 422.
+ */
+function countryOfOrigin(valeur: unknown): string | null {
+  if (valeur === null || valeur === undefined || valeur === "") return null;
+  if (typeof valeur !== "string") throw new Error("countryOfOrigin doit être une chaîne");
+  const code = valeur.trim().toUpperCase();
+  if (!paysValide(code)) throw new Error(`countryOfOrigin « ${valeur} » n'est pas un code ISO à deux lettres`);
+  return code;
+}
+
 export const POST = guard("product:write")(async (request: Request, _ctx, { tx, organizationId, session }) => {
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
   const lecture = await lireCorpsJson(request);
@@ -48,7 +61,8 @@ export const POST = guard("product:write")(async (request: Request, _ctx, { tx, 
       sku: body.sku ? String(body.sku).trim().toUpperCase() : null,
       commodity,
       hsCode: body.hsCode ? String(body.hsCode).trim() : (COMMODITY_HS_CODES[commodity] ?? "0000"),
-      countryOfOrigin: body.countryOfOrigin ? String(body.countryOfOrigin).trim().toUpperCase() : "FR",
+      // P0 — pas de pays par défaut : soit déclaré, soit absent (`null`).
+      countryOfOrigin: countryOfOrigin(body.countryOfOrigin),
       annualVolumeKg: Number(body.annualVolumeKg) || 0,
       status: "ACTIVE",
       createdAt: new Date().toISOString(),
@@ -85,6 +99,13 @@ export const POST = guard("product:write")(async (request: Request, _ctx, { tx, 
     // être déguisée en 400 ni avalée (cf. P0-07).
     if (error instanceof SyntaxError) {
       return NextResponse.json({ detail: "Corps JSON invalide" }, { status: 400 });
+    }
+    // P0 — un pays d'origine invalide est une erreur client, pas une panne.
+    if (error instanceof Error && error.message.startsWith("countryOfOrigin")) {
+      return NextResponse.json(
+        { detail: error.message, error: { code: "COUNTRY_OF_ORIGIN_INVALID" } },
+        { status: 422 },
+      );
     }
     throw error;
   }

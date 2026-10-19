@@ -1,3 +1,4 @@
+import { exigerSchemaOuReponse } from "@/lib/api/schema-error";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -27,6 +28,9 @@ const RENOUVELLEMENT_FENETRE_SECONDES = 60;
  * Un jeton déjà consommé révoque toute la famille de sessions (détection de vol).
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const schema = await exigerSchemaOuReponse();
+  if (schema) return schema;
+
   // ⚠️ Limite **partagée** : le compteur est en base, toutes instances
   //   confondues. Le limiteur du proxy est en mémoire, donc propre à chaque
   //   processus ; il ne borne pas une campagne répartie sur plusieurs instances.

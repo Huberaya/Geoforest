@@ -36,11 +36,47 @@ import {
   verifierRoleAdministration,
   verifierRoleApplication,
 } from "./db/controle-role";
+import { exigerSchemaPret, SchemaSecuriteIncompletError } from "./db/etat-schema";
 
 export async function register(): Promise<void> {
   // `register()` est appelé pour chaque exécution (Node.js et Edge). Le
   // contrôle interroge PostgreSQL avec `pg` : il n'a de sens que côté Node.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  // --- 0. état de sécurité du schéma (R-05) --------------------------------
+  //
+  // ⚠️ Ce contrôle passe **avant** le commutateur `GF_CONTROLE_ROLE=off` :
+  //   celui-ci existe pour redémarrer en incident sur une configuration de
+  //   rôle douteuse, jamais pour servir une base à moitié migrée. Une
+  //   interruption entre `010` et `020` laisse 13 politiques au lieu de 34,
+  //   les fonctions d'authentification exécutables et aucun déclencheur de
+  //   journal : l'application fonctionnerait, avec un cloisonnement amputé.
+  //
+  //   Aucun contournement n'est prévu. Le redémarrage après migration réussie
+  //   est la seule issue.
+  try {
+    const etat = await exigerSchemaPret({ force: true });
+    console.log(
+      "✅ Schéma de sécurité complet : " +
+        `${etat.mesures.tablesProtegees}/13 tables protégées, ` +
+        `${etat.mesures.politiques} politiques, ` +
+        `${etat.mesures.fonctionsAuthExecutables ?? "non mesurable"} fonction(s) d'auth exécutable(s), ` +
+        `${etat.mesures.declencheursJournal} déclencheur(s) de journal.`,
+    );
+  } catch (erreur) {
+    if (erreur instanceof SchemaSecuriteIncompletError) {
+      console.error(
+        [
+          "🔴 Schéma de sécurité incomplet : démarrage refusé.",
+          ...erreur.etat.problemes.map((p) => `  🔴 [${p.code}] ${p.message}`),
+          "",
+          "   Exécutez `npm run db:migrate` jusqu'à son succès, puis redémarrez.",
+          "   Aucun trafic applicatif ne doit être servi dans cet état.",
+        ].join("\n"),
+      );
+    }
+    throw erreur;
+  }
 
   if (process.env.GF_CONTROLE_ROLE === "off") {
     console.warn(

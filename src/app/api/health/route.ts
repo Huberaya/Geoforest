@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
  */
 
 /** Composants sans lesquels l'instance ne peut pas servir. */
-const CRITIQUES = new Set(["base", "stockage"]);
+const CRITIQUES = new Set(["base", "stockage", "schema"]);
 
 export async function GET() {
   const debut = Date.now();

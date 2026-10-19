@@ -241,6 +241,11 @@ export interface AnalyseProvenance {
  * pas de la méthode employée, et une analyse qui les tairait laisserait croire
  * qu'elle a tout mesuré.
  */
+const LIMITE_PAYS_BOITES =
+  "Pays estimé par boîte englobante, non par des frontières : attribution " +
+  "approximative, non fiable pour une déclaration EUDR. Une proposition de " +
+  "jeu de frontières versionné est documentée séparément, non appliquée.";
+
 const LIMITES_METHODE_COUVERT = [
   "Résolution native du capteur : 30 m — une parcelle ou une coupe de moins de 0,09 ha n'est pas détectable.",
   "Le jeu de données mesure la perte de couvert arboré, pas la cause de cette perte : une coupe légale et une déforestation illégale y sont indiscernables.",
@@ -281,7 +286,8 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
   } else {
     details =
       `Simulation : aucun scénario de démonstration ne couvre cette position. ` +
-      `Pays : ${country.name} (${country.iso2}), benchmark UE déclaré : ${country.risk}.`;
+      `Pays estimé par boîte englobante : ${country.name} (${country.iso2}), ` +
+      `benchmark UE déclaré : ${country.risk} — attribution non fiable pour l'EUDR.`;
   }
   if (harvestDate <= EUDR_CUTOFF_DATE) details += " Récolte antérieure à la date butoir : hors champ temporel EUDR.";
 
@@ -295,6 +301,7 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_reliable: false,
     source: "simulated",
     is_probative: false,
     evidence: null,
@@ -312,6 +319,7 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
       limits: [
         "Aucune donnée satellite n'a été consultée : les chiffres sont inventés pour la démonstration.",
         "Le pays est déterminé par boîte englobante, non par géocodage inverse (cf. P1-09).",
+        LIMITE_PAYS_BOITES,
         ...LIMITES_METHODE_COUVERT,
       ],
     },
@@ -342,6 +350,7 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_reliable: false,
     source: "unavailable",
     is_probative: false,
     evidence: null,
@@ -351,14 +360,16 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
       method: "aucune",
       version: null,
       params: {},
-      limits: [reason, "Aucun verdict de conformité n'a été établi.", ...LIMITES_METHODE_COUVERT],
+      limits: [reason, "Aucun verdict de conformité n'a été établi.", LIMITE_PAYS_BOITES, ...LIMITES_METHODE_COUVERT],
     },
     disclaimer:
       "Analyse non disponible — aucun verdict de conformité n'a été établi. " +
       "Aucune conclusion ne doit en être tirée pour un dossier EUDR.",
     loss_area_ha: 0,
     tree_cover_2000_pct: null,
-    details: `Analyse satellite impossible : ${reason}. Pays déduit des coordonnées : ${country.name} (${country.iso2}).`,
+    details:
+      `Analyse satellite impossible : ${reason}. Pays estimé par boîte englobante : ` +
+      `${country.name} (${country.iso2}) — attribution non fiable pour l'EUDR.`,
   };
 }
 
@@ -491,6 +502,7 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
       country_code: country.iso2,
       country_name: country.name,
       country_risk: country.risk,
+    country_reliable: false,
       source: "gfw-live",
       is_probative: true,
       evidence,
@@ -503,7 +515,7 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
           seuil_significativite_ha: Number(Math.max(0.01, areaHa * 0.005).toFixed(4)),
           date_butoir: EUDR_CUTOFF_DATE,
         },
-        limits: LIMITES_METHODE_COUVERT,
+        limits: [LIMITE_PAYS_BOITES, ...LIMITES_METHODE_COUVERT],
       },
       disclaimer: null,
       loss_area_ha: lossArea,
@@ -524,6 +536,7 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_reliable: false,
     source: "gfw-live",
     is_probative: true,
     evidence,

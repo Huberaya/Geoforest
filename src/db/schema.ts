@@ -213,7 +213,12 @@ export const products = pgTable(
     sku: text("sku"),
     commodity: text("commodity").notNull(),
     hsCode: text("hs_code").notNull(),
-    countryOfOrigin: text("country_of_origin").notNull().default("FR"),
+    /**
+     * P0 — plus de pays d'origine par défaut. « FR » était écrit dans chaque
+     * produit créé sans pays : une donnée déclarative devenait une invention.
+     * Nullable, contraint en format par `025_identite_operateur.sql`.
+     */
+    countryOfOrigin: text("country_of_origin"),
     annualVolumeKg: doublePrecision("annual_volume_kg").default(0),
     status: text("status").notNull().default("ACTIVE"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -537,9 +542,18 @@ export const parcelAudits = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    operatorName: text("operator_name").notNull(),
-    operatorEori: text("operator_eori").notNull(),
-    operatorCountry: text("operator_country").notNull().default("FR"),
+    /**
+     * P0 — identité de l'opérateur.
+     *
+     * Nullable, et sans valeur par défaut : « non déclaré » est un état
+     * représentable. Remplir ces colonnes avec « Opérateur non renseigné »,
+     * « XX0000000000000 » ou « FR » faisait exister dans la base une entité
+     * qui n'avait jamais été déclarée. Contrainte de validité et nettoyage
+     * historique : `scripts/sql/post-migrate/025_identite_operateur.sql`.
+     */
+    operatorName: text("operator_name"),
+    operatorEori: text("operator_eori"),
+    operatorCountry: text("operator_country"),
     operatorAddress: text("operator_address"),
     /**
      * P1-16 — identité du **producteur**, distincte de l'opérateur.

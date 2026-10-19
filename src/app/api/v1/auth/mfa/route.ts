@@ -1,3 +1,4 @@
+import { exigerSchemaOuReponse } from "@/lib/api/schema-error";
 import { lireCorpsJson } from "@/lib/api/body";
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -43,6 +44,9 @@ const MFA_MAX = 60;
 const MFA_FENETRE_SECONDES = 60;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const schema = await exigerSchemaOuReponse();
+  if (schema) return schema;
+
   // ⚠️ Le verrouillage de compte borne déjà les essais **par compte** ; cette
   //   fenêtre, partagée par toutes les instances, borne les essais **par
   //   adresse** — c'est-à-dire une campagne qui essaierait un code sur des

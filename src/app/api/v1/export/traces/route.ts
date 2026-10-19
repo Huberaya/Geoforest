@@ -2,17 +2,36 @@ import { lireCorpsJson } from "@/lib/api/body";
 import { parcelAudits } from "@/db/schema";
 import { logAction } from "@/lib/api/audit-log";
 import { buildDdsPayload, buildReference, buildTracesXml, producteurDe, type TracesOptions } from "@/lib/eudr/traces-exporter";
+import {
+  classerIdentite,
+  identiteComplete,
+  identiteDeclaree,
+  nomValide,
+  paysValide,
+  type IdentiteOperateur,
+} from "@/lib/eudr/identite-operateur";
 import { buildEudrIsGeoJson } from "@/lib/eudr/eudr-is-geojson";
-import type { ActivityType, OperatorInfo, TracesFormat } from "@/lib/eudr/types";
+import type { ActivityType, TracesFormat } from "@/lib/eudr/types";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
-const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIVITIES: ActivityType[] = ["IMPORT", "EXPORT", "DOMESTIC"];
+
+/**
+ * Refus d'un export dont l'identité opérateur n'est pas exploitable.
+ * Code stable `OPERATOR_IDENTITY_MISSING` (HTTP 422), attendu par les tests et
+ * par l'interface : un export incomplet n'est jamais produit « au mieux ».
+ */
+function refusIdentite(detail: string, details: unknown): NextResponse {
+  return NextResponse.json(
+    { detail, error: { code: "OPERATOR_IDENTITY_MISSING", message: detail, details } },
+    { status: 422 },
+  );
+}
 
 export const POST = guard("export:run")(async (request: Request, _ctx, { tx, organizationId, session }): Promise<Response> => {
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
@@ -38,6 +57,61 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
       { status: 409 },
     );
   }
+  // ------------------------------------------------------------------ P0
+  // Identité de l'opérateur — contrôlée AVANT toute autre condition d'export.
+  //
+  // ⚠️ L'ordre est délibéré : un audit ancien sans identité doit répondre
+  //   422 `OPERATOR_IDENTITY_MISSING`, même si son analyse est simulée. Sinon
+  //   le refus « analyse non probante » masquerait le défaut d'identité et
+  //   laisserait croire qu'il suffit de configurer GFW pour exporter.
+  let operator: IdentiteOperateur | null = null;
+  if (body.operator !== null && body.operator !== undefined) {
+    if (typeof body.operator !== "object" || Array.isArray(body.operator)) {
+      return refusIdentite("operator doit être un objet.", { champs: ["operator"] });
+    }
+    const declare = body.operator as Record<string, unknown>;
+    operator = identiteDeclaree(declare);
+    if (!operator) {
+      const classement = classerIdentite({
+        name: typeof declare.name === "string" ? declare.name : null,
+        eori: typeof declare.eori === "string" ? declare.eori : null,
+        country: typeof declare.country === "string" ? declare.country : null,
+      });
+      return refusIdentite(
+        "Identité opérateur incomplète ou fictive : aucun export ne peut être produit. " +
+          "Fournissez un nom réel, un EORI valide et un pays ISO à deux lettres.",
+        {
+          manquants: classement.manquants,
+          invalides: classement.invalides,
+          motifs: classement.motifs,
+        },
+      );
+    }
+  } else {
+    operator = identiteComplete({
+      name: row.operatorName,
+      eori: row.operatorEori,
+      country: row.operatorCountry,
+    });
+    if (!operator) {
+      const classement = classerIdentite({
+        name: row.operatorName,
+        eori: row.operatorEori,
+        country: row.operatorCountry,
+      });
+      return refusIdentite(
+        "Identité opérateur absente de ce dossier : aucun export ne peut être produit. " +
+          "Renseignez `operator` (nom, EORI, pays) puis relancez l'export. " +
+          "Aucune identité fictive n'est substituée.",
+        {
+          manquants: classement.manquants,
+          invalides: classement.invalides,
+          motifs: classement.motifs,
+        },
+      );
+    }
+  }
+
   // P0-04 : une analyse simulée ou indisponible ne peut pas alimenter une
   // déclaration de diligence raisonnée. Le contrôle est fait ici, côté serveur :
   // l'interface n'est pas une barrière.
@@ -55,29 +129,6 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     );
   }
 
-  let operator: OperatorInfo = {
-    name: row.operatorName,
-    eori: row.operatorEori,
-    country: row.operatorCountry,
-    address: row.operatorAddress ?? "",
-    email: "",
-  };
-  if (body.operator && typeof body.operator === "object") {
-    const o = body.operator as Record<string, unknown>;
-    const eori = typeof o.eori === "string" ? o.eori.replace(/\s+/g, "").toUpperCase() : "";
-    const name = typeof o.name === "string" ? o.name.trim() : "";
-    if (name.length < 2 || !EORI_PATTERN.test(eori)) {
-      return NextResponse.json({ detail: "Opérateur invalide (nom ≥ 2 caractères et EORI conforme requis)" }, { status: 422 });
-    }
-    operator = {
-      name,
-      eori,
-      country: typeof o.country === "string" && o.country.length === 2 ? o.country.toUpperCase() : eori.slice(0, 2),
-      address: typeof o.address === "string" ? o.address : "",
-      email: typeof o.email === "string" ? o.email : "",
-    };
-  }
-
   const format: TracesFormat =
     body.format === "geojson" ? "geojson" : body.format === "json" ? "json" : "xml";
   const activityType = ACTIVITIES.includes(body.activity_type as ActivityType) ? (body.activity_type as ActivityType) : "IMPORT";
@@ -87,8 +138,34 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     return NextResponse.json({ detail: "net_weight_kg doit être ≥ 0" }, { status: 422 });
   }
   const internalReference = typeof body.internal_reference === "string" && body.internal_reference.trim() ? body.internal_reference.trim().slice(0, 50) : null;
-  const countryOfActivity =
-    typeof body.country_of_activity === "string" && body.country_of_activity.trim().length === 2 ? body.country_of_activity.trim().toUpperCase() : "FR";
+
+  // P0 — plus de pays d'activité par défaut (« FR »), et plus de déduction
+  // silencieuse depuis le pays de l'opérateur : le pays d'activité est un fait
+  // déclaratif, il doit être fourni. Une valeur absente n'est pas remplacée.
+  const paysDemande =
+    typeof body.country_of_activity === "string" ? body.country_of_activity.trim().toUpperCase() : "";
+  if (!paysDemande) {
+    return NextResponse.json(
+      {
+        detail:
+          "country_of_activity requis : pays d'activité au format ISO à deux lettres. " +
+          "Aucun pays n'est déduit de l'opérateur ni d'une valeur par défaut.",
+        error: { code: "COUNTRY_OF_ACTIVITY_MISSING" },
+      },
+      { status: 422 },
+    );
+  }
+  if (!paysValide(paysDemande)) {
+    return NextResponse.json(
+      {
+        detail:
+          "country_of_activity doit être un code pays ISO à deux lettres, distinct de XX.",
+        error: { code: "COUNTRY_OF_ACTIVITY_INVALID" },
+      },
+      { status: 422 },
+    );
+  }
+  const countryOfActivity = paysDemande;
 
   const options: TracesOptions = { activityType, netWeightKg, internalReference, countryOfActivity };
   const reference = internalReference ?? buildReference(row.id);
@@ -106,15 +183,21 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     const p = brutProducer as Record<string, unknown>;
     if (p.same_as_operator === true) {
       producerName = operator.name;
-      producerCountry = operator.country ?? null;
+      producerCountry = operator.country;
     } else {
       const nom = typeof p.name === "string" ? p.name.trim() : "";
       const pays = typeof p.country === "string" ? p.country.trim().toUpperCase() : "";
-      if (nom.length < 2 || nom.length > 200) {
-        return NextResponse.json({ detail: "producer.name : 2 à 200 caractères requis" }, { status: 422 });
+      if (!nomValide(nom)) {
+        return NextResponse.json({ detail: "producer.name : nom réel de 2 à 200 caractères requis" }, { status: 422 });
       }
-      if (!/^[A-Z]{2}$/.test(pays)) {
-        return NextResponse.json({ detail: "producer.country : code pays ISO à 2 lettres requis" }, { status: 422 });
+      if (!paysValide(pays)) {
+        return NextResponse.json(
+          {
+            detail: "producer.country : code pays ISO à 2 lettres requis (XX interdit).",
+            error: { code: "PRODUCER_IDENTITY_INCOMPLETE" },
+          },
+          { status: 422 },
+        );
       }
       producerName = nom;
       producerCountry = pays;
@@ -130,6 +213,17 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
         producer_required: true,
       },
       { status: 409 },
+    );
+  }
+  if (!producerCountry || !paysValide(producerCountry)) {
+    return NextResponse.json(
+      {
+        detail:
+          "Identité du producteur incomplète : le pays du producteur doit être un code ISO " +
+          "à deux lettres (XX interdit). Aucun pays n'est déduit de la parcelle.",
+        error: { code: "PRODUCER_IDENTITY_INCOMPLETE" },
+      },
+      { status: 422 },
     );
   }
   if (row.producerName === null) {
@@ -193,7 +287,7 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
         geometry: (row.geometry ?? { type: "Point", coordinates: [row.centroidLon, row.centroidLat] }) as never,
         areaHa: row.areaHa,
         producerName: producteur?.name ?? null,
-        producerCountry: producteur?.country ?? row.countryCode,
+        producerCountry: producteur?.country ?? null,
         productionPlace: row.parcelReference ?? row.id,
       },
     ]);

@@ -9,6 +9,7 @@ import {
   type Commodity,
   type OperatorInfo,
 } from "./types";
+import { nomValide, paysValide } from "./identite-operateur";
 
 /**
  * ⚠️ FORMAT INTERNE GEOFOREST — CE N'EST PAS UN MESSAGE TRACES-NT (P0-06).
@@ -47,8 +48,11 @@ function featureCollection(row: ParcelAuditRow): Record<string, unknown> {
       {
         type: "Feature",
         properties: {
-          ProducerName: row.operatorName,
-          ProducerCountry: row.countryCode,
+          // P0/P1-16 — le producteur n'est jamais l'opérateur par défaut, et
+          // son pays n'est jamais celui de la parcelle. Un champ inconnu
+          // reste vide ; il n'est pas rempli avec une valeur plausible.
+          ProducerName: row.producerName ?? "",
+          ProducerCountry: row.producerCountry ?? "",
           ProductionPlace: row.parcelReference ?? row.id,
           Area: Number(row.areaHa.toFixed(4)),
           HarvestDate: row.harvestDate,
@@ -78,10 +82,11 @@ export const DRAFT_NOTICE =
  */
 export function producteurDe(row: ParcelAuditRow): { name: string; country: string } | null {
   const name = (row as { producerName?: string | null }).producerName;
-  if (!name || name.trim().length < 2) return null;
+  const country = (row as { producerCountry?: string | null }).producerCountry;
+  if (!nomValide(name) || !paysValide(country)) return null;
   return {
-    name: name.trim(),
-    country: ((row as { producerCountry?: string | null }).producerCountry ?? row.countryCode ?? "XX").toUpperCase(),
+    name: (name as string).trim(),
+    country: (country as string).trim().toUpperCase(),
   };
 }
 
@@ -98,7 +103,7 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
   const producteur = producteurDe(row);
   const producers = producteur
     ? [{ country: producteur.country, name: producteur.name }]
-    : [{ country: row.countryCode ?? "XX", name: "" }];
+    : [{ country: "", name: "" }];
   const avertissements: string[] = producteur
     ? []
     : ["Producteur non déclaré : le nœud producers est vide. Une déclaration sans " +
@@ -112,7 +117,8 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
     operator: {
       reference_number: { type: "EORI", identifier: operator.eori },
       name: operator.name,
-      country: operator.country ?? "FR",
+      // P0 — jamais de pays par défaut. L'appelant a validé l'identité.
+      country: operator.country ?? "",
       address: operator.address ?? "",
       email: operator.email ?? "",
     },
@@ -141,17 +147,33 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       provider: "GeoForest Trace",
       audit_id: row.id,
       audited_at: row.createdAt.toISOString(),
-      status: row.compliant && row.status !== "INVALID_GEOMETRY" ? "VERIFIED_COMPLIANT" : "VERIFIED_NON_COMPLIANT",
+      // ⚠️ `row.compliant` peut être NULL (aucun verdict). `!null` vaut `true` :
+      //   l'ancienne expression transformait « aucun verdict » en
+      //   « VERIFIED_NON_COMPLIANT » et affirmait une déforestation. Un état
+      //   sans verdict est nommé comme tel.
+      status:
+        row.compliant === true && row.status !== "INVALID_GEOMETRY"
+          ? "VERIFIED_COMPLIANT"
+          : row.compliant === false
+            ? "VERIFIED_NON_COMPLIANT"
+            : "NO_VERDICT",
       eudr_cutoff_date: EUDR_CUTOFF_DATE,
       harvest_date: row.harvestDate,
       geometry_type: row.geometryType,
       area_ha: Number(row.areaHa.toFixed(4)),
       geometry_rule: row.areaHa > EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED",
-      deforestation_detected_post_cutoff: !row.compliant,
+      deforestation_detected_post_cutoff: row.compliant === false,
       loss_year: row.lossYear,
       confidence_score: row.confidenceScore,
       risk_level: row.riskLevel,
       country_benchmark_risk: row.countryRisk,
+      // E — l'attribution pays du moteur repose sur des boîtes englobantes,
+      //     pas sur des frontières. Elle est publiée comme approximative.
+      country_attribution: "approximate_bbox",
+      country_attribution_reliable: false,
+      country_attribution_warning:
+        "Pays estimé par boîte englobante : non fiable pour une attribution " +
+        "géographique EUDR. Aucune frontière versionnée n'est utilisée.",
       satellite_source: satellite.source ?? "",
       centroid: { lon: row.centroidLon, lat: row.centroidLat },
     },

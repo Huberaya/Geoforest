@@ -4,13 +4,18 @@ import { logAction } from "@/lib/api/audit-log";
 import { validateGeometry } from "@/lib/eudr/gis-validator";
 import { checkDeforestationRisk } from "@/lib/eudr/satellite-checker";
 import {
+  classerIdentite,
+  identiteDeclaree,
+  paysValide,
+  type IdentiteOperateur,
+} from "@/lib/eudr/identite-operateur";
+import {
   COMMODITY_HS_CODES,
   EUDR_CUTOFF_DATE,
   isCommodity,
   type AuditStatus,
   type GeoJsonInput,
   type GeometryValidationResult,
-  type OperatorInfo,
   type ParcelAuditResponse,
   type SatelliteCheckResult,
 } from "@/lib/eudr/types";
@@ -19,33 +24,55 @@ import { guard } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
-const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
-const ANONYMOUS_OPERATOR: OperatorInfo = { name: "Opérateur non renseigné", eori: "XX0000000000000", country: "XX" };
-
-function badRequest(detail: string, status = 422): NextResponse {
-  return NextResponse.json({ detail }, { status });
+function badRequest(
+  detail: string,
+  status = 422,
+  code?: string,
+  details?: unknown,
+): NextResponse {
+  return NextResponse.json(
+    code ? { detail, error: { code, message: detail, details } } : { detail },
+    { status },
+  );
 }
 
-function parseOperator(raw: unknown): { operator: OperatorInfo } | { error: string } {
-  if (raw === null || raw === undefined) return { operator: ANONYMOUS_OPERATOR };
-  if (typeof raw !== "object") return { error: "operator doit être un objet" };
-  const o = raw as Record<string, unknown>;
-  const name = typeof o.name === "string" ? o.name.trim() : "";
-  if (name.length < 2 || name.length > 200) return { error: "operator.name : 2 à 200 caractères requis" };
-  const eori = typeof o.eori === "string" ? o.eori.replace(/\s+/g, "").toUpperCase() : "";
-  if (!EORI_PATTERN.test(eori)) {
-    return { error: "EORI invalide : format attendu = code pays ISO (2 lettres) + 1 à 15 caractères alphanumériques" };
+/**
+ * P0 — l'opérateur est **facultatif à l'audit**, mais jamais remplacé.
+ *
+ * Absent : l'audit est enregistré avec une identité nulle ; l'export le
+ * refusera plus tard avec `OPERATOR_IDENTITY_MISSING`. Présent : il doit être
+ * complet et valide ; une sentinelle (`XX0000000000000`, `XX`) est refusée ici
+ * plutôt que stockée puis présentée comme réelle.
+ */
+function parseOperator(
+  raw: unknown,
+): { operator: IdentiteOperateur | null } | { error: string; details: unknown } {
+  if (raw === null || raw === undefined) return { operator: null };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return { error: "operator doit être un objet", details: { champs: ["operator"] } };
   }
-  const country = typeof o.country === "string" && o.country.trim().length === 2 ? o.country.trim().toUpperCase() : eori.slice(0, 2);
-  return {
-    operator: {
-      name,
-      eori,
-      country,
-      address: typeof o.address === "string" ? o.address.trim().slice(0, 300) : null,
-      email: typeof o.email === "string" ? o.email.trim().slice(0, 200) : null,
-    },
-  };
+  const o = raw as Record<string, unknown>;
+  const identite = identiteDeclaree(o);
+  if (!identite) {
+    const classement = classerIdentite({
+      name: typeof o.name === "string" ? o.name : null,
+      eori: typeof o.eori === "string" ? o.eori : null,
+      country: typeof o.country === "string" ? o.country : null,
+    });
+    return {
+      error:
+        "Identité opérateur incomplète ou fictive : nom réel (2 à 200 caractères), " +
+        "EORI au format pays + 1 à 15 alphanumériques, et pays ISO à deux lettres sont requis. " +
+        "Une identité absente doit rester absente, jamais être remplacée par une valeur de remplissage.",
+      details: {
+        code: "OPERATOR_IDENTITY_MISSING",
+        manquants: classement.manquants,
+        invalides: classement.invalides,
+        motifs: classement.motifs,
+      },
+    };
+  }
+  return { operator: identite };
 }
 
 /**
@@ -72,7 +99,9 @@ function parseProducteur(raw: unknown): { producer: { name: string | null; count
   const name = typeof o.name === "string" ? o.name.trim() : "";
   if (name.length < 2 || name.length > 200) return { error: "producer.name : 2 à 200 caractères requis" };
   const rawCountry = typeof o.country === "string" ? o.country.trim().toUpperCase() : "";
-  if (!/^[A-Z]{2}$/.test(rawCountry)) return { error: "producer.country : code pays ISO à 2 lettres requis" };
+  if (!paysValide(rawCountry)) {
+    return { error: "producer.country : code pays ISO à 2 lettres requis (XX interdit)" };
+  }
   return { producer: { name, country: rawCountry } };
 }
 
@@ -128,14 +157,27 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
   if (declaredArea !== null && (!Number.isFinite(declaredArea) || declaredArea < 0)) return badRequest("declared_area_ha doit être ≥ 0");
 
   const parsedOperator = parseOperator(body.operator);
-  if ("error" in parsedOperator) return badRequest(parsedOperator.error);
+  if ("error" in parsedOperator) {
+    return badRequest(parsedOperator.error, 422, "OPERATOR_IDENTITY_MISSING", parsedOperator.details);
+  }
   const operator = parsedOperator.operator;
   const parsedProducer = parseProducteur(body.producer);
   if ("error" in parsedProducer) return badRequest(parsedProducer.error);
-  const producer =
-    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true
-      ? { name: operator.name, country: operator.country }
-      : parsedProducer.producer;
+
+  const memeQueOperateur =
+    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true;
+  if (memeQueOperateur && operator === null) {
+    return badRequest(
+      "Producer déclaré identique à l'opérateur, mais aucune identité opérateur n'est fournie : " +
+        "renseignez `operator` ou déclarez le producteur séparément.",
+      422,
+      "OPERATOR_IDENTITY_MISSING",
+      { champs: ["operator"] },
+    );
+  }
+  const producer = memeQueOperateur
+    ? { name: operator!.name, country: operator!.country }
+    : parsedProducer.producer;
   const parcelReference = typeof body.parcel_reference === "string" ? body.parcel_reference.slice(0, 100) : null;
 
   const validation = validateGeometry(geojson as GeoJsonInput, {
@@ -170,10 +212,11 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       .insert(parcelAudits)
       .values({
         organizationId,
-        operatorName: operator.name,
-        operatorEori: operator.eori,
-        operatorCountry: operator.country ?? "FR",
-        operatorAddress: operator.address ?? null,
+        // P0 — null signifie « non déclaré ». Aucune sentinelle.
+        operatorName: operator?.name ?? null,
+        operatorEori: operator?.eori ?? null,
+        operatorCountry: operator?.country ?? null,
+        operatorAddress: operator?.address ?? null,
         // Nullables : un producteur inconnu reste inconnu, il n'est pas
         // remplacé par l'opérateur.
         producerName: producer.name,

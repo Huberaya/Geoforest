@@ -177,6 +177,12 @@ export interface SatelliteCheckResult {
   country_code: string;
   country_name: string;
   country_risk: RiskLevel;
+  /**
+   * E — faux tant que l'attribution pays repose sur des boîtes englobantes.
+   * L'interface et les exports doivent présenter le pays comme estimé, jamais
+   * comme une attribution EUDR fiable.
+   */
+  country_reliable: boolean;
   /** Provenance de l'analyse — jamais libre, toujours l'une des trois valeurs. */
   source: AnalysisSource;
   /** Vrai uniquement si le verdict repose sur des données réellement mesurées. */
@@ -208,7 +214,8 @@ export interface ParcelAuditResponse {
 export interface AuditSummary {
   audit_id: string;
   created_at: string;
-  operator_name: string;
+  /** `null` = identité non déclarée. Jamais une valeur fictive. */
+  operator_name: string | null;
   commodity: string;
   hs_code: string;
   harvest_date: string;
@@ -310,7 +317,8 @@ export interface Product {
   sku: string | null;
   commodity: Commodity;
   hsCode: string;
-  countryOfOrigin: string;
+  /** `null` = origine non déclarée. Jamais un pays par défaut. */
+  countryOfOrigin: string | null;
   annualVolumeKg: number;
   status: "ACTIVE" | "INACTIVE";
   createdAt: string;
