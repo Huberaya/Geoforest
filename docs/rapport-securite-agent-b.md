@@ -764,10 +764,15 @@ Commit de vérification : **`4f5970bff00387b0eb8e0654a15a32f9be2552b2`**, dont l
 | `npm run audit:sec` | 0 vulnérabilité (production) | local |
 | `pytest -q` | 55 passed, 3 skipped | local, Python 3.12 |
 
-**Commit du rapport.** Ce rapport est lui-même mis à jour par un commit qui ne
-modifie **que ce fichier** : l'arbre du code et des tests vérifié ci-dessus est
-donc exactement celui du commit final de la branche. La chaîne complète a été
-rejouée sur ce commit final et donne les résultats du tableau, à l'identique.
+**Commits suivants.** Les commits postérieurs au commit de vérification ne
+touchent que ce rapport et les **versions des actions** du workflow
+(`checkout@v7`, `setup-node@v7`, `setup-python@v7`, pour supprimer
+l'avertissement de dépréciation observé au premier passage). L'arbre du code,
+des migrations et des tests est donc exactement celui du commit final de la
+branche. La chaîne complète (unitaires, SQL, HTTP, typage, lint, backend, build
+sans variables, audit) a été **rejouée sur ce commit final** : résultats du
+tableau, à l'identique. Le workflow y a également été observé vert (exécution
+`39289230068`, trois tâches).
 
 **Statut de la CI GitHub.** Le workflow est versionné, sa syntaxe a été
 validée, et il a été **observé vert** sur `GitHub Actions` :
