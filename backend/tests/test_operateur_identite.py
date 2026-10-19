@@ -283,6 +283,108 @@ class TestDossierHistorique:
         assert n == 1
         assert "parcel_audits_avant_p2_15" not in tables
 
+    # ------------------------------------------------------------------ P3-03
+    # La reconstruction n'était ni atomique ni tolérante. Mesuré : sur une base
+    # dont la table portait une colonne absente du schéma cible, la copie
+    # échouait APRÈS le renommage, laissant `parcel_audits` vide et les données
+    # orphelines. Ces trois tests verrouillent les trois propriétés.
+
+    def test_migration_tolere_une_colonne_absente_du_schema_cible(self, tmp_path: Path) -> None:
+        """Une colonne en trop côté ancien ne doit pas faire échouer la migration."""
+        import sqlite3
+
+        chemin = tmp_path / "avec_colonne.db"
+        self._base_ancienne(chemin)
+        conn = sqlite3.connect(chemin)
+        conn.execute("ALTER TABLE parcel_audits ADD COLUMN operator_address TEXT")
+        conn.execute("UPDATE parcel_audits SET operator_address = '12 rue des Fleurs'")
+        conn.commit()
+        conn.close()
+
+        base = Database(chemin)
+
+        with base.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS n, MAX(operator_eori) AS e FROM parcel_audits")
+            ligne = cur.fetchone()
+        assert ligne["n"] == 1
+        assert ligne["e"] == PLACEHOLDER
+
+        conn = sqlite3.connect(chemin)
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        conn.close()
+        assert "parcel_audits_avant_p2_15" not in tables
+
+    def test_migration_annulee_laisse_la_base_intacte(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Un échec en cours de route doit tout annuler, jamais vider la table.
+
+        On force l'échec par un déclencheur qui refuse toute insertion dans la
+        nouvelle table. Ce que l'on vérifie n'est pas l'échec, mais son
+        **effet** : la base reste exactement dans l'état d'avant, données
+        comprises.
+        """
+        import sqlite3
+
+        import app.core.database as module_base
+        from app.models.sql_models import CREATE_TABLES_SQL
+
+        chemin = tmp_path / "echec.db"
+        self._base_ancienne(chemin)
+
+        monkeypatch.setattr(
+            module_base,
+            "CREATE_TABLES_SQL",
+            CREATE_TABLES_SQL
+            + """
+            CREATE TRIGGER refus_test BEFORE INSERT ON parcel_audits
+            BEGIN SELECT RAISE(ABORT, 'échec forcé par le test'); END;
+            """,
+        )
+        with pytest.raises(Exception):
+            Database(chemin)
+
+        conn = sqlite3.connect(chemin)
+        conn.row_factory = sqlite3.Row
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        colonnes = [r[1] for r in conn.execute("PRAGMA table_info(parcel_audits)")]
+        n = conn.execute("SELECT COUNT(*) FROM parcel_audits").fetchone()[0]
+        conn.close()
+
+        # Aucun renommage résiduel, aucune table vide à la place des données.
+        assert "parcel_audits_avant_p2_15" not in tables
+        assert "operator_eori" in colonnes
+        assert n == 1, f"les données ont été perdues : {n} ligne(s), tables={tables}"
+
+    def test_migration_verifie_le_nombre_de_lignes(self, tmp_path: Path) -> None:
+        """La suppression de l'ancienne table n'a lieu qu'après comparaison."""
+        import sqlite3
+
+        chemin = tmp_path / "compte.db"
+        self._base_ancienne(chemin)
+        conn = sqlite3.connect(chemin)
+        conn.execute(
+            """INSERT INTO parcel_audits (
+                id, created_at, operator_name, operator_eori, commodity, hs_code,
+                harvest_date, geometry_json, geometry_type, area_ha, vertex_count,
+                centroid_lon, centroid_lat, country_code, country_risk, compliant,
+                analysis_source, analysis_probative, risk_level, status,
+                validation_json, satellite_json
+            ) VALUES (
+                'ancien-2', '2026-01-02T00:00:00+00:00', 'Coop', 'CI1234567890123',
+                'coffee', '0901', '2024-03-15', '{}', 'Polygon', 1.0, 5, 38.0, 6.0,
+                'CI', 'LOW', 1, 'gfw', 1, 'LOW', 'COMPLIANT', '{}', '{}'
+            )"""
+        )
+        conn.commit()
+        conn.close()
+
+        base = Database(chemin)
+
+        with base.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS n FROM parcel_audits")
+            assert cur.fetchone()["n"] == 2
+
     def test_dossier_historique_refuse_a_l_export(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Le sentinelle hérité est traité comme une identité inconnue."""
         import app.api.v1.endpoints as endpoints

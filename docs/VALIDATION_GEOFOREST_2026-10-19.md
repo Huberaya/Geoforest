@@ -2,7 +2,7 @@
 
 **Rapport :** « Validation métier EUDR et géospatiale — rapport de chantier (Geoforest, 2026-10-19) »
 **Auteur :** Agent Arena.ai (Arena.ai — Agent Mode)
-**Version :** 2 — intègre la phase 2 (build, identité opérateur, frontières réelles)
+**Version :** 3 — intègre la phase 3 (consolidation, preuves distantes, préparation à l'intégration)
 
 | | |
 |---|---|
@@ -31,9 +31,10 @@
 
 | Commande | Résultat |
 |---|---|
-| `npm run test:gis` | **110/110** contrôles réussis (24 règles EUDR + 63 cas limites géospatiaux et réponses dégradées + 16 topologie différentielle + 7 démarrage sans base) |
+| `npm run test:gis` | **128/128** contrôles réussis (24 règles EUDR + 66 cas limites géospatiaux et réponses dégradées + 16 topologie différentielle + 22 démarrage, réflexion et chemin configuré) |
+| `npm run test:securite` | **48/48** (22 démarrage + 13 migration 0007 + 7 seed + 6 limitation de débit) |
 | `npx tsc --noEmit` | aucune erreur |
-| `cd backend && pytest -q` | **117 passés, 3 xfailed** (les 3 xfail sont documentés au §5.2) |
+| `cd backend && pytest -q` | **121 passés, 3 xfailed** (les 3 xfail sont documentés au §5.2) |
 | `npm run lint` | 0 erreur, 5 avertissements **préexistants** (directives `eslint-disable` inutiles dans 5 pages) |
 | `npm run build` | **réussit** — voir P2-14. Échouait avant cette phase, y compris sur le commit de base |
 
@@ -845,7 +846,10 @@ python -m venv .venv && . .venv/bin/activate
 pip install -r backend/requirements.txt
 
 # 2. Suites logicielles
-npm run test:gis          # 24/24 + 63/63 + 16/16 + 7/7
+npm run test:gis          # 24/24 + 66/66 + 16/16 + 22/22
+npm run test:securite     # 22/22 + 13/13 + 7/7 + 6/6
+npm run audit:sec         # 0 vulnérabilité de production
+npm run audit:dev         # échoue : `braces` sans version corrigée — voir rapport sécurité
 npx tsc --noEmit          # aucune erreur
 cd backend && pytest -q   # 117 passed, 3 xfailed
 

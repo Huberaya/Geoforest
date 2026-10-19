@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 /**
  * Contrôles des cas limites géospatiaux et des réponses fournisseur dégradées.
  *
@@ -121,6 +123,31 @@ function testCountryResolution(): void {
     COUNTRY_RISK_BENCHMARK.borders.dataset.includes("Natural Earth") &&
       COUNTRY_RISK_BENCHMARK.borders.version === "2.0.2",
     COUNTRY_RISK_BENCHMARK.borders.dataset,
+  );
+
+  // Parité : le fichier de points de contrôle est lu par les DEUX suites. Une
+  // divergence entre frontières TypeScript et Python échoue des deux côtés.
+  const referentiel = JSON.parse(
+    readFileSync(join(process.cwd(), "data/frontieres/points-de-controle.json"), "utf8"),
+  ) as {
+    methode: string;
+    points: Array<{ label: string; lon: number; lat: number; iso2: string }>;
+  };
+  check(
+    "le référentiel partagé déclare la même méthode que le code",
+    referentiel.methode === COUNTRY_RISK_BENCHMARK.resolution_method,
+    referentiel.methode,
+  );
+  check("le référentiel partagé contient au moins 15 points", referentiel.points.length >= 15, `${referentiel.points.length}`);
+  const ecarts: string[] = [];
+  for (const p of referentiel.points) {
+    const r = resolveCountry(p.lon, p.lat);
+    if (r.iso2 !== p.iso2) ecarts.push(`${p.label}: attendu ${p.iso2}, obtenu ${r.iso2}`);
+  }
+  check(
+    "les 18 points de contrôle partagés concordent",
+    ecarts.length === 0,
+    ecarts.join(" · ") || `${referentiel.points.length} points`,
   );
 
   // Parité avec le backend : ces valeurs sont les mêmes dans

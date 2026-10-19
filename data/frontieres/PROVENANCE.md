@@ -7,8 +7,20 @@ Elles servent à **attribuer un pays à un point** (P2-16), et à rien d'autre.
 
 | Fichier | Contenu | Taille |
 |---|---|---|
-| `countries-50m.json` | Frontières des pays, TopoJSON, Natural Earth 1:50m | 739 Ko |
+| `countries-50m.json` | Frontières des pays, TopoJSON, Natural Earth 1:50m | 756 420 octets (739 Kio) |
 | `iso-numerique-alpha2.json` | Correspondance ISO 3166-1 numérique → alpha-2 | 3,5 Ko |
+| `LICENSE-world-atlas.txt` | Notice de licence du paquet `world-atlas` (ISC) | 734 octets |
+
+Empreintes **mesurées** (SHA-256), pour qu'un clone puisse vérifier qu'il
+contient les mêmes octets que la version validée :
+
+```
+04342cdc1e3016bcd7db1630de95684d67b79fe3c8c460321e87aef469502394  countries-50m.json
+1a006da4c336a74a3e60e7230885a543ae72bcb46ca0717d962b83af8baf501e  iso-numerique-alpha2.json
+```
+
+Recalcul : `sha256sum data/frontieres/*.json`. Si l'empreinte diffère, le
+fichier a changé et les résultats de résolution mesurés plus bas ne valent plus.
 
 ## Source
 
@@ -16,6 +28,18 @@ Elles servent à **attribuer un pays à un point** (P2-16), et à rien d'autre.
 dérivé des données **Natural Earth 1:50m Cultural Vectors** (domaine public),
 publiées par Natural Earth. Le fichier est copié tel quel : aucune géométrie
 n'a été retouchée, simplifiée ni fabriquée.
+
+## Licence
+
+- **Données Natural Earth** : domaine public. Natural Earth demande seulement
+  d'être cité, ce qui est fait ci-dessus.
+- **Paquet `world-atlas`** : licence **ISC** (Copyright 2013-2019 Michael
+  Bostock). Elle impose que la notice accompagne toute copie — c'est pourquoi
+  `LICENSE-world-atlas.txt` est versionné à côté des données et non laissé dans
+  `node_modules`, qui n'est pas distribué.
+- **Table ISO 3166-1** : codes publics, extraits avec `pycountry` (licence
+  LGPL-2.1 pour le paquet ; la table de codes elle-même n'est pas
+  substantielle au sens du droit d'auteur).
 
 `iso-numerique-alpha2.json` est la correspondance officielle **ISO 3166-1**
 (numérique → alpha-2), extraite avec `pycountry 26.2.16`. C'est une table de

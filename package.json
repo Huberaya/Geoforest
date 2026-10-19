@@ -2,7 +2,7 @@
   "name": "nextjs-postgresql-template",
   "private": true,
   "scripts": {
-    "audit:sec": "npm audit --audit-level=high",
+    "audit:sec": "npm audit --omit=dev --audit-level=high",
     "build": "next build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
@@ -16,11 +16,15 @@
     "test:eudr": "node --conditions=react-server --import tsx scripts/check-eudr-rules.ts",
     "test:gis": "npm run test:eudr && node --conditions=react-server --import tsx scripts/check-eudr-geo-edge-cases.ts && node --conditions=react-server --import tsx scripts/check-gis-topology.ts && npm run test:demarrage",
     "typecheck": "tsc --noEmit",
-    "test:demarrage": "node --conditions=react-server --import tsx scripts/check-demarrage-sans-config.ts"
+    "test:demarrage": "node --conditions=react-server --import tsx scripts/check-demarrage-sans-config.ts",
+    "test:migration": "node --conditions=react-server --import tsx scripts/check-migration-identite.ts",
+    "audit:dev": "npm audit --include=dev --audit-level=high",
+    "test:securite": "node --conditions=react-server --import tsx scripts/check-demarrage-sans-config.ts && node --conditions=react-server --import tsx scripts/check-migration-identite.ts && node --conditions=react-server --import tsx scripts/check-seed-securite.ts && node --conditions=react-server --import tsx scripts/check-limitation-memoire.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",
-    "eslint-plugin-react-hooks": "6.1.1"
+    "eslint-plugin-react-hooks": "6.1.1",
+    "source-map-js": "^1.2.2"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
@@ -36,6 +40,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",

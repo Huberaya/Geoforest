@@ -75,7 +75,7 @@ function voletStatique(): void {
 // --------------------------------------------------------------------------
 // B/C. Import sans configuration, puis premier usage.
 // --------------------------------------------------------------------------
-async function voletDynamique(): Promise<void> {
+async function voletDynamique(): Promise<typeof import("../src/db/admin")> {
   console.log("\n\x1b[1mB. Import sans configuration\x1b[0m");
 
   // On efface réellement la configuration : le banc doit prouver que l'import
@@ -123,6 +123,35 @@ async function voletDynamique(): Promise<void> {
     messagePool || "aucune exception ❌",
   );
 
+  // ---------------------------------------------------------------- P3-01
+  // La réflexion, elle aussi, doit rester fail-closed : enumerer un pool non
+  // configuré doit LEVER, et non renvoyer un objet vide qui laisserait croire
+  // que le pool n'a aucune propriété.
+  console.log("\n\x1b[1mD. Réflexion sans configuration : elle lève, elle ne ment pas\x1b[0m");
+
+  const MESSAGE = "DATABASE_URL_ADMIN est requis pour les opérations système.";
+  const reflexionsSansConfig: Array<[string, () => unknown]> = [
+    ["Object.keys(adminPool)", () => Object.keys(moduleAdmin!.adminPool)],
+    ["Object.getOwnPropertyNames(adminPool)", () => Object.getOwnPropertyNames(moduleAdmin!.adminPool)],
+    ["{ ...adminPool }", () => ({ ...moduleAdmin!.adminPool })],
+    ["Object.getPrototypeOf(adminPool)", () => Object.getPrototypeOf(moduleAdmin!.adminPool)],
+    ["Object.getOwnPropertyDescriptor(adminPool, 'query')", () =>
+      Object.getOwnPropertyDescriptor(moduleAdmin!.adminPool, "query")],
+  ];
+  for (const [libelle, essai] of reflexionsSansConfig) {
+    let message = "";
+    try {
+      essai();
+    } catch (erreur) {
+      message = erreur instanceof Error ? erreur.message : String(erreur);
+    }
+    verifier(
+      `${libelle} lève sans configuration au lieu de renvoyer un objet vide`,
+      message === MESSAGE,
+      message || "aucune exception ❌",
+    );
+  }
+
   let messageDb = "";
   try {
     moduleAdmin?.dbAdmin.select();
@@ -134,11 +163,119 @@ async function voletDynamique(): Promise<void> {
     messageDb === "DATABASE_URL_ADMIN est requis pour les opérations système.",
     messageDb || "aucune exception ❌",
   );
+
+  return moduleAdmin as typeof import("../src/db/admin");
+}
+
+// --------------------------------------------------------------------------
+// E. Le chemin configuré reste fonctionnel — sans ouvrir de connexion.
+// --------------------------------------------------------------------------
+async function voletConfigure(moduleAdmin: typeof import("../src/db/admin")): Promise<void> {
+  console.log("\n\x1b[1mE. Chemin configuré\x1b[0m");
+
+  // URL syntaxiquement valide, non routable : `pg` ne se connecte **pas** à la
+  // construction du pool, seulement à la première requête. Ce contrôle ne
+  // contacte donc aucun serveur et n'exige aucun secret réel.
+  process.env.DATABASE_URL_ADMIN =
+    "postgresql://utilisateur:motdepasse@127.0.0.1:1/base_inexistante";
+
+  const globalAdmin = globalThis as typeof globalThis & {
+    __geoforestAdminPool?: unknown;
+    __geoforestAdminDb?: unknown;
+  };
+  delete globalAdmin.__geoforestAdminPool;
+  delete globalAdmin.__geoforestAdminDb;
+
+  let erreur: unknown = null;
+  try {
+    // L'accès à la propriété construit le pool (paresseux jusqu'ici).
+    void moduleAdmin.adminPool.query;
+  } catch (e) {
+    erreur = e;
+  }
+
+  verifier(
+    "une URL présente permet de construire le pool — aucune connexion ouverte",
+    erreur === null && globalAdmin.__geoforestAdminPool !== undefined,
+    erreur instanceof Error ? erreur.message : "pool construit sans réseau",
+  );
+
+  // ---------------------------------------------------------------- P3-01
+  // Configuré, le proxy doit se comporter comme le Pool qu'il représente.
+  const reel = globalAdmin.__geoforestAdminPool as object;
+  const reflexions: Array<[string, () => boolean, string]> = [
+    [
+      "Object.keys(adminPool) n'est pas vide",
+      () => Object.keys(moduleAdmin.adminPool).length > 0,
+      "un proxy limité à `get` renverrait []",
+    ],
+    [
+      "Object.getOwnPropertyNames(adminPool) égale celui du Pool réel",
+      () =>
+        JSON.stringify(Object.getOwnPropertyNames(moduleAdmin.adminPool).sort()) ===
+        JSON.stringify(Object.getOwnPropertyNames(reel).sort()),
+      "les propriétés propres du pool doivent être visibles telles quelles",
+    ],
+    [
+      "l'étalement `{ ...adminPool }` conserve les propriétés",
+      () => Object.keys({ ...moduleAdmin.adminPool }).length > 0,
+      "un proxy limité à `get` renverrait {}",
+    ],
+    [
+      "la trape `has` voit « query »",
+      () => "query" in moduleAdmin.adminPool,
+      "trap `has` manquante",
+    ],
+    [
+      "la même méthode garde la même identité",
+      () => moduleAdmin.adminPool.query === moduleAdmin.adminPool.query,
+      "un `bind` recalculé casserait toute comparaison",
+    ],
+    [
+      "le proxy se présente avec le prototype réel",
+      () => Object.getPrototypeOf(moduleAdmin.adminPool) === Object.getPrototypeOf(reel),
+      "prototype de Object au lieu de celui du Pool",
+    ],
+    [
+      "le descripteur d'une propriété propre est exposé et configurable",
+      () =>
+        Object.getOwnPropertyDescriptor(moduleAdmin.adminPool, "options")?.configurable === true,
+      "invariant du proxy : la cible est un objet vide, donc `configurable` doit être forcé",
+    ],
+    [
+      "une propriété absente reste absente",
+      () => Object.getOwnPropertyDescriptor(moduleAdmin.adminPool, "propriete_inexistante") === undefined,
+      "le proxy ne doit pas fabriquer de propriété",
+    ],
+  ];
+  for (const [libelle, essai, detail] of reflexions) {
+    let ok = false;
+    try {
+      ok = essai();
+    } catch {
+      ok = false;
+    }
+    verifier(libelle, ok, ok ? "" : detail);
+  }
+
+  // Le pool réel doit rester atteignable à travers le proxy.
+  const { Pool } = await import("pg");
+  verifier(
+    "le proxy expose le Pool sous-jacent",
+    globalAdmin.__geoforestAdminPool instanceof Pool,
+    globalAdmin.__geoforestAdminPool instanceof Pool ? "instance de Pool" : "type inattendu",
+  );
+
+  // Nettoyage : on referme le pool sans jamais l'avoir utilisé.
+  await (globalAdmin.__geoforestAdminPool as { end: () => Promise<void> }).end();
+  delete globalAdmin.__geoforestAdminPool;
+  delete process.env.DATABASE_URL_ADMIN;
 }
 
 async function principal(): Promise<void> {
   voletStatique();
-  await voletDynamique();
+  const moduleAdmin = await voletDynamique();
+  await voletConfigure(moduleAdmin);
 }
 
 function bilan(): void {

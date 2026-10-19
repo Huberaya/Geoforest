@@ -63,20 +63,74 @@ function getDbAdmin(): NodePgDatabase {
 
 /**
  * Accès paresseux, compatible avec les appels existants (`adminPool.query`,
- * et `dbAdmin.select`…). La cible réelle n'est instanciée qu'au premier accès
- * à une propriété : importer ce module ne demande donc aucune configuration.
+ * et `dbAdmin.select`…). La cible réelle n'est instanciée qu'au premier accès.
+ *
+ * ---------------------------------------------------------------- P3-01
+ * ⚠️ **Un proxy qui ne piège que `get` et `has` n'est pas transparent.**
+ *
+ * La première version ne piégeait que ces deux trapes. Mesuré :
+ *   `Object.keys(adminPool)`   → `[]`      (au lieu des propriétés du pool)
+ *   `adminPool instanceof Pool` → `false`
+ *   `{ ...adminPool }`         → `{}`
+ *   `Object.getOwnPropertyNames` → `[]`
+ * Aucun appelant actuel ne fait cela, mais « aucun appelant ne le fait » n'est
+ * pas une garantie : c'est une observation sur un instant. Un `Promise`-like,
+ * un utilitaire de sérialisation ou un futur test l'aurait fait, et l'objet
+ * aurait alors menti silencieusement sur son contenu.
+ *
+ * Les trapes ci-dessous délèguent toutes à l'instance réelle. Le proxy se
+ * comporte donc comme l'objet qu'il représente, à l'exception d'une chose
+ * volontaire : `ownKeys` et `getOwnPropertyDescriptor` **forcent**
+ * `configurable: true`, parce que la cible du proxy est un objet vide extensible
+ * et que déclarer une propriété non configurable absente de cette cible viole
+ * l'invariant du langage (TypeError).
  */
+const methodesLiees = new WeakMap<object, Map<PropertyKey, unknown>>();
+
 function paresseux<T extends object>(cible: () => T): T {
+  const lier = (reel: T, propriete: PropertyKey, valeur: unknown): unknown => {
+    if (typeof valeur !== "function") return valeur;
+    let cache = methodesLiees.get(reel);
+    if (!cache) {
+      cache = new Map();
+      methodesLiees.set(reel, cache);
+    }
+    // La même méthode doit garder la même identité d'un accès à l'autre :
+    // sinon `adminPool.query !== adminPool.query`, ce qui casse toute
+    // comparaison ou tout `removeListener`.
+    if (!cache.has(propriete)) cache.set(propriete, valeur.bind(reel));
+    return cache.get(propriete);
+  };
+
   return new Proxy({} as T, {
     get(_vide, propriete) {
       const reel = cible();
-      const valeur = Reflect.get(reel, propriete, reel);
-      // Les méthodes du pool / de drizzle doivent rester liées à leur instance :
-      // `Reflect.get` renverrait une fonction détachée, qui perdrait `this`.
-      return typeof valeur === "function" ? valeur.bind(reel) : valeur;
+      return lier(reel, propriete, Reflect.get(reel, propriete, reel));
+    },
+    set(_vide, propriete, valeur) {
+      return Reflect.set(cible(), propriete, valeur);
     },
     has(_vide, propriete) {
       return propriete in cible();
+    },
+    deleteProperty(_vide, propriete) {
+      return Reflect.deleteProperty(cible(), propriete);
+    },
+    defineProperty(_vide, propriete, descripteur) {
+      return Reflect.defineProperty(cible(), propriete, descripteur);
+    },
+    ownKeys() {
+      return Reflect.ownKeys(cible());
+    },
+    getOwnPropertyDescriptor(_vide, propriete) {
+      const reel = cible();
+      const descripteur = Reflect.getOwnPropertyDescriptor(reel, propriete);
+      if (!descripteur) return undefined;
+      return { ...descripteur, configurable: true };
+    },
+    getPrototypeOf() {
+      // Rend `adminPool instanceof Pool` vrai : le proxy représente un Pool.
+      return Reflect.getPrototypeOf(cible());
     },
   });
 }

@@ -50,6 +50,27 @@ jobs:
       - name: Frontend EUDR & GIS checks
         run: npm run test:gis
 
+      # ⚠️ Défauts non géospatiaux consolidés en phase 3 : proxy paresseux
+      #   (réflexion), migration 0007 sur base embarquée, refus du seed en
+      #   production, portée mémoire de la limitation de débit.
+      - name: Sécurité des garde-fous
+        run: npm run test:securite
+
+      # ⚠️ Production : zéro vulnérabilité connue. **Bloquant.**
+      - name: Audit des dépendances de production
+        run: npm run audit:sec
+
+      # ⚠️ Développement : `braces` <= 3.0.3 n'a AUCUNE version corrigée
+      #   (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687). L'audit échoue, et cet échec
+      #   est **visible** : il n'est ni neutralisé par `--omit=dev`, ni tu.
+      #   Le rendre bloquant condamnerait toute la CI sans qu'aucune action ne
+      #   puisse la débloquer. Il est donc publié sans interrompre le job, et
+      #   le rapport de sécurité consigne le risque.
+      #   À rendre bloquant dès qu'une version `braces > 3.0.3` existera.
+      - name: Audit des dépendances de développement (informatif)
+        continue-on-error: true
+        run: npm run audit:dev
+
       # ⚠️ Le build s'exécute SANS base de données, comme chez l'hébergeur.
       #   Il évaluait auparavant `src/db/admin.ts`, qui construisait un pool au
       #   niveau du module : le build échouait sur `/api/metrics`. Le test

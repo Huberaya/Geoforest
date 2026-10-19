@@ -266,6 +266,33 @@ class TestPays:
         assert "non déterminé" in LIMITE_PAYS_NON_DETERMINE.lower()
         assert "Aucun pays voisin" in LIMITE_PAYS_NON_DETERMINE
 
+    def test_parite_avec_le_referentiel_partage(self) -> None:
+        """Rejoue **tous** les points de contrôle partagés avec le TypeScript.
+
+        Le fichier `data/frontieres/points-de-controle.json` est lu par les deux
+        suites. Une divergence entre `frontieres.ts` et `frontieres.py` échoue
+        donc des deux côtés, au lieu de ne se voir que dans la suite qu'on pense
+        à lancer.
+        """
+        from pathlib import Path as _Path
+
+        referentiel = json.loads(
+            (_Path(__file__).resolve().parents[2] / "data/frontieres/points-de-controle.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert referentiel["methode"] == "natural-earth-50m"
+        assert len(referentiel["points"]) >= 15
+
+        ecarts = []
+        for point in referentiel["points"]:
+            detail = resolve_country_detail(point["lon"], point["lat"])
+            if detail["iso2"] != point["iso2"]:
+                ecarts.append(f"{point['label']} : attendu {point['iso2']}, obtenu {detail['iso2']}")
+            elif detail["method"] != referentiel["methode"]:
+                ecarts.append(f"{point['label']} : méthode {detail['method']}")
+        assert not ecarts, "\n".join(ecarts)
+
     def test_frontieres_disponibles(self) -> None:
         from app.services.frontieres import frontieres_disponibles
 
