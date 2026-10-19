@@ -7,7 +7,7 @@
 | Dépôt | `Huberaya/Geoforest` |
 | Branche de travail | `arena/569eff1a-geoforest` |
 | Commit de référence | `1c95f4c585ed8303f887089ae7450c9235523fd0` (`main` au moment de l'audit) |
-| Commit de vérification (phase 2) | `__SHA_VERIFICATION__` (parent : `__SHA_PARENT__`) |
+| Commit de vérification (phase 2) | `4f5970bff00387b0eb8e0654a15a32f9be2552b2` (parent : `04c9cc5f11fd7c455297022c3a4903ee89434aaa`) |
 | Date | 19 octobre 2026 |
 | Périmètre | Next.js 16 (39 routes API), schéma PostgreSQL et politiques RLS, backend FastAPI (SQLite), scripts d'exploitation |
 | Hors périmètre | hébergement, fournisseur d'identité, S3/SMTP réels, tests de charge, audit de dépendances exhaustif |
@@ -347,7 +347,7 @@ depuis le rôle applicatif ». `tests/sql/connexion-applicative.test.ts` vérifi
 que la connexion réelle se présente bien comme `geoforest_app`.
 
 **Résultat après.** `privileges` **10/10**, `connexion-applicative` **8/8**,
-`test:sql` **40/40** — sur le commit de vérification `__SHA_VERIFICATION__`.
+`test:sql` **40/40** — sur le commit de vérification `4f5970bff00387b0eb8e0654a15a32f9be2552b2`.
 
 **Risque résiduel.** Une base existante doit avoir reçu la migration `023` : le
 déploiement doit exécuter `scripts/sql/post-migrate/` dans l'ordre. Si une
@@ -744,8 +744,8 @@ Trois principes ont guidé l'écriture :
 
 ## 8. Vérification sur le SHA final
 
-Commit de vérification : **`__SHA_VERIFICATION__`**, dont le parent est
-`__SHA_PARENT__` (commit de référence `1c95f4c585ed8303f887089ae7450c9235523fd0`).
+Commit de vérification : **`4f5970bff00387b0eb8e0654a15a32f9be2552b2`**, dont le parent est
+`04c9cc5f11fd7c455297022c3a4903ee89434aaa` (commit de référence `1c95f4c585ed8303f887089ae7450c9235523fd0`).
 
 | Commande | Résultat | Où |
 |---|---|---|
@@ -757,6 +757,11 @@ Commit de vérification : **`__SHA_VERIFICATION__`**, dont le parent est
 | `npm run build` sans variables | succès | local |
 | `npm run audit:sec` | 0 vulnérabilité (production) | local |
 | `pytest -q` | 55 passed, 3 skipped | local, Python 3.12 |
+
+**Commit du rapport.** Ce rapport est lui-même mis à jour par un commit qui ne
+modifie **que ce fichier** : l'arbre du code et des tests vérifié ci-dessus est
+donc exactement celui du commit final de la branche. La chaîne complète a été
+rejouée sur ce commit final et donne les résultats du tableau, à l'identique.
 
 **Statut de la CI GitHub.** Le workflow est versionné et sa syntaxe a été
 validée ; son premier passage sur `GitHub Actions` pour ce SHA est consigné
