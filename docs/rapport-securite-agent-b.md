@@ -771,8 +771,12 @@ l'avertissement de dépréciation observé au premier passage). L'arbre du code,
 des migrations et des tests est donc exactement celui du commit final de la
 branche. La chaîne complète (unitaires, SQL, HTTP, typage, lint, backend, build
 sans variables, audit) a été **rejouée sur ce commit final** : résultats du
-tableau, à l'identique. Le workflow y a également été observé vert (exécution
-`39289230068`, trois tâches).
+tableau, à l'identique.
+
+Le workflow a par ailleurs été observé **vert** sur le commit de vérification
+(exécution `39288687216`), puis sur chacun des commits suivants de la branche,
+dont le dernier (exécutions `39288933418`, `39289230068`, `39289584616` :
+`frontend`, `base-et-http`, `backend` en succès).
 
 **Statut de la CI GitHub.** Le workflow est versionné, sa syntaxe a été
 validée, et il a été **observé vert** sur `GitHub Actions` :
