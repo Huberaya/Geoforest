@@ -37,6 +37,11 @@
 | `npm run lint` | 0 erreur, 5 avertissements **préexistants** (directives `eslint-disable` inutiles dans 5 pages) |
 | `npm run build` | **réussit** — voir P2-14. Échouait avant cette phase, y compris sur le commit de base |
 
+**Commit validé :** `eacab9bf248860ec0bcdad230c83e60978906e7b`
+(parent `1c95f4c585ed8303f887089ae7450c9235523fd0`, branche
+`arena/837c5c36-geoforest`, poussée sur `origin`). Les cinq suites ci-dessous
+ont été **relancées depuis ce commit**, après le push.
+
 ### 1.2 Classement des résultats
 
 | Code | Correction | Classement |
