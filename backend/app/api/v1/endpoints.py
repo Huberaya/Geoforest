@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 
 from app.core.config import settings
 from app.core.database import Database, get_db
+from app.core.security import require_backend_token
 from app.models.schemas import (
     COMMODITY_HS_CODES,
     AuditSummary,
@@ -23,7 +24,12 @@ from app.services.gis_validator import validate_geometry
 from app.services.satellite_checker import check_deforestation_risk
 from app.services.traces_exporter import build_reference, export_traces_json, export_traces_xml
 
+# ⚠️ Deux routeurs, et non un seul avec une exception : les routes de données
+#   sont protégées **par construction**. Une route ajoutée au routeur protégé
+#   hérite de la dépendance ; oublier de la déclarer sur une route ne peut
+#   donc pas la rendre anonyme. Seule `/health` reste ouverte.
 router = APIRouter()
+router_protege = APIRouter(dependencies=[Depends(require_backend_token)])
 
 _ANONYMOUS_OPERATOR = OperatorInfo(name="Opérateur non renseigné", eori="XX0000000000000", country="XX")
 
@@ -66,7 +72,7 @@ def health() -> HealthResponse:
     )
 
 
-@router.post(
+@router_protege.post(
     "/audit/parcel",
     response_model=ParcelAuditResponse,
     status_code=status.HTTP_201_CREATED,
@@ -154,7 +160,7 @@ def audit_parcel(
     )
 
 
-@router.get("/audits", response_model=List[AuditSummary], tags=["audit"])
+@router_protege.get("/audits", response_model=List[AuditSummary], tags=["audit"])
 def list_audits(limit: int = Query(default=50, ge=1, le=500), db: Database = Depends(get_db)) -> List[AuditSummary]:
     return [
         AuditSummary(
@@ -176,7 +182,7 @@ def list_audits(limit: int = Query(default=50, ge=1, le=500), db: Database = Dep
     ]
 
 
-@router.get("/audits/{audit_id}", tags=["audit"])
+@router_protege.get("/audits/{audit_id}", tags=["audit"])
 def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     record = db.get_audit(audit_id)
     if record is None:
@@ -184,7 +190,7 @@ def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     return record.__dict__
 
 
-@router.post(
+@router_protege.post(
     "/export/traces",
     tags=["export"],
     summary="Export du dossier DDS vers TRACES-NT (XML ou JSON)",

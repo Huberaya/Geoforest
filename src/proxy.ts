@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { ACCESS_COOKIE } from "@/lib/auth/constants";
+import { estCheminAuthPublic } from "@/lib/auth/public-paths";
 import { mfaRequiredFor } from "@/lib/auth/roles";
 import { verifyAccessToken } from "@/lib/auth/tokens";
 import {
@@ -57,8 +58,9 @@ const PUBLIC_PATHS = new Set<string>([
 ]);
 
 function isPublic(pathname: string): boolean {
-  if (PUBLIC_PATHS.has(pathname)) return true;
-  return pathname.startsWith("/api/v1/auth/");
+  // ⚠️ `estCheminAuthPublic` est une liste exacte : voir le commentaire du
+  //   module. Un préfixe `/api/v1/auth/` ouvrirait `me` et `password`.
+  return PUBLIC_PATHS.has(pathname) || estCheminAuthPublic(pathname);
 }
 
 /**

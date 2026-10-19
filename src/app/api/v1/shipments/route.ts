@@ -8,6 +8,8 @@ import { logAction } from "@/lib/api/audit-log";
 
 export const dynamic = "force-dynamic";
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 
 export const GET = guard("shipment:read")(async (_request: Request, _ctx, { tx, organizationId }) => {
   const rows = await tx
@@ -55,11 +57,41 @@ export const POST = guard("shipment:write")(async (request: Request, _ctx, { tx,
       return NextResponse.json({ detail: "Référence et date de récolte requises" }, { status: 422 });
     }
 
+    // ⚠️ La clé étrangère composite refuse une référence au tenant voisin,
+    //   mais elle le faisait sous la forme d'un 500 « erreur interne » : une
+    //   faute de saisie devenait un incident serveur. Le contrôle explicite
+    //   ci-dessous rend le refus lisible et ne dépend plus du seul moteur.
+    const supplierId = body.supplierId ? String(body.supplierId) : null;
+    if (supplierId) {
+      if (!UUID_PATTERN.test(supplierId)) {
+        return NextResponse.json({ detail: "Fournisseur invalide" }, { status: 422 });
+      }
+      const [owner] = await tx
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(and(eq(suppliers.id, supplierId), eq(suppliers.organizationId, organizationId)))
+        .limit(1);
+      if (!owner) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
+    }
+
+    const productId = body.productId ? String(body.productId) : null;
+    if (productId) {
+      if (!UUID_PATTERN.test(productId)) {
+        return NextResponse.json({ detail: "Produit invalide" }, { status: 422 });
+      }
+      const [owner] = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.id, productId), eq(products.organizationId, organizationId)))
+        .limit(1);
+      if (!owner) return NextResponse.json({ detail: "Produit introuvable" }, { status: 404 });
+    }
+
     const newShipment: Shipment = {
       id: crypto.randomUUID(),
       reference: String(body.reference).trim().toUpperCase(),
-      supplierId: body.supplierId ? String(body.supplierId) : null,
-      productId: body.productId ? String(body.productId) : null,
+      supplierId,
+      productId,
       netWeightKg: Number(body.netWeightKg) || 0,
       harvestDate: String(body.harvestDate),
       customsDeclarationRef: body.customsDeclarationRef ? String(body.customsDeclarationRef).trim() : null,

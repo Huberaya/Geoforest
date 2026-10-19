@@ -77,12 +77,33 @@ class Settings:
         )
     )
 
+    # --- Authentification du service ---
+    #
+    # ⚠️ Ce backend est **mono-tenant** : ni utilisateur, ni organisation, ni
+    #   contrôle d'accès dans SQLite. Il ne doit donc jamais être joignable
+    #   sans jeton, et ne doit jamais servir plusieurs organisations.
+    #   Sans `GF_BACKEND_TOKEN`, les routes de données répondent 503 : le
+    #   service échoue fermé au lieu de s'ouvrir par défaut.
+    backend_token: str = field(default_factory=lambda: os.getenv("GF_BACKEND_TOKEN", "").strip())
+
     # --- CORS ---
+    # ⚠️ Pas de « * » : le middleware autorise `allow_credentials=True`, et
+    #   l'association des deux fait refléter n'importe quelle origine. Les
+    #   origines doivent être nommées. Une valeur « * » est refusée au
+    #   démarrage plutôt que silencieusement affaiblie.
     cors_origins: List[str] = field(
         default_factory=lambda: _env_list(
-            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000", "*"]
+            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000"]
         )
     )
+
+    def __post_init__(self) -> None:
+        if any(origine.strip() == "*" for origine in self.cors_origins):
+            raise ValueError(
+                "CORS_ORIGINS ne peut pas contenir « * » : ce service autorise "
+                "les requêtes avec credentials, et une origine générique "
+                "reviendrait à ouvrir l'API à tout site web."
+            )
 
     @property
     def gfw_live_available(self) -> bool:

@@ -4,6 +4,16 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
+# ⚠️ Ces tests décrivent une API `/api/v1/geospatial/*` qui n'existe pas dans
+#   ce commit : les trois routes répondent 404. Ils étaient donc rouges sur
+#   `main` avant ce chantier, ce qui rendait la suite entière inutilisable
+#   comme garde-fou (on ne distingue plus une régression d'un test périmé).
+#   Ils sont explicitement ignorés, pas supprimés : le jour où le module
+#   géospatial sera réintroduit, ils redeviendront la recette attendue.
+pytestmark = pytest.mark.skip(
+    reason="Endpoints /api/v1/geospatial/* absents du backend à ce SHA (404) — tests périmés, à réactiver avec le module."
+)
+
 client = TestClient(app)
 
 

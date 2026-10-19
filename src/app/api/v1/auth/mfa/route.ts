@@ -16,6 +16,7 @@ import {
   clientIp,
   issueSession,
   readMfaTicket,
+  registerAccountFailure,
   resetAccountFailures,
   sessionCookieHeaders,
   windowKeyFor,
@@ -59,6 +60,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return apiError("invalid_credentials", "Session invalide.", 401);
   }
 
+  // ⚠️ Le verrouillage de compte couvre aussi le second facteur. Sans ce
+  //   contrôle, un code TOTP à six chiffres pouvait être essayé sans limite
+  //   dès lors que le mot de passe était connu : la route ne comptait pas les
+  //   échecs et le login remettait le compteur à zéro avant la MFA.
+  if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+    const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
+    return apiError(
+      "account_locked",
+      `Compte verrouillé après plusieurs échecs. Réessayez dans ${minutes} minute(s).`,
+      423,
+    );
+  }
+
   const ip = clientIp(request.headers);
   const userAgent = request.headers.get("user-agent");
   const secret = ticket.pendingSecret ?? user.mfaSecret;
@@ -83,6 +97,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   if (!valid) {
+    // ⚠️ Un code refusé compte comme un échec de compte, au même titre qu'un
+    //   mot de passe faux : c'est ce qui borne l'essai exhaustif du TOTP.
+    await registerAccountFailure(user.id);
     // ⚠️ P1-06 — un code TOTP refusé est l'événement de sécurité le plus
     //   révélateur : le mot de passe était bon, le second facteur ne l'était
     //   pas. Le journaliser permet de repérer une tentative avant qu'elle ne

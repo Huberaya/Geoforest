@@ -30,8 +30,14 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
       GFW_API_KEY: ${GFW_API_KEY:-}
       GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
+      # ⚠️ Ce backend est mono-tenant et n'a aucune notion d'organisation.
+      #   Sans jeton, ses routes de données répondent 503 (échec fermé).
+      GF_BACKEND_TOKEN: ${GF_BACKEND_TOKEN:-}
     ports:
-      - "8000:8000"
+      # Écoute sur la boucle locale uniquement : le service n'a pas à être
+      # joignable depuis le réseau. Pour un accès distant, passer par un
+      # mandataire authentifié, jamais par une publication directe.
+      - "127.0.0.1:8000:8000"
     volumes:
       - geoforest-backend-data:/app/data
     restart: unless-stopped
@@ -43,8 +49,10 @@ services:
     container_name: geoforest-frontend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
-      # Laisser vide pour utiliser les routes API Next.js intégrées (PostgreSQL),
-      # ou pointer vers le backend FastAPI : http://localhost:8000
+      # Laisser vide : le dashboard utilise les routes API Next.js intégrées
+      # (PostgreSQL, multi-tenant, RLS). Le backend FastAPI est un service
+      # mono-tenant, authentifié par jeton de service ; il n'est pas destiné à
+      # être appelé depuis le navigateur (le jeton y serait exposé).
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
       GFW_API_KEY: ${GFW_API_KEY:-}
       GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}

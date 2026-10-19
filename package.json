@@ -13,6 +13,10 @@
     "lint": "eslint .",
     "seed:auth": "tsx scripts/seed-auth.ts",
     "start": "next start",
+    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test tests/unit/*.test.ts",
+    "test:sql": "NODE_OPTIONS=--conditions=react-server tsx --test tests/sql/*.test.ts",
+    "test:http": "NODE_OPTIONS=--conditions=react-server tsx --test tests/http/isolation.test.ts",
+    "test:securite": "npm run test:unit && npm run test:sql && npm run test:http",
     "test:eudr": "tsx scripts/check-eudr-rules.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -34,6 +38,8 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "@electric-sql/pglite-socket": "^0.2.13",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",

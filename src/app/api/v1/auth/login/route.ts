@@ -130,7 +130,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  await resetAccountFailures(user.id);
+  // ⚠️ Le compteur d'échecs du compte n'est PAS remis à zéro ici.
+  //   Le mot de passe est correct, mais la session n'existe pas encore : pour
+  //   un rôle soumis à la MFA, remettre le compteur à zéro à ce moment-là
+  //   offrait à qui connaît le mot de passe cinq nouveaux essais de code à
+  //   chaque connexion — et le verrouillage ne s'appliquait jamais au second
+  //   facteur. La remise à zéro a lieu après la validation complète : dans
+  //   `auth/mfa` pour les rôles MFA, ci-dessous pour les autres.
   await clearLoginFailures(windowKey);
 
   // 5. Double authentification.
@@ -174,6 +180,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 6. Connexion complète (rôles non soumis à la MFA).
+  await resetAccountFailures(user.id);
   const issued = await issueSession(user, { remember, userAgent, ip });
 
   journal.info("auth.connexion_reussie", {

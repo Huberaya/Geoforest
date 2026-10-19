@@ -42,7 +42,11 @@ def _fresh_db() -> None:
 
 @pytest.fixture()
 def client() -> TestClient:
-    return TestClient(app)
+    # Le backend exige un jeton de service depuis la correction : les tests
+    # nominaux le portent, les tests négatifs construisent leur propre client.
+    c = TestClient(app)
+    c.headers["Authorization"] = f"Bearer {os.environ['GF_BACKEND_TOKEN']}"
+    return c
 
 
 @pytest.fixture()

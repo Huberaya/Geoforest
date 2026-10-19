@@ -31,8 +31,13 @@ docker-compose up --build
 # Frontend : http://localhost:3000   —   Backend FastAPI : http://localhost:8000/docs
 ```
 
-Le dashboard utilise par défaut les routes API Next.js intégrées (`/api/v1/...`, persistance PostgreSQL via Drizzle).
-Pour brancher le dashboard sur le backend FastAPI : `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+Le dashboard utilise les routes API Next.js intégrées (`/api/v1/...`, persistance PostgreSQL via Drizzle,
+authentification, rôles et cloisonnement par organisation).
+
+Le backend FastAPI est un service **mono-tenant** distinct : il ne connaît ni utilisateur ni organisation.
+Ses routes de données exigent `Authorization: Bearer $GF_BACKEND_TOKEN` et répondent 503 si le jeton n'est
+pas configuré. Il n'est pas destiné à être appelé depuis le navigateur (le jeton y serait exposé) ; le
+dashboard ne doit donc pas être configuré avec `NEXT_PUBLIC_API_URL=http://localhost:8000`.
 
 ## Règles EUDR implémentées (identiques en Python et TypeScript)
 
@@ -60,6 +65,11 @@ cd backend && pip install -r requirements.txt && pytest -q     # 26 tests : conf
 
 ## Endpoints
 
+Backend FastAPI (mono-tenant, jeton de service obligatoire sur les routes de données) :
+
 - `POST /api/v1/audit/parcel` — `{ geojson, commodity, harvest_date, operator?, declared_area_ha? }` → audit complet.
 - `POST /api/v1/export/traces` — `{ audit_id, format: "xml"|"json", operator?, net_weight_kg? }` → fichier DDS.
 - `GET /api/v1/audits`, `GET /api/v1/audits/{id}` — historique.
+- `GET /health` — reste public (sonde de vivacité).
+
+Le dashboard Next.js expose les mêmes parcours sous `/api/v1/...`, avec session, rôles et isolation par organisation.

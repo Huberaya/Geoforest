@@ -8,7 +8,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.endpoints import router as v1_router
+from app.api.v1.endpoints import router as v1_router, router_protege as v1_router_protege
 from app.core.config import settings
 from app.core.database import get_db
 
@@ -56,6 +56,7 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix=settings.api_v1_prefix)
+app.include_router(v1_router_protege, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health", tags=["system"])

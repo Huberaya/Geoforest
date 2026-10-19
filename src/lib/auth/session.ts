@@ -23,6 +23,8 @@ import {
 } from "./constants";
 import { signAccessToken, signMfaTicket, verifyAccessToken, verifyMfaTicket } from "./tokens";
 import type { AccessClaims, MfaTicketClaims } from "./tokens";
+import { adresseClient } from "@/lib/rate-limit";
+import { consommerJetonRefresh, revoquerFamille } from "./refresh-consommation";
 
 export type { MfaTicketClaims };
 
@@ -279,19 +281,24 @@ export async function rotateRefreshToken(
 ): Promise<RotateResult | null> {
   const hash = hashToken(refreshToken);
 
-  const rows = await db.select().from(sessions).where(eq(sessions.refreshTokenHash, hash)).limit(1);
-  const current = rows[0];
-  if (!current) return null;
-
-  if (current.revokedAt) {
-    // Jeton déjà consommé ⇒ vol probable : on révoque toute la famille.
-    await db
-      .update(sessions)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(sessions.familyId, current.familyId), isNull(sessions.revokedAt)));
+  // ⚠️ La consommation est atomique : une seule requête peut faire passer le
+  //   jeton de « actif » à « consommé ». Deux rejeux simultanés ne peuvent donc
+  //   plus obtenir chacun une session (cf. `refresh-consommation.ts`).
+  const current = await consommerJetonRefresh(db, hash);
+  if (!current) {
+    // Distinguer un rejeu d'un jeton simplement inconnu ou expiré : seul un
+    // jeton existant **et déjà révoqué** signale un vol probable.
+    const rows = await db
+      .select({ familyId: sessions.familyId, revokedAt: sessions.revokedAt })
+      .from(sessions)
+      .where(eq(sessions.refreshTokenHash, hash))
+      .limit(1);
+    const existante = rows[0];
+    if (existante?.revokedAt) {
+      await revoquerFamille(db, existante.familyId);
+    }
     return null;
   }
-  if (current.expiresAt.getTime() < Date.now()) return null;
 
   const userRows = await db
     .select({
@@ -320,9 +327,11 @@ export async function rotateRefreshToken(
     familyId: current.familyId,
   });
 
+  // `revoked_at` et `last_used_at` ont déjà été posés par la consommation
+  // atomique ; il ne reste que le lien vers la session qui remplace celle-ci.
   await db
     .update(sessions)
-    .set({ revokedAt: new Date(), replacedBy: issued.sessionId, lastUsedAt: new Date() })
+    .set({ replacedBy: issued.sessionId })
     .where(eq(sessions.id, current.id));
 
   return { user, issued, remember };
@@ -441,8 +450,15 @@ export async function resetAccountFailures(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 }
 
+/**
+ * Adresse IP du client, pour le journal et les fenêtres de connexion.
+ *
+ * ⚠️ La lecture de `X-Forwarded-For` est centralisée dans `adresseClient`
+ *   (droite → gauche, nombre de mandataires déclaré). La dupliquer ici avait
+ *   produit deux règles différentes : les quotas lisaient la dernière entrée,
+ *   le journal la première — donc deux adresses pour une même requête.
+ */
 export function clientIp(headers: Headers): string | null {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() ?? null;
-  return headers.get("x-real-ip");
+  const ip = adresseClient(headers);
+  return ip === "inconnue" ? null : ip;
 }

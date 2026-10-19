@@ -104,6 +104,32 @@ export const POST = guard("dds:write")(async (request: Request, _ctx, { tx, orga
     return NextResponse.json({ detail: "Produit invalide" }, { status: 422 });
   }
 
+  // ⚠️ Un identifiant bien formé ne prouve pas l'appartenance. La clé
+  //   étrangère composite `fk_gf_dds_*_tenant` refuse heureusement la
+  //   référence croisée, mais l'erreur remontait en 500 : le client recevait
+  //   « erreur interne » pour une faute de sa part, et le journal se remplissait
+  //   d'incidents qui n'en étaient pas. Le contrôle explicite rend le refus
+  //   lisible (404) et ne dépend plus du seul moteur.
+  const supplierId = str(body.supplierId) || null;
+  if (supplierId) {
+    const [owner] = await tx
+      .select({ id: suppliers.id })
+      .from(suppliers)
+      .where(and(eq(suppliers.id, supplierId), eq(suppliers.organizationId, organizationId)))
+      .limit(1);
+    if (!owner) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
+  }
+
+  const productId = str(body.productId) || null;
+  if (productId) {
+    const [owner] = await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.id, productId), eq(products.organizationId, organizationId)))
+      .limit(1);
+    if (!owner) return NextResponse.json({ detail: "Produit introuvable" }, { status: 404 });
+  }
+
   const year = new Date().getFullYear();
   const [row] = await tx
     .insert(dueDiligenceStatements)
@@ -112,8 +138,8 @@ export const POST = guard("dds:write")(async (request: Request, _ctx, { tx, orga
       reference: `DDS-${year}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       title,
       commodity,
-      supplierId: str(body.supplierId) || null,
-      productId: str(body.productId) || null,
+      supplierId,
+      productId,
       status: "DRAFT",
     })
     .returning();
