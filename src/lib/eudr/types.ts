@@ -44,6 +44,8 @@ export interface AnalysisEvidence {
   sql: string;
   geometry_type: string;
   retrieved_at: string;
+  /** Empreinte SHA-256 des lignes normalisées reçues, sans stocker de clé ni d'en-tête secret. */
+  rows_sha256: string;
 }
 export type GeometryRule = "POINT_ALLOWED" | "POLYGON_REQUIRED";
 
@@ -171,7 +173,7 @@ export interface SatelliteCheckResult {
    */
   compliant: boolean | null;
   loss_year: number | null;
-  /** Score de confiance. `null` quand l'analyse n'est pas probante. */
+  /** Score de confiance calibré ; null tant qu'aucune méthode validée ne permet de le calculer. */
   confidence_score: number | null;
   risk_level: RiskLevel;
   country_code: string;

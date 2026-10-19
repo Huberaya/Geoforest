@@ -91,7 +91,11 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
   const geojsonB64 = Buffer.from(JSON.stringify(fc), "utf-8").toString("base64");
   const commodity = row.commodity as Commodity;
   const hsCode = row.hsCode || COMMODITY_HS_CODES[commodity] || "";
-  const satellite = (row.satellite ?? {}) as { source?: string };
+  const satellite = (row.satellite ?? {}) as {
+    source?: string;
+    evidence?: Record<string, unknown> | null;
+    provenance?: { method?: string; version?: string | null; params?: Record<string, unknown>; limits?: string[] } | null;
+  };
 
   // Un producteur non déclaré produit un nœud vide et un avertissement
   // explicite : jamais le nom de l'opérateur à la place.
@@ -141,18 +145,25 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       provider: "GeoForest Trace",
       audit_id: row.id,
       audited_at: row.createdAt.toISOString(),
-      status: row.compliant && row.status !== "INVALID_GEOMETRY" ? "VERIFIED_COMPLIANT" : "VERIFIED_NON_COMPLIANT",
+      status: row.compliant === true
+        ? "SATELLITE_NO_POST_CUTOFF_LOSS_DETECTED"
+        : "SATELLITE_POST_CUTOFF_LOSS_DETECTED_REVIEW_REQUIRED",
       eudr_cutoff_date: EUDR_CUTOFF_DATE,
       harvest_date: row.harvestDate,
       geometry_type: row.geometryType,
       area_ha: Number(row.areaHa.toFixed(4)),
       geometry_rule: row.areaHa > EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED",
-      deforestation_detected_post_cutoff: !row.compliant,
+      tree_cover_loss_detected_post_cutoff: row.compliant === false,
       loss_year: row.lossYear,
-      confidence_score: row.confidenceScore,
+      confidence_score: null,
       risk_level: row.riskLevel,
       country_benchmark_risk: row.countryRisk,
       satellite_source: satellite.source ?? "",
+      satellite_evidence: satellite.evidence ?? null,
+      satellite_provenance: satellite.provenance ?? null,
+      satellite_evidence_hash: typeof satellite.evidence?.rows_sha256 === "string" ? satellite.evidence.rows_sha256 : null,
+      satellite_provenance_method: satellite.provenance?.method ?? null,
+      interpretation_limit: "La perte de couvert arboré ne détermine pas à elle seule la cause ou la qualification juridique de déforestation ; l'absence de perte détectée ne prouve pas à elle seule la conformité EUDR complète.",
       centroid: { lon: row.centroidLon, lat: row.centroidLat },
     },
   };
@@ -252,12 +263,15 @@ export function buildTracesXml(row: ParcelAuditRow, operator: OperatorInfo, opti
     "geometry_type",
     "area_ha",
     "geometry_rule",
-    "deforestation_detected_post_cutoff",
+    "tree_cover_loss_detected_post_cutoff",
     "loss_year",
     "confidence_score",
     "risk_level",
     "country_benchmark_risk",
     "satellite_source",
+    "satellite_evidence_hash",
+    "satellite_provenance_method",
+    "interpretation_limit",
   ] as const;
   for (const key of keys) {
     const value = d.verification[key];
