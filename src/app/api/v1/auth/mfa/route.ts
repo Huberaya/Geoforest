@@ -21,6 +21,7 @@ import {
   sessionCookieHeaders,
   windowKeyFor,
 } from "@/lib/auth/session";
+import { clesCadence, consommerFenetre } from "@/lib/auth/cadence-partagee";
 import { MFA_COOKIE } from "@/lib/auth/constants";
 import { verifyTotp } from "@/lib/auth/totp";
 
@@ -34,8 +35,30 @@ function hashRecoveryCode(code: string): string {
 /**
  * Validation du second facteur (TOTP) — étape finale de la connexion.
  * Traite aussi la première activation (secret en attente) et les codes de secours.
+ *
+ * La fenêtre ci-dessous est **partagée** par toutes les instances : elle borne
+ * les essais par adresse, là où le verrouillage de compte les borne par compte.
  */
+const MFA_MAX = 60;
+const MFA_FENETRE_SECONDES = 60;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // ⚠️ Le verrouillage de compte borne déjà les essais **par compte** ; cette
+  //   fenêtre, partagée par toutes les instances, borne les essais **par
+  //   adresse** — c'est-à-dire une campagne qui essaierait un code sur des
+  //   milliers de comptes, que le verrou par compte ne verrait jamais.
+  const ip = clientIp(request.headers);
+  const fenetre = await consommerFenetre(db, {
+    cle: clesCadence.secondFacteur(ip),
+    max: MFA_MAX,
+    fenetreSecondes: MFA_FENETRE_SECONDES,
+  });
+  if (!fenetre.autorise) {
+    const refus = apiError("rate_limited", "Trop de tentatives. Réessayez plus tard.", 429);
+    refus.headers.set("Retry-After", String(fenetre.reessayerDans));
+    return refus;
+  }
+
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
   const lecture = await lireCorpsJson(request);
   if (!lecture.ok) return lecture.response;
@@ -73,7 +96,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const ip = clientIp(request.headers);
   const userAgent = request.headers.get("user-agent");
   const secret = ticket.pendingSecret ?? user.mfaSecret;
 

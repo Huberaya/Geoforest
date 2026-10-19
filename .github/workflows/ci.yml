@@ -1,21 +1,109 @@
 name: CI
 
 on:
+  # Déclencheurs d'origine conservés : `main` et l'exécution manuelle.
+  # `arena/**` est ajouté pour que les branches de travail (celle-ci, et celles
+  # des autres agents) soient réellement vérifiées avant toute demande de
+  # fusion. Aucun déclencheur n'a été retiré ; les chantiers `security/**` et
+  # `forest/**` gardent leur propre workflow sur leurs branches, et une demande
+  # de fusion vers `main` reste couverte par le filtre ci-dessous.
   push:
     branches:
       - main
+      - "arena/**"
   pull_request:
     branches:
       - main
+      - "arena/**"
   workflow_dispatch:
+
+# Moindre privilège : le workflow ne lit que le dépôt.
+permissions:
+  contents: read
 
 concurrency:
   group: geoforest-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Verify Frontend & Backend
+  # -------------------------------------------------------------------------
+  # Compilation, typage, lint, tests unitaires et build.
+  #
+  # ⚠️ Aucune variable de base de données n'est fournie : le build doit
+  #   réussir sans. Poser une URL factice transformerait un échec de
+  #   configuration en réussite trompeuse — c'est précisément ce que le
+  #   passage du pool d'administration en construction différée empêche.
+  # -------------------------------------------------------------------------
+  frontend:
+    name: Frontend (typecheck, lint, unit, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Le dépôt est développé sous Node 22 (`@types/node` épinglé en 22).
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      # Le build s'exécute sans base : c'est la propriété que le pool
+      # d'administration différé garantit (cf. tests/unit/admin-pool.test.ts).
+      - name: Build
+        run: npm run build
+
+      # Contrôle des dépendances de production. Les avis portant sur des
+      # outils de développement sont suivis séparément (`npm run audit:dev`),
+      # cf. docs/rapport-securite-agent-b.md.
+      - name: Audit des dépendances de production
+        run: npm run audit:sec
+
+  # -------------------------------------------------------------------------
+  # Contrats de base (29 tests) et contrats HTTP (25 tests).
+  #
+  # Les deux tournent sur PGlite (PostgreSQL embarqué, WASM) : aucun serveur
+  # externe, aucune variable d'environnement, aucun accès réseau. Ils sont donc
+  # exécutables tels quels en intégration continue.
+  # -------------------------------------------------------------------------
+  base-et-http:
+    name: Base de données et contrats HTTP (PGlite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Tests SQL (rôles, RLS, privilèges, cadence)
+        run: npm run test:sql
+
+      - name: Tests HTTP (isolation, authentification, limites)
+        run: npm run test:http
+
+  backend:
+    name: Backend FastAPI
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -34,14 +122,3 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           pytest -q
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install frontend dependencies & build
-        run: |
-          set -euo pipefail
-          npm ci || npm install
-          npm run build

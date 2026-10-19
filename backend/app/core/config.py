@@ -86,6 +86,17 @@ class Settings:
     #   service échoue fermé au lieu de s'ouvrir par défaut.
     backend_token: str = field(default_factory=lambda: os.getenv("GF_BACKEND_TOKEN", "").strip())
 
+    # --- Documentation interactive ---
+    #
+    # ⚠️ `/docs`, `/redoc` et `/openapi.json` décrivent l'ensemble des routes,
+    #   leurs paramètres et leurs schémas. Ce n'est pas une donnée métier, mais
+    #   c'est une carte offerte à qui veut la lire — et sur un service interne,
+    #   personne n'en a besoin. Fermées par défaut ; `GF_BACKEND_DOCS=on` les
+    #   rouvre pour un poste de développement.
+    docs_publiques: bool = field(
+        default_factory=lambda: os.getenv("GF_BACKEND_DOCS", "").strip().lower() in ("on", "1", "true", "oui")
+    )
+
     # --- CORS ---
     # ⚠️ Pas de « * » : le middleware autorise `allow_credentials=True`, et
     #   l'association des deux fait refléter n'importe quelle origine. Les

@@ -613,6 +613,69 @@ test("une pièce absente du support ne divulgue pas sa clé de stockage", async 
   assert.ok(!texte.includes("/tmp/"), "le répertoire de stockage ne doit pas être rendu");
 });
 
+test("la fenêtre de connexion est partagée et cloisonnée par adresse", async () => {
+  const attaquant = banc.clientHttp();
+  const email = "inconnu.masse@exemple.test";
+  const entetes = {
+    "content-type": "application/json",
+    "x-forwarded-for": "203.0.113.50",
+  };
+
+  let bloque: { statut: number; entetes: Headers } | null = null;
+  for (let i = 0; i < 12 && !bloque; i += 1) {
+    const r = await attaquant.fetch("/api/v1/auth/login", {
+      method: "POST",
+      headers: entetes,
+      body: JSON.stringify({ email, password: `Faux${i}!2026` }),
+    });
+    if (r.status === 429) bloque = { statut: r.status, entetes: r.headers };
+  }
+
+  assert.ok(bloque, "après douze essais, la fenêtre doit bloquer");
+  assert.equal(bloque.statut, 429);
+  assert.match(bloque.entetes.get("retry-after") ?? "", /^\d+$/);
+
+  // Une autre adresse garde son propre quota : le compartiment n'est pas global.
+  const autre = await attaquant.fetch("/api/v1/auth/login", {
+    method: "POST",
+    headers: { ...entetes, "x-forwarded-for": "203.0.113.51" },
+    body: JSON.stringify({ email, password: "Faux!2026" }),
+  });
+  assert.equal(autre.status, 401, "l'autre adresse ne doit pas hériter du blocage");
+});
+
+test("le renouvellement de session est limité par adresse, en base", async () => {
+  // ⚠️ `/auth/password` n'est pas exerçable sur ce banc : la route ouvre une
+  //   seconde connexion (connexion d'administration) pendant qu'une
+  //   transaction de tenant est ouverte, et PGlite ne sert qu'une connexion à
+  //   la fois — la requête attend indéfiniment. C'est une limite du banc, pas
+  //   du produit ; le comportement de la fenêtre est vérifié au niveau SQL
+  //   (`tests/sql/cadence-partagee.test.ts`).
+  const attaquant = banc.clientHttp();
+  let statutFinal = 0;
+  let entete: string | null = null;
+
+  for (let i = 0; i < 62; i += 1) {
+    const r = await attaquant.fetch("/api/v1/auth/refresh", {
+      method: "POST",
+      headers: { "x-forwarded-for": "203.0.113.61" },
+    });
+    statutFinal = r.status;
+    entete = r.headers.get("retry-after");
+    if (r.status === 429) break;
+  }
+
+  assert.equal(statutFinal, 429, "après soixante essais, l'adresse doit être freinée");
+  assert.match(entete ?? "", /^\d+$/);
+
+  // Une autre adresse conserve son propre quota.
+  const autre = await attaquant.fetch("/api/v1/auth/refresh", {
+    method: "POST",
+    headers: { "x-forwarded-for": "203.0.113.62" },
+  });
+  assert.equal(autre.status, 401, "aucun jeton : refus normal, sans hériter du blocage");
+});
+
 // ⚠️ Ce test ferme définitivement le socket PGlite : il doit rester le dernier.
 test("une base injoignable répond 503 sans divulguer l'infrastructure", async () => {
   await banc.arreterBaseDeDonnees();

@@ -2,10 +2,10 @@ import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { dbAdmin as db } from "@/db/admin";
-import { loginAttempts, organizations, sessions, users } from "@/db/schema";
+import { organizations, sessions, users } from "@/db/schema";
 import type { Permission } from "./roles";
 import { can, mfaRequiredFor } from "./roles";
 import {
@@ -25,6 +25,7 @@ import { signAccessToken, signMfaTicket, verifyAccessToken, verifyMfaTicket } fr
 import type { AccessClaims, MfaTicketClaims } from "./tokens";
 import { adresseClient } from "@/lib/rate-limit";
 import { consommerJetonRefresh, revoquerFamille } from "./refresh-consommation";
+import { consommerFenetre, reinitialiserFenetre } from "./cadence-partagee";
 
 export type { MfaTicketClaims };
 
@@ -366,38 +367,25 @@ export function windowKeyFor(ip: string | null, email: string): string {
   return `${ip ?? "unknown"}|${email.trim().toLowerCase()}`;
 }
 
-/** Fenêtre glissante persistante : au-delà du plafond, on refuse sans toucher au compte. */
+/**
+ * Fenêtre glissante **partagée** : au-delà du plafond, on refuse sans toucher
+ * au compte.
+ *
+ * ⚠️ Le décompte passe par `consommerFenetre` (transaction + verrou
+ *   consultatif). L'ancienne version lisait puis écrivait en deux temps : deux
+ *   connexions simultanées pouvaient, soit créer deux fenêtres pour la même
+ *   clé (aucune contrainte d'unicité sur `window_key`), soit écrire le même
+ *   compteur, si bien que la limite ne se déclenchait pas là où elle devait.
+ */
 export async function registerLoginFailure(
   windowKey: string,
 ): Promise<{ blocked: boolean; retryAfterSeconds: number }> {
-  const now = new Date();
-  const windowStart = new Date(Date.now() - LOGIN_WINDOW_MINUTES * 60_000);
-
-  const rows = await db
-    .select()
-    .from(loginAttempts)
-    .where(and(eq(loginAttempts.windowKey, windowKey), gt(loginAttempts.lastAttemptAt, windowStart)))
-    .limit(1);
-
-  const existing = rows[0];
-
-  if (!existing) {
-    await db
-      .insert(loginAttempts)
-      .values({ windowKey, attempts: 1, firstAttemptAt: now, lastAttemptAt: now });
-    return { blocked: false, retryAfterSeconds: 0 };
-  }
-
-  const attempts = existing.attempts + 1;
-  await db
-    .update(loginAttempts)
-    .set({ attempts, lastAttemptAt: now })
-    .where(eq(loginAttempts.id, existing.id));
-
-  if (attempts < LOGIN_WINDOW_MAX_ATTEMPTS) return { blocked: false, retryAfterSeconds: 0 };
-
-  const retryAt = existing.firstAttemptAt.getTime() + LOGIN_WINDOW_MINUTES * 60_000;
-  return { blocked: true, retryAfterSeconds: Math.max(1, Math.ceil((retryAt - Date.now()) / 1000)) };
+  const consommation = await consommerFenetre(db, {
+    cle: windowKey,
+    max: LOGIN_WINDOW_MAX_ATTEMPTS,
+    fenetreSecondes: LOGIN_WINDOW_MINUTES * 60,
+  });
+  return { blocked: !consommation.autorise, retryAfterSeconds: consommation.reessayerDans };
 }
 
 /**
@@ -415,11 +403,7 @@ export async function registerLoginFailure(
  * de `scripts/purge-retention.ts`, seul habilité à supprimer.
  */
 export async function clearLoginFailures(windowKey: string): Promise<void> {
-  const maintenant = new Date();
-  await db
-    .update(loginAttempts)
-    .set({ attempts: 0, firstAttemptAt: maintenant, lastAttemptAt: maintenant })
-    .where(eq(loginAttempts.windowKey, windowKey));
+  await reinitialiserFenetre(db, windowKey);
 }
 
 /** Verrouillage du compte après MAX_FAILED_LOGINS échecs consécutifs. */

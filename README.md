@@ -28,7 +28,7 @@ geoforest-trace/
 
 ```bash
 docker-compose up --build
-# Frontend : http://localhost:3000   —   Backend FastAPI : http://localhost:8000/docs
+# Frontend : http://localhost:3000   —   Backend FastAPI : http://localhost:8000/health
 ```
 
 Le dashboard utilise les routes API Next.js intégrées (`/api/v1/...`, persistance PostgreSQL via Drizzle,
@@ -38,6 +38,10 @@ Le backend FastAPI est un service **mono-tenant** distinct : il ne connaît ni u
 Ses routes de données exigent `Authorization: Bearer $GF_BACKEND_TOKEN` et répondent 503 si le jeton n'est
 pas configuré. Il n'est pas destiné à être appelé depuis le navigateur (le jeton y serait exposé) ; le
 dashboard ne doit donc pas être configuré avec `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+
+Sa documentation interactive (`/docs`, `/redoc`, `/openapi.json`) est **fermée par défaut** : elle décrit
+toutes les routes et leurs schémas, ce qui n'a d'utilité que sur un poste de développement. `GF_BACKEND_DOCS=on`
+la rouvre.
 
 ## Règles EUDR implémentées (identiques en Python et TypeScript)
 

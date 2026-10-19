@@ -252,13 +252,20 @@ test("l'accès authentification reste étroit et nominatif", async () => {
     // La lecture directe reste cloisonnée…
     assert.deepEqual(await colonne(tx, "select email as v from gf_users"), ["a@exemple.test"]);
 
-    // …et la fonction dédiée à la connexion retrouve bien un compte par e-mail,
-    // y compris hors du tenant : c'est son objet, et elle est SECURITY DEFINER
-    // avec un `search_path` figé. Aucune route ne l'expose telle quelle.
-    const r = await tx.query<{ email: string }>(
-      "select (auth_user_by_email('b@exemple.test')).email as email",
+    // …et les fonctions `SECURITY DEFINER` de connexion, qui renvoient la ligne
+    // entière (condensat de mot de passe, secret TOTP), ne sont **plus**
+    // exécutables par le rôle applicatif : voir
+    // `scripts/sql/post-migrate/023_fonctions_auth_revoquees.sql`. Elles
+    // permettaient de lire le compte d'une autre organisation en contournant
+    // la RLS, pour aucun usage — l'authentification passe par la connexion
+    // d'administration.
+    await assert.rejects(
+      tx.query("select auth_user_by_email('b@exemple.test')"),
+      (erreur: unknown) => {
+        const e = erreur as { code?: string; message?: string };
+        return e?.code === "42501" || /permission denied/i.test(e?.message ?? "");
+      },
     );
-    assert.equal(r.rows[0]?.email, "b@exemple.test");
   });
 });
 

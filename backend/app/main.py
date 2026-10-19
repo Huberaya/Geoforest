@@ -29,8 +29,12 @@ app = FastAPI(
         "Micro-SaaS de conformité au Règlement (UE) 2023/1115 (EUDR) : validation GIS des parcelles, "
         "détection de déforestation post-2020 (Hansen / Global Forest Watch) et export TRACES-NT."
     ),
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # ⚠️ Fermées par défaut : la documentation interactive décrit toutes les
+    #   routes et leurs schémas. Elle ne s'ouvre que sur demande explicite
+    #   (`GF_BACKEND_DOCS=on`), pour un poste de développement.
+    docs_url="/docs" if settings.docs_publiques else None,
+    redoc_url="/redoc" if settings.docs_publiques else None,
+    openapi_url="/openapi.json" if settings.docs_publiques else None,
 )
 
 @app.middleware("http")
@@ -46,12 +50,18 @@ async def keep_raw_body(request: Request, call_next):
     return await call_next(request)
 
 
+# ⚠️ Méthodes et en-têtes nommés, et non `*` : ce service n'a que quatre
+#   routes de données, toutes en GET ou POST. Autoriser `*` laissait passer
+#   PUT, DELETE et PATCH jusqu'au routeur, où ils ne produisaient qu'un 405 —
+#   mais le navigateur, lui, avait déjà envoyé la requête avec les
+#   identifiants. `Authorization` et `Content-Type` sont les deux seuls
+#   en-têtes dont le client a besoin.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
     expose_headers=["Content-Disposition"],
 )
 

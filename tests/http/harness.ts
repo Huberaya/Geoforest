@@ -1,17 +1,29 @@
 /**
  * Banc d'essai HTTP réel : PostgreSQL (PGlite) + serveur Next.js.
  *
- * ⚠️ Deux limites, dites explicitement.
+ * ⚠️ Deux limites, mesurées et non supposées.
  *
- *   1. `PGLiteSocketServer` ne sait pas authentifier une connexion : le
- *      serveur Next se connecte en `postgres`, superutilisateur. La RLS est
- *      donc **contournée** pendant ces tests. Ils prouvent le filtrage
- *      applicatif (les routes), pas l'application de la RLS — celle-ci est
- *      vérifiée séparément par `tests/sql/isolation.test.ts`, sous le rôle
- *      `geoforest_app`.
- *   2. PGlite est mono-connexion pour les transactions concurrentes. Les
- *      scénarios sont donc séquentiels ; les courses de jetons sont couvertes
- *      au niveau SQL (`tests/sql/refresh-consommation.test.ts`).
+ *   1. **Le serveur tourne en superutilisateur, et il n'existe pas de moyen
+ *      simple de l'éviter ici.** `PGLiteSocketServer` n'authentifie pas : toute
+ *      connexion arrive en `postgres`. Forcer le rôle avec `SET ROLE` a été
+ *      essayé (`tests/helpers/relais-role.ts`) et **ne peut pas fonctionner
+ *      avec deux rôles** : PGlite n'a qu'une seule session PostgreSQL, si bien
+ *      qu'un `SET ROLE` posé par une connexion s'applique à toutes les autres,
+ *      y compris à la connexion d'administration dont l'authentification a
+ *      besoin. Mesuré : après `SET ROLE geoforest_app` par le relais, un client
+ *      `pg` connecté directement au socket — donc « en postgres » — rapporte
+ *      lui aussi `current_user = geoforest_app` et ne voit plus `gf_users`.
+ *
+ *      Ces tests HTTP prouvent donc le **filtrage applicatif** des routes, pas
+ *      l'application de la RLS. Celle-ci est prouvée sous le rôle réel dans
+ *      `tests/sql/isolation.test.ts` et `tests/sql/privileges.test.ts`, et le
+ *      motif de connexion (`SET ROLE` + `set_config` transactionnel) est
+ *      éprouvé sur un vrai client réseau dans `tests/sql/connexion-applicative.test.ts`.
+ *      Aucun résultat de ce fichier ne doit être présenté comme une preuve RLS.
+ *
+ *   2. PGlite ne sert qu'une transaction à la fois : les scénarios sont
+ *      séquentiels ; les courses de jetons sont couvertes au niveau SQL
+ *      (`tests/sql/refresh-consommation.test.ts`).
  *
  * Ces tests ne remplacent pas une recette sur PostgreSQL serveur, mais ils
  * exercent les vrais gestionnaires de route, les vrais cookies, les vrais
