@@ -232,7 +232,7 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
         "geometry_type": analysis_geometry.get("type", "Unknown"),
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    return _normalize_gfw_rows(data), evidence
+    return data, evidence
 
 
 def _normalize_gfw_rows(rows: List[Any]) -> List[Dict[str, Any]]:
@@ -269,6 +269,7 @@ def _normalize_gfw_rows(rows: List[Any]) -> List[Dict[str, Any]]:
 
 def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     rows, evidence = _gfw_query(_analysis_polygon(geom))
+    rows = _normalize_gfw_rows(rows)
     # Réponse vide : absence de perte et absence de donnée ne sont pas distinguables.
     # Aucun verdict de conformité (miroir de la version TypeScript).
     if not rows:
