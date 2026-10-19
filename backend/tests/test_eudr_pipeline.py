@@ -334,10 +334,13 @@ class TestInvalidGeometry:
         assert result["normalized_geometry"] is None
         assert result["errors"]
 
-    def test_feature_with_malformed_properties_is_sanitized(self) -> None:
+    def test_feature_with_malformed_properties_does_not_break_geometry_validation(self) -> None:
         result = validate_geometry({"type": "Feature", "properties": [], "geometry": COMPLIANT_POLYGON})
         assert result["valid"] is True
-        assert result["normalized_geometry"]["properties"] == {"area_ha": result["area_ha"]}
+        # The validator's public contract returns normalized geometry, not a
+        # Feature wrapper; malformed properties must not leak into that output.
+        assert result["normalized_geometry"]["type"] == "Polygon"
+        assert "properties" not in result["normalized_geometry"]
 
     def test_api_returns_invalid_geometry_status(self, client: TestClient) -> None:
         response = client.post("/api/v1/audit/parcel", json=_audit_payload(SELF_INTERSECTING_POLYGON))
