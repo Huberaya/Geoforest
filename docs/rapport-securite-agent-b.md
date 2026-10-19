@@ -62,7 +62,7 @@ Les contraintes de la mission ont été respectées : `main` n'a pas été modif
 | V19 | `password_hash`, `mfa_secret`, `mfa_recovery_codes` lisibles par le rôle applicatif dans son tenant | Moyenne | Corrigé | `privileges.test.ts` (colonnes), recette |
 | — | RLS, permissions, FK composites, URL signées, journal scellé, suppressions logiques | — | **Déjà satisfaisants** | tests SQL + HTTP (voir §4) |
 
-**Résultats finaux** (arbre de travail de la branche, après la phase 2) :
+**Résultats finaux** (arbre de travail de la branche, après la phase 3) :
 
 | Commande | Résultat |
 |---|---|
@@ -70,8 +70,8 @@ Les contraintes de la mission ont été respectées : `main` n'a pas été modif
 | `npm run test:sql` | **42/42** (13 isolation/RLS, 12 privilèges, 8 connexion applicative, 6 cadence, 3 consommation de jetons) |
 | `npm run test:http` | **25/25** |
 | `bash scripts/recette/postgresql-recette.sh` | **9 étapes, 21 assertions** (PostgreSQL 16.2) |
-| `npx tsc --noEmit` | **0 erreur** |
-| `npm run lint` | **0 erreur** (9 avertissements, aucun bloquant) |
+| `npm run typecheck` | **0 erreur** |
+| `npm run lint` | **0 erreur** (5 avertissements, aucun bloquant) |
 | `pytest -q` (backend) | **55 passed, 3 skipped** |
 | `npm run build` (**sans aucune variable de base**) | **succès** |
 | `npm run audit:sec` (dépendances de production) | **0 vulnérabilité** |
