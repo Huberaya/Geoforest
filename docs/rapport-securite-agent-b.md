@@ -759,7 +759,7 @@ Commit de vérification : **`4f5970bff00387b0eb8e0654a15a32f9be2552b2`**, dont l
 | `npm run test:sql` | 40/40 | local, PGlite 0.5.10 |
 | `npm run test:http` | 25/25 | local, `next dev` |
 | `npm run typecheck` | 0 erreur | local |
-| `npm run lint` | 0 erreur, 9 avertissements | local |
+| `npm run lint` | 0 erreur, 5 avertissements | local |
 | `npm run build` sans variables | succès | local |
 | `npm run audit:sec` | 0 vulnérabilité (production) | local |
 | `pytest -q` | 55 passed, 3 skipped | local, Python 3.12 |
@@ -774,9 +774,10 @@ sans variables, audit) a été **rejouée sur ce commit final** : résultats du
 tableau, à l'identique.
 
 Le workflow a par ailleurs été observé **vert** sur le commit de vérification
-(exécution `39288687216`), puis sur chacun des commits suivants de la branche,
-dont le dernier (exécutions `39288933418`, `39289230068`, `39289584616` :
-`frontend`, `base-et-http`, `backend` en succès).
+(exécution `39288687216`, commit `8e9d570`), puis sur chacun des commits
+suivants de la branche : `39288933418` (`465a19b`), `39289230068` (`56fbdac`),
+`39289584616` (`bf813c4`), `39289736851` (`afb01e6`) — trois tâches
+`frontend`, `base-et-http` et `backend` en succès à chaque fois.
 
 **Statut de la CI GitHub.** Le workflow est versionné, sa syntaxe a été
 validée, et il a été **observé vert** sur `GitHub Actions` :
