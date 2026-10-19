@@ -236,11 +236,7 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
 
 
 def _normalize_gfw_rows(rows: List[Any]) -> List[Dict[str, Any]]:
-    """Valide le contrat GFW avant de laisser ses lignes influencer un verdict.
-
-    Une ligne mal formée, une année impossible ou une surface négative/non finie
-    est une réponse fournisseur invalide : l'appelant doit échouer fermé.
-    """
+    """Valide le contrat GFW avec les mêmes règles que le moteur TypeScript."""
     current_year = datetime.now(timezone.utc).year
     normalized: List[Dict[str, Any]] = []
     for index, raw in enumerate(rows):
@@ -248,24 +244,32 @@ def _normalize_gfw_rows(rows: List[Any]) -> List[Dict[str, Any]]:
             raise ValueError(f"Réponse GFW invalide : ligne {index + 1} non objet")
         raw_year = raw.get("umd_tree_cover_loss__year")
         raw_area = raw.get("area__ha")
-        try:
-            year = int(raw_year) if not isinstance(raw_year, bool) else 0
-            # Refuse les conversions ambiguës telles que "2022.5".
-            if isinstance(raw_year, float) and not raw_year.is_integer():
-                year = 0
-        except (TypeError, ValueError, OverflowError):
+
+        # Les booléens sont des entiers en Python, mais ne sont pas des années.
+        if isinstance(raw_year, bool) or raw_year is None:
             year = 0
-        try:
-            area = float(raw_area)
-        except (TypeError, ValueError, OverflowError):
+        else:
+            try:
+                year_number = float(raw_year.strip() if isinstance(raw_year, str) else raw_year)
+                year = int(year_number) if math.isfinite(year_number) and year_number.is_integer() else 0
+            except (TypeError, ValueError, OverflowError):
+                year = 0
+
+        # Ne pas convertir True/False en 1.0/0.0, contrairement à float(bool).
+        if isinstance(raw_area, bool) or raw_area is None:
             area = float("nan")
+        else:
+            try:
+                area = float(raw_area.strip() if isinstance(raw_area, str) else raw_area)
+            except (TypeError, ValueError, OverflowError):
+                area = float("nan")
+
         if year < 2001 or year > current_year:
-            raise ValueError(f"Réponse GFW invalide : année absente ou hors plage à la ligne {index + 1}")
+            raise ValueError(f"Réponse GFW invalide : année de perte absente ou hors plage à la ligne {index + 1}")
         if not math.isfinite(area) or area < 0:
             raise ValueError(f"Réponse GFW invalide : surface absente, non finie ou négative à la ligne {index + 1}")
         normalized.append({"umd_tree_cover_loss__year": year, "area__ha": area})
     return normalized
-
 
 def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     rows, evidence = _gfw_query(_analysis_polygon(geom))
