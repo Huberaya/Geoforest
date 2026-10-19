@@ -763,11 +763,18 @@ modifie **que ce fichier** : l'arbre du code et des tests vérifié ci-dessus es
 donc exactement celui du commit final de la branche. La chaîne complète a été
 rejouée sur ce commit final et donne les résultats du tableau, à l'identique.
 
-**Statut de la CI GitHub.** Le workflow est versionné et sa syntaxe a été
-validée ; son premier passage sur `GitHub Actions` pour ce SHA est consigné
-ci-dessous dès qu'il est observé. Aucun résultat n'est déclaré sans avoir été
-exécuté : les lignes du tableau ci-dessus sont des exécutions locales sur le
-SHA indiqué, pas des déductions.
+**Statut de la CI GitHub.** Le workflow est versionné, sa syntaxe a été
+validée, et il a été **observé vert** sur `GitHub Actions` :
+
+| Exécution | Commit | Tâches | Conclusion |
+|---|---|---|---|
+| [39288687216](https://github.com/Huberaya/Geoforest/actions/runs/39288687216) | `8e9d570` (arbre de code identique au commit vérifié) | `frontend`, `base-et-http`, `backend` | **succès**, aucune étape en échec |
+
+Ce passage a aussi servi de banc d'essai aux versions d'actions employées :
+il a révélé un avertissement de dépréciation (actions ciblant Node 20), corrigé
+en passant aux versions majeures courantes (`checkout@v7`, `setup-node@v7`,
+`setup-python@v7`). Les lignes du tableau ci-dessus restent des **exécutions
+locales** sur le SHA indiqué ; aucune n'est une déduction.
 
 **Ce qui n'a pas été fait, et ne le sera pas sans autorisation** : aucun commit
 sur `main`, aucune fusion de PR, aucun déploiement, aucune modification de
