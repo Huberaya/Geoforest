@@ -323,8 +323,12 @@ avec les droits du propriétaire (elle **échappe donc à la RLS**), et PostgreS
 accorde `EXECUTE` à `PUBLIC` par défaut sur toute fonction créée. Depuis le rôle
 applicatif, `auth_user_by_email('autre@exemple.test')` renvoyait donc la ligne
 complète d'un compte d'une **autre organisation** : condensat de mot de passe,
-secret TOTP, condensats des codes de secours. Mesure reproduite avant correctif
-par `var/probe-*.mts` puis figée par deux tests.
+secret TOTP, condensats des codes de secours.
+
+Mesure : le test `privileges` n° 6 a été rejoué **sans** la migration `023` ;
+il échoue (`Missing expected rejection` — l'appel aboutit au lieu d'être refusé
+en `42501`), soit 9/10, et repasse à 10/10 dès que `023` est présente. Journal :
+`var/preuves/11-avant-023-fonctions-auth.log`.
 
 **Cause racine.** Une fonction privilégiée exposée à un rôle qui n'en a pas
 besoin. Aucune route ne l'appelle : l'authentification passe par la connexion
@@ -666,7 +670,9 @@ Les sorties sont conservées dans `var/preuves/` (répertoire ignoré par Git) :
 - `07-session-unique-pglite.txt` — la même limite, établie sur le pilote seul ;
 - `08-phase2-suites.log` — suites unitaires, SQL et HTTP sur le SHA final ;
 - `09-phase2-backend-build-audit.log` — `pytest`, build sans variables, audits ;
-- `10-phase2-avis-braces.txt` — avis `GHSA-vfj7-8cjw-p6xm`, sans correctif.
+- `10-phase2-avis-braces.txt` — avis `GHSA-vfj7-8cjw-p6xm`, sans correctif ;
+- `11-avant-023-fonctions-auth.log` — `privileges` 9/10 sans `023` : la fonction
+  d'authentification reste exécutable par le rôle applicatif (V10).
 
 ### Inventaire des tests
 
