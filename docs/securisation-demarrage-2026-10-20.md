@@ -8,6 +8,20 @@
 **SHA de code contrôlé** : `5e896175c1a9531c7972f644ebc281da66f8da44` (14e commit de la branche)
 **CI de ce SHA** : push [`39335564110`](https://github.com/Huberaya/Geoforest/actions/runs/39335564110) et PR [`39335571667`](https://github.com/Huberaya/Geoforest/actions/runs/39335571667) — **vertes, 3 jobs**
 
+**CI des commits suivants** (documentation seule, aucun code touché) : `37af6a3` — push
+[`39335889900`](https://github.com/Huberaya/Geoforest/actions/runs/39335889900) / PR
+[`39335896976`](https://github.com/Huberaya/Geoforest/actions/runs/39335896976) ; `031a8af` — push
+[`39336166731`](https://github.com/Huberaya/Geoforest/actions/runs/39336166731) / PR
+[`39336172028`](https://github.com/Huberaya/Geoforest/actions/runs/39336172028) ; `565d156` — push
+[`39336400437`](https://github.com/Huberaya/Geoforest/actions/runs/39336400437) / PR
+[`39336406373`](https://github.com/Huberaya/Geoforest/actions/runs/39336406373) — **vertes, 3 jobs chacune**
+
+> **Statut de la PR #8** : `OPEN`, `MERGEABLE`, `mergedAt: null`. Le
+> `mergeStateStatus` vaut `UNSTABLE` en raison du seul contrôle
+> **Vercel** de prévisualisation resté `pending` ; les trois jobs de la CI
+> sont `pass`. Ce n'est pas un échec de test et cela ne doit pas être
+> « corrigé » en modifiant les workflows.
+
 > **Isolation de branche.** La session Arena est liée à la branche
 > `arena/569eff1a-geoforest` ; il n'était donc pas possible d'en créer une
 > seconde. Aucune branche source n'a été touchée : `main` est resté à
