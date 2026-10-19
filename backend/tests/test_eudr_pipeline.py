@@ -604,6 +604,9 @@ class TestProvenanceP004:
         [{"umd_tree_cover_loss__year": 2022, "area__ha": float("nan")}],
         [{"umd_tree_cover_loss__year": 2999, "area__ha": 0.0}],
         [{"umd_tree_cover_loss__year": "2022.5", "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": True, "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": True}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": None}],
         ["ligne-invalide"],
     ],
 )
@@ -633,3 +636,27 @@ def test_reponse_gfw_mal_formee_ne_peut_jamais_produire_un_verdict(
     assert result["compliant"] is None
     assert result["evidence"] is None
     assert "Réponse GFW invalide" in result["details"]
+
+
+def test_annee_gfw_entier_en_chaine_est_normalisee_comme_typescript(monkeypatch, gfw_live) -> None:
+    monkeypatch.setattr(
+        satellite_checker,
+        "_gfw_query",
+        lambda geometry: (
+            [{"umd_tree_cover_loss__year": "2022.0", "area__ha": "0.25"}],
+            {
+                "provider": "Global Forest Watch (World Resources Institute)",
+                "dataset": settings.gfw_dataset,
+                "dataset_version": "v1.13",
+                "endpoint": settings.gfw_api_url,
+                "sql": satellite_checker.GFW_SQL,
+                "geometry_type": geometry.get("type", "Unknown"),
+                "retrieved_at": "2026-10-19T00:00:00+00:00",
+            },
+        ),
+    )
+    result = check_deforestation_risk(COMPLIANT_POLYGON, "2024-06-01")
+    assert result["source"] == "gfw-live"
+    assert result["compliant"] is False
+    assert result["loss_year"] == 2022
+    assert result["loss_area_ha"] == 0.25
