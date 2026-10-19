@@ -22,7 +22,7 @@
     "test:fournisseur:http": "tsx --conditions=react-server scripts/check-fournisseur-http.ts",
     "test:dds-etats:http": "tsx --conditions=react-server scripts/check-dds-etats-http.ts",
     "test:eudr": "tsx --conditions=react-server scripts/check-eudr-rules.ts",
-    "test:unit": "tsx --conditions=react-server scripts/check-eudr-rules.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts && tsx scripts/check-evidence-pack.ts",
+    "test:unit": "tsx --conditions=react-server scripts/check-eudr-rules.ts && tsx --conditions=react-server scripts/check-identite-operateur.ts && tsx --conditions=react-server scripts/check-pool-admin.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts && tsx scripts/check-evidence-pack.ts",
     "typecheck": "tsc --noEmit",
     "test:evidence:http": "tsx --conditions=react-server scripts/check-evidence-pack-http.ts",
     "verifier:pack": "tsx scripts/verifier-pack.ts",
