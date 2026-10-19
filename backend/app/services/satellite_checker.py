@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -212,6 +213,11 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
             f"GFW HTTP {response.status_code} — {response.text[:200]}", response=response
         )
     payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Réponse GFW invalide : le corps JSON doit être un objet")
+    data = payload.get("data")
+    if not isinstance(data, list):
+        raise ValueError("Réponse GFW invalide : le champ data doit être un tableau")
     # Version réellement servie, déduite de l'URL finale après redirection.
     served = version
     match = re.search(r"/dataset/[^/]+/([^/]+)/", response.url or "")
@@ -226,7 +232,39 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
         "geometry_type": analysis_geometry.get("type", "Unknown"),
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    return list(payload.get("data") or []), evidence
+    return _normalize_gfw_rows(data), evidence
+
+
+def _normalize_gfw_rows(rows: List[Any]) -> List[Dict[str, Any]]:
+    """Valide le contrat GFW avant de laisser ses lignes influencer un verdict.
+
+    Une ligne mal formée, une année impossible ou une surface négative/non finie
+    est une réponse fournisseur invalide : l'appelant doit échouer fermé.
+    """
+    current_year = datetime.now(timezone.utc).year
+    normalized: List[Dict[str, Any]] = []
+    for index, raw in enumerate(rows):
+        if not isinstance(raw, dict):
+            raise ValueError(f"Réponse GFW invalide : ligne {index + 1} non objet")
+        raw_year = raw.get("umd_tree_cover_loss__year")
+        raw_area = raw.get("area__ha")
+        try:
+            year = int(raw_year) if not isinstance(raw_year, bool) else 0
+            # Refuse les conversions ambiguës telles que "2022.5".
+            if isinstance(raw_year, float) and not raw_year.is_integer():
+                year = 0
+        except (TypeError, ValueError, OverflowError):
+            year = 0
+        try:
+            area = float(raw_area)
+        except (TypeError, ValueError, OverflowError):
+            area = float("nan")
+        if year < 2001 or year > current_year:
+            raise ValueError(f"Réponse GFW invalide : année absente ou hors plage à la ligne {index + 1}")
+        if not math.isfinite(area) or area < 0:
+            raise ValueError(f"Réponse GFW invalide : surface absente, non finie ou négative à la ligne {index + 1}")
+        normalized.append({"umd_tree_cover_loss__year": year, "area__ha": area})
+    return normalized
 
 
 def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
