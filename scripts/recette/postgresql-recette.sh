@@ -34,14 +34,20 @@ DOSSIER="$(mktemp -d /tmp/geoforest-recette-XXXXXX)"
 RACINE="$(cd "$(dirname "$0")/../.." && pwd)"
 
 nettoyer() {
-  local statut=$?
+  # Le statut est passé explicitement : dans un piège de signal, `$?` vaut le
+  # statut de la dernière commande (souvent 0), ce qui faisait sortir la
+  # recette avec un code de succès après une interruption (V20).
+  local statut="${1:-$?}"
+  trap - EXIT INT TERM
   if [ -f "$DOSSIER/data/postmaster.pid" ]; then
     "$PG_BIN/pg_ctl" -D "$DOSSIER/data" -m immediate stop >/dev/null 2>&1 || true
   fi
   rm -rf "$DOSSIER"
   exit "$statut"
 }
-trap nettoyer EXIT INT TERM
+trap 'nettoyer $?' EXIT
+trap 'nettoyer 130' INT
+trap 'nettoyer 143' TERM
 
 echo "== 1. Cluster jetable (port $PORT_DB, répertoire temporaire) =="
 "$PG_BIN/initdb" -D "$DOSSIER/data" -U postgres --auth=trust --encoding=UTF8 --locale=C >/dev/null

@@ -15,7 +15,7 @@
     "recette:postgres": "bash scripts/recette/postgresql-recette.sh",
     "seed:auth": "tsx scripts/seed-auth.ts",
     "start": "next start",
-    "test:eudr": "tsx scripts/check-eudr-rules.ts",
+    "test:eudr": "NODE_OPTIONS=--conditions=react-server tsx scripts/check-eudr-rules.ts",
     "test:http": "NODE_OPTIONS=--conditions=react-server tsx --test tests/http/isolation.test.ts",
     "test:securite": "npm run test:unit && npm run test:sql && npm run test:http",
     "test:sql": "NODE_OPTIONS=--conditions=react-server tsx --test tests/sql/*.test.ts",
