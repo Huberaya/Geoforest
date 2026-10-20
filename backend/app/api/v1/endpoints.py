@@ -27,9 +27,6 @@ from app.services.traces_exporter import build_reference, export_traces_json, ex
 
 router = APIRouter()
 
-_ANONYMOUS_OPERATOR = OperatorInfo(name="Opérateur non renseigné", eori="XX0000000000000", country="XX")
-
-
 def _summary_text(status_value: str, validation: Dict[str, Any], satellite: Dict[str, Any] | None) -> str:
     if status_value == "INVALID_GEOMETRY":
         first = validation["errors"][0]["message"] if validation["errors"] else "géométrie invalide"
@@ -113,7 +110,7 @@ def audit_parcel(
     audit_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     hs_code = COMMODITY_HS_CODES[payload.commodity.value]
-    operator = payload.operator or _ANONYMOUS_OPERATOR
+    operator = payload.operator
 
     satellite: Dict[str, Any] | None = None
     if validation["valid"]:
@@ -237,6 +234,13 @@ def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) 
     record = db.get_audit(payload.audit_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Audit introuvable")
+    # Refuser les audits historiques créés avec une identité de remplacement :
+    # ils ne doivent jamais être transformés en brouillons réglementaires.
+    if record.operator_eori == "XX0000000000000" or record.operator_name == "Opérateur non renseigné":
+        raise HTTPException(
+            status_code=409,
+            detail="Export refusé : identité opérateur absente ou fictive. Corrigez l'identité et relancez l'audit.",
+        )
     if record.status == "INVALID_GEOMETRY":
         raise HTTPException(
             status_code=409,
