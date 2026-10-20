@@ -142,6 +142,14 @@ jobs:
       - name: Reset demo accounts before HTTP controls (test branch only)
         run: npm run seed:auth -- --reset
 
+      # Lot A : la route d'export réelle répond-elle 422 sans identité ?
+      # Un test de la fonction pure ne le prouve pas (garde, statut, format).
+      - name: Export identity HTTP controls
+        run: npm run test:export-identite:http
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
       - name: Supplier journey HTTP controls
         run: npm run test:fournisseur:http
 
