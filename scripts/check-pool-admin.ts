@@ -196,7 +196,11 @@ if (mode === "sans-config" || mode === "avec-config") {
       ["--conditions=react-server", "--import", "tsx", script, sousMode],
       { env, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
     );
-    console.log(sortie.trim().split("\n").filter((l) => l.startsWith("  ")).join("\n"));
+    // `trimEnd()` et non `trim()` : `trim()` mangeait l'indentation de la
+    // PREMIÈRE ligne, qui disparaissait alors du filtre ci-dessous. Le décompte
+    // restait juste (il vient du JSON enfant), mais la liste affichée était
+    // incomplète — exactement ce qui rend un décompte invérifiable.
+    console.log(sortie.trimEnd().split("\n").filter((l) => l.startsWith("  ")).join("\n"));
     const derniere = sortie.trim().split("\n").pop() ?? "{}";
     return JSON.parse(derniere) as { passed: number; failures: string[] };
   }
