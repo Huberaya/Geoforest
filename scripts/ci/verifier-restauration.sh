@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Preuve de restauration PostgreSQL sur une branche Neon éphémère de CI.
-# Le pg_restore réinitialise uniquement cette branche jetable, jamais la branche
-# parente : le workflow supprime la branche Neon en fin de job, même en échec.
+# Preuve de restauration PostgreSQL dans une base distincte d'une branche Neon
+# éphémère. Le workflow supprime ensuite la branche entière, même en échec.
 set -euo pipefail
 
 : "${DATABASE_URL_ADMIN:?DATABASE_URL_ADMIN absent : branche Neon CI non créée}"
+: "${GITHUB_RUN_ID:?GITHUB_RUN_ID absent}"
+: "${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT absent}"
 
 for outil in pg_dump pg_restore psql; do
   command -v "$outil" >/dev/null 2>&1 || {
@@ -15,6 +16,7 @@ done
 
 repertoire="$(mktemp -d)"
 trap 'rm -rf "$repertoire"' EXIT
+base="gf_restore_check_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
 
 compter() {
   local url="$1"
@@ -28,24 +30,37 @@ compter() {
   "
 }
 
-echo "Étape 1/4 — mesurer les données de la branche Neon éphémère"
+echo "Étape 1/5 — mesurer les données de la base source éphémère"
 compter "$DATABASE_URL_ADMIN" > "$repertoire/attendu.txt"
 cat "$repertoire/attendu.txt"
 
-echo "Étape 2/4 — créer une sauvegarde PostgreSQL au format custom"
+echo "Étape 2/5 — créer une sauvegarde PostgreSQL au format custom"
 pg_dump --format=custom --no-owner --no-privileges \
   --file="$repertoire/geoforest.dump" "$DATABASE_URL_ADMIN"
 test -s "$repertoire/geoforest.dump"
 printf 'Sauvegarde créée : %s octets\n' "$(wc -c < "$repertoire/geoforest.dump")"
 
-echo "Étape 3/4 — restaurer la sauvegarde dans la branche Neon jetable"
-# --clean réinitialise les objets issus de l'archive avant de les restaurer.
-# La branche parente n'est jamais connectée par ce script.
-pg_restore --clean --if-exists --exit-on-error --no-owner --no-privileges \
-  --dbname="$DATABASE_URL_ADMIN" "$repertoire/geoforest.dump"
+echo "Étape 3/5 — créer une base de restauration neuve"
+# L'identifiant est construit uniquement à partir des nombres fournis par GitHub.
+# La base neuve évite toute collision de propriétaire avec les objets source.
+psql "$DATABASE_URL_ADMIN" -X -v ON_ERROR_STOP=1 \
+  -c "CREATE DATABASE $base" >/dev/null
 
-echo "Étape 4/4 — comparer les volumes restaurés"
-compter "$DATABASE_URL_ADMIN" > "$repertoire/restaure.txt"
+# Remplacer le nom de base dans l'URI sans afficher ni reconstruire les secrets.
+sans_query="${DATABASE_URL_ADMIN%%\?*}"
+query=""
+if [[ "$DATABASE_URL_ADMIN" == *\?* ]]; then
+  query="?\${DATABASE_URL_ADMIN#*\?}"
+fi
+prefixe="${sans_query%/*}"
+url_restauration="${prefixe}/${base}${query}"
+
+echo "Étape 4/5 — restaurer intégralement dans la base neuve"
+pg_restore --exit-on-error --no-owner --no-privileges \
+  --dbname="$url_restauration" "$repertoire/geoforest.dump"
+
+echo "Étape 5/5 — comparer les volumes restaurés"
+compter "$url_restauration" > "$repertoire/restaure.txt"
 if ! diff -u "$repertoire/attendu.txt" "$repertoire/restaure.txt"; then
   echo "ÉCHEC : les volumes restaurés diffèrent de la sauvegarde." >&2
   exit 1
