@@ -50,7 +50,7 @@ psql "$DATABASE_URL_ADMIN" -X -v ON_ERROR_STOP=1 \
 sans_query="${DATABASE_URL_ADMIN%%\?*}"
 query=""
 if [[ "$DATABASE_URL_ADMIN" == *\?* ]]; then
-  query="?\${DATABASE_URL_ADMIN#*\?}"
+  query="?$(printf '%s' "$DATABASE_URL_ADMIN" | cut -d '?' -f 2-)"
 fi
 prefixe="${sans_query%/*}"
 url_restauration="${prefixe}/${base}${query}"
