@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Preuve de restauration PostgreSQL sur une base jetable de la branche Neon CI.
-# Ne jamais appeler ce script avec une URL de production : il crée puis détruit
-# une base distincte, nommée à partir de l'identifiant du run GitHub.
+# Preuve de restauration PostgreSQL sur une branche Neon éphémère de CI.
+# Le pg_restore réinitialise uniquement cette branche jetable, jamais la branche
+# parente : le workflow supprime la branche Neon en fin de job, même en échec.
 set -euo pipefail
 
 : "${DATABASE_URL_ADMIN:?DATABASE_URL_ADMIN absent : branche Neon CI non créée}"
-: "${GITHUB_RUN_ID:?GITHUB_RUN_ID absent}"
-: "${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT absent}"
 
 for outil in pg_dump pg_restore psql; do
   command -v "$outil" >/dev/null 2>&1 || {
@@ -16,18 +14,7 @@ for outil in pg_dump pg_restore psql; do
 done
 
 repertoire="$(mktemp -d)"
-base="gf_restore_check_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
-base_creee=0
-
-nettoyer() {
-  if [[ "$base_creee" == "1" ]]; then
-    # La base cible est créée par ce script dans la branche Neon éphémère CI.
-    psql "$DATABASE_URL_ADMIN" -X -v ON_ERROR_STOP=1 \
-      -c "DROP DATABASE IF EXISTS $base WITH (FORCE)" >/dev/null 2>&1 || true
-  fi
-  rm -rf "$repertoire"
-}
-trap nettoyer EXIT
+trap 'rm -rf "$repertoire"' EXIT
 
 compter() {
   local url="$1"
@@ -41,39 +28,26 @@ compter() {
   "
 }
 
-echo "Étape 1/5 — mesure des données de la base source éphémère"
+echo "Étape 1/4 — mesurer les données de la branche Neon éphémère"
 compter "$DATABASE_URL_ADMIN" > "$repertoire/attendu.txt"
 cat "$repertoire/attendu.txt"
 
-echo "Étape 2/5 — création d'une sauvegarde PostgreSQL au format custom"
+echo "Étape 2/4 — créer une sauvegarde PostgreSQL au format custom"
 pg_dump --format=custom --no-owner --no-privileges \
   --file="$repertoire/geoforest.dump" "$DATABASE_URL_ADMIN"
 test -s "$repertoire/geoforest.dump"
 printf 'Sauvegarde créée : %s octets\n' "$(wc -c < "$repertoire/geoforest.dump")"
 
-echo "Étape 3/5 — création d'une base de restauration distincte"
-psql "$DATABASE_URL_ADMIN" -X -v ON_ERROR_STOP=1 \
-  -c "CREATE DATABASE $base" >/dev/null
-base_creee=1
+echo "Étape 3/4 — restaurer la sauvegarde dans la branche Neon jetable"
+# --clean réinitialise les objets issus de l'archive avant de les restaurer.
+# La branche parente n'est jamais connectée par ce script.
+pg_restore --clean --if-exists --exit-on-error --no-owner --no-privileges \
+  --dbname="$DATABASE_URL_ADMIN" "$repertoire/geoforest.dump"
 
-# Remplacer uniquement le dernier segment (nom de base), en conservant les
-# paramètres TLS et les identifiants encodés de l'URI source.
-sans_query="${DATABASE_URL_ADMIN%%\?*}"
-query=""
-if [[ "$DATABASE_URL_ADMIN" == *\?* ]]; then
-  query="?\${DATABASE_URL_ADMIN#*\?}"
-fi
-prefixe="${sans_query%/*}"
-url_restauration="${prefixe}/${base}${query}"
-
-echo "Étape 4/5 — restauration complète dans la base jetable"
-pg_restore --exit-on-error --no-owner --no-privileges \
-  --dbname="$url_restauration" "$repertoire/geoforest.dump"
-
-echo "Étape 5/5 — comparaison des volumes restaurés"
-compter "$url_restauration" > "$repertoire/restaure.txt"
+echo "Étape 4/4 — comparer les volumes restaurés"
+compter "$DATABASE_URL_ADMIN" > "$repertoire/restaure.txt"
 if ! diff -u "$repertoire/attendu.txt" "$repertoire/restaure.txt"; then
-  echo "ÉCHEC : les volumes restaurés diffèrent de la source." >&2
+  echo "ÉCHEC : les volumes restaurés diffèrent de la sauvegarde." >&2
   exit 1
 fi
 
