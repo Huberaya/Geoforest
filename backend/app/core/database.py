@@ -46,18 +46,24 @@ class Database:
     def __init__(self, path: Path) -> None:
         self._path = path
         self._lock = threading.Lock()
-        if str(path) != ":memory:":
-            try:
-                path.parent.mkdir(parents=True, exist_ok=True)
-            except OSError:
-                self._path = Path(f"/tmp/{path.name}")
+        # Échec fermé : ne jamais basculer silencieusement vers /tmp. Cela
+        # ferait démarrer le service sur une base différente et potentiellement
+        # vide, en masquant la panne de persistance de la base configurée.
         try:
+            if str(path) != ":memory:":
+                path.parent.mkdir(parents=True, exist_ok=True)
             self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
-        except OSError:
-            self._path = Path(f"/tmp/{path.name}")
-            self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._init_schema()
+            self._conn.row_factory = sqlite3.Row
+            self._init_schema()
+        except Exception as exc:
+            # Une connexion déjà ouverte doit être fermée si l'initialisation
+            # du schéma échoue ; l'exception remonte et empêche le démarrage.
+            connexion = getattr(self, "_conn", None)
+            if connexion is not None:
+                connexion.close()
+            raise RuntimeError(
+                f"Initialisation de la base impossible ({self._path}); démarrage refusé."
+            ) from exc
 
     def _init_schema(self) -> None:
         with self._lock:
