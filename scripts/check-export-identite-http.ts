@@ -21,7 +21,8 @@
  *     · 422 + état `legacy_placeholder` pour un dossier hérité ;
  *     · les formats JSON **et** XML (le second aurait pu être un contournement) ;
  *     · qu'une identité fournie au moment de l'export produit bien un 200 ;
- *     · que les refus 409 préalables **gardent leur priorité** ;
+ *     · l'ordre des refus : géométrie invalide (409) → identité (422) →
+ *       valeur probante (409) → déforestation établie (409) ;
  *     · qu'aucun refus 422 ne laisse de trace d'export (pas d'effet de bord).
  *
  * ⚠️ Fixture déclarée. L'analyse satellite n'est pas disponible dans cet
@@ -323,9 +324,15 @@ async function main(): Promise<void> {
     `déclaration=${String(valideJson.json?.operator?.country)} / base=${String(etatValide.pays)}`,
   );
 
-  // ============================================== 5. Priorité des 409
-  section("5. Les refus 409 préalables gardent leur priorité");
+  // ============================================== 5. Ordre des refus
+  section("5. Ordre des refus : identité, puis valeur probante et déforestation");
 
+  // ⚠️ La géométrie invalide reste traitée **avant** l'identité : elle décrit
+  //   le dossier lui-même, pas la déclaration. En revanche, l'identité précède
+  //   la valeur probante et la déforestation : un dossier sans opérateur réel
+  //   doit le dire, même si son analyse est simulée — sinon le motif « analyse
+  //   non probante » masquerait le défaut d'identité et laisserait croire
+  //   qu'il suffit de configurer GFW pour exporter.
   const auditNonProbant = await creerAudit(`EXP-IDENT-409-PROBANT-${RUN}`);
   const nonProbant = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditNonProbant,
@@ -333,14 +340,26 @@ async function main(): Promise<void> {
     producer: producteur,
   });
   check(
-    "identité absente + analyse non probante → 409 (pas 422)",
-    nonProbant.status === 409,
-    `HTTP ${nonProbant.status}`,
+    "identité absente + analyse non probante → 422 d'identité (ordre délibéré)",
+    nonProbant.status === 422 && nonProbant.json?.code === "OPERATOR_IDENTITY_MISSING",
+    `HTTP ${nonProbant.status} code=${String(nonProbant.json?.code)}`,
+  );
+
+  const nonProbantAvecIdentite = await poster(admin, "/api/v1/export/traces", {
+    audit_id: auditNonProbant,
+    format: "json",
+    operator: { name: "Café Import SAS", eori: "FR12345678901234" },
+    producer: producteur,
+  });
+  check(
+    "identité fournie + analyse non probante → 409",
+    nonProbantAvecIdentite.status === 409,
+    `HTTP ${nonProbantAvecIdentite.status}`,
   );
   check(
     "le 409 ne porte pas le code d'identité",
-    nonProbant.json?.code !== "OPERATOR_IDENTITY_MISSING",
-    String(nonProbant.json?.code),
+    nonProbantAvecIdentite.json?.code !== "OPERATOR_IDENTITY_MISSING",
+    String(nonProbantAvecIdentite.json?.code),
   );
 
   const auditNonConforme = await creerAudit(`EXP-IDENT-409-DEFOR-${RUN}`);
@@ -352,10 +371,11 @@ async function main(): Promise<void> {
   const nonConforme = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditNonConforme,
     format: "json",
+    operator: { name: "Café Import SAS", eori: "FR12345678901234" },
     producer: producteur,
   });
   check(
-    "identité absente + déforestation établie → 409 bloqué (pas 422)",
+    "déforestation établie + identité fournie → 409 bloqué",
     nonConforme.status === 409 && nonConforme.json?.blocked === true,
     `HTTP ${nonConforme.status} blocked=${String(nonConforme.json?.blocked)}`,
   );
@@ -369,7 +389,7 @@ async function main(): Promise<void> {
     producer: producteur,
   });
   check(
-    "identité absente + géométrie invalide → 409 (pas 422)",
+    "identité absente + géométrie invalide → 409 (la géométrie passe avant)",
     geometrie.status === 409,
     `HTTP ${geometrie.status}`,
   );

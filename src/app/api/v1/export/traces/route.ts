@@ -23,9 +23,21 @@ const ACTIVITIES: ActivityType[] = ["IMPORT", "EXPORT", "DOMESTIC"];
  * Code stable `OPERATOR_IDENTITY_MISSING` (HTTP 422), attendu par les tests et
  * par l'interface : un export incomplet n'est jamais produit « au mieux ».
  */
-function refusIdentite(detail: string, details: unknown): NextResponse {
+function refusIdentite(detail: string, details: unknown, etat = "invalid"): NextResponse {
+  // ⚠️ Deux formes dans la même réponse, volontairement :
+  //   · `code` / `operator_identity` en tête — contrat des contrôles HTTP du
+  //     lot A (`check-export-identite-http.ts`) ;
+  //   · `error.code` — enveloppe utilisée par les autres refus de l'API et les
+  //     tests du contrat HTTP.
+  // Un client ne doit pas dépendre de la profondeur d'un objet pour savoir
+  // pourquoi un export a été refusé.
   return NextResponse.json(
-    { detail, error: { code: "OPERATOR_IDENTITY_MISSING", message: detail, details } },
+    {
+      detail,
+      code: "OPERATOR_IDENTITY_MISSING",
+      operator_identity: etat,
+      error: { code: "OPERATOR_IDENTITY_MISSING", message: detail, details, operator_identity: etat },
+    },
     { status: 422 },
   );
 }
@@ -76,7 +88,7 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
   );
 
   if (identite.statut === "invalide") {
-    return refusIdentite(identite.detail, { champs: ["operator"] });
+    return refusIdentite(identite.detail, { champs: ["operator"] }, "invalid");
   }
 
   if (identite.statut === "refus") {
@@ -87,8 +99,9 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
     return refusIdentite(
       prefixe +
         "Renseignez `operator` (nom, EORI, pays) puis relancez l'export. " +
-        "Aucune identité fictive n'est substituée.",
+        "Aucune identité de remplacement n'est fabriquée ; aucune identité fictive n'est substituée.",
       { etat: identite.etat, raison: identite.raison },
+      identite.etat,
     );
   }
 
