@@ -8,7 +8,7 @@ set -euo pipefail
 : "${GITHUB_RUN_ID:?GITHUB_RUN_ID absent}"
 : "${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT absent}"
 
-for outil in pg_dump pg_restore psql node; do
+for outil in pg_dump pg_restore psql; do
   command -v "$outil" >/dev/null 2>&1 || {
     echo "ERREUR : outil requis absent : $outil" >&2
     exit 1
@@ -56,11 +56,15 @@ psql "$DATABASE_URL_ADMIN" -X -v ON_ERROR_STOP=1 \
   -c "CREATE DATABASE $base" >/dev/null
 base_creee=1
 
-url_restauration="$(DATABASE_URL_ADMIN="$DATABASE_URL_ADMIN" GF_RESTORE_DB="$base" node -e '
-  const url = new URL(process.env.DATABASE_URL_ADMIN);
-  url.pathname = "/" + process.env.GF_RESTORE_DB;
-  console.log(url.toString());
-')"
+# Remplacer uniquement le dernier segment (nom de base), en conservant les
+# paramètres TLS et les identifiants encodés de l'URI source.
+sans_query="${DATABASE_URL_ADMIN%%\?*}"
+query=""
+if [[ "$DATABASE_URL_ADMIN" == *\?* ]]; then
+  query="?\${DATABASE_URL_ADMIN#*\?}"
+fi
+prefixe="${sans_query%/*}"
+url_restauration="${prefixe}/${base}${query}"
 
 echo "Étape 4/5 — restauration complète dans la base jetable"
 pg_restore --exit-on-error --no-owner --no-privileges \
