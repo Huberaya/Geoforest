@@ -25,7 +25,7 @@ from fastapi.testclient import TestClient
 # Le jeton est lu par `settings` au moment de l'appel : il doit être posé avant
 # l'import des modules qui figent la configuration.
 JETON_DE_TEST = "jeton-de-test-" + "a" * 24
-os.environ["GF_BACKEND_API_TOKEN"] = JETON_DE_TEST  # noqa: E402
+os.environ["GF_BACKEND_TOKEN"] = JETON_DE_TEST  # noqa: E402
 
 from app.core import database as module_base  # noqa: E402
 from app.core.database import Database, reset_db_for_tests  # noqa: E402

@@ -2,7 +2,7 @@
 
 Constat, mesuré le 14/10/2026 : ce service n'a **aucune notion d'organisation**.
 Sa base (SQLite) n'a pas de colonne d'organisation, et un seul jeton partagé
-(`GF_BACKEND_API_TOKEN`) ouvre toutes les routes. Le produit Next.js ne l'appelle
+(`GF_BACKEND_TOKEN`) ouvre toutes les routes. Le produit Next.js ne l'appelle
 pas (le navigateur ne l'atteint pas ; cf. next.config.ts), mais docker-compose
 publie son port 8000 : tant que ce n'est pas tranché, il n'est pas cloisonné.
 
@@ -51,7 +51,7 @@ def _polygone(lon: float, lat: float) -> dict:
 
 
 def _creer_analyse(monkeypatch, lon: float, lat: float, reference: str) -> str:
-    monkeypatch.setenv("GF_BACKEND_API_TOKEN", JETON)
+    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
     corps = {
         "geojson": _polygone(lon, lat),
         "commodity": "cocoa",
@@ -76,7 +76,7 @@ def deux_analyses(monkeypatch):
 
 @CLOISONNEMENT_NON_LIVRE
 def test_audits_portent_leur_organisation(monkeypatch, deux_analyses):
-    monkeypatch.setenv("GF_BACKEND_API_TOKEN", JETON)
+    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
     reponse = client.get("/api/v1/audits", headers=ENTETES)
     assert reponse.status_code == 200
     audits = reponse.json()
@@ -87,7 +87,7 @@ def test_audits_portent_leur_organisation(monkeypatch, deux_analyses):
 
 @CLOISONNEMENT_NON_LIVRE
 def test_organisation_non_identifiee_ne_recoit_pas_les_analyses(monkeypatch, deux_analyses):
-    monkeypatch.setenv("GF_BACKEND_API_TOKEN", JETON)
+    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
     # Une organisation qui n'a rien créé ne doit voir aucune analyse.
     entetes = {**ENTETES, "X-Organization-Id": "00000000-0000-4000-8000-00000000abcd"}
     reponse = client.get("/api/v1/audits", headers=entetes)

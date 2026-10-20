@@ -15,6 +15,7 @@ les données.
 from __future__ import annotations
 
 import hmac
+import os
 
 from fastapi import Header, HTTPException, status
 
@@ -24,7 +25,11 @@ from app.core.config import settings
 def require_backend_token(authorization: str | None = Header(default=None)) -> None:
     """Dépendance FastAPI : exige `Authorization: Bearer <GF_BACKEND_TOKEN>`."""
 
-    attendu = settings.backend_token
+    # ⚠️ Lu à chaque requête, et non depuis `settings` : `Settings` est
+    #   construit une fois à l'import. Un jeton posé après l'import (tests,
+    #   rotation, injection d'environnement) serait sinon ignoré en silence,
+    #   et le service répondrait 503 alors que la variable est bien là.
+    attendu = os.getenv("GF_BACKEND_TOKEN", "").strip()
     if not attendu:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

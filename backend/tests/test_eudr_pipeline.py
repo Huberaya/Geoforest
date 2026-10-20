@@ -47,7 +47,7 @@ JETON_DE_TEST = "jeton-de-test-pipeline-" + "x" * 24
 
 @pytest.fixture(autouse=True)
 def _jeton_backend(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GF_BACKEND_API_TOKEN", JETON_DE_TEST)
+    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON_DE_TEST)
 
 
 @pytest.fixture()
