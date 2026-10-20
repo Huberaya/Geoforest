@@ -51,6 +51,8 @@ jobs:
           set -euo pipefail
           docker run --rm --network host \
             --env DATABASE_URL_ADMIN \
+            --env GITHUB_RUN_ID \
+            --env GITHUB_RUN_ATTEMPT \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
             postgres:18-bookworm \
