@@ -3,6 +3,8 @@ import "server-only";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
+import { paresseux } from "./paresseux";
+
 const globalForAdmin = globalThis as typeof globalThis & {
   __geoforestAdminPool?: Pool;
   __geoforestAdminDb?: NodePgDatabase;
@@ -70,80 +72,11 @@ function getDbAdmin(): NodePgDatabase {
 
 /**
  * Accès paresseux, compatible avec les appels existants (`adminPool.query`,
- * et `dbAdmin.select`…). La cible réelle n'est instanciée qu'au premier accès.
+ * `dbAdmin.select`…). La cible réelle n'est instanciée qu'au premier accès.
  *
- * ⚠️ **Un proxy qui ne piégeait que `get` et `has` n'est pas transparent.**
- * Mesuré sur la première version : `Object.keys(adminPool)` renvoyait `[]`,
- * `{ ...adminPool }` renvoyait `{}`, `adminPool instanceof Pool` était faux et
- * `adminPool.query !== adminPool.query`. « Aucun appelant ne fait cela » est une
- * observation sur un instant, pas une garantie : un utilitaire de sérialisation
- * ou un futur test aurait rencontré un objet qui ment sur son contenu.
- *
- * Les trapes ci-dessous délèguent toutes à l'instance réelle. Seule
- * `getOwnPropertyDescriptor` diffère : elle force `configurable: true`, parce
- * que la cible du proxy est un objet vide extensible et que déclarer une
- * propriété non configurable absente de cette cible violerait l'invariant du
- * langage (TypeError).
+ * La transparence du proxy (réflexion, spread, `instanceof`, identité des
+ * méthodes) est assurée par `paresseux()` — cf. `src/db/paresseux.ts`, où le
+ * comportement est expliqué et testé une seule fois pour les deux pools.
  */
-const methodesLiees = new WeakMap<object, Map<PropertyKey, unknown>>();
-
-/** Un constructeur porte toujours un `prototype` ; une méthode, jamais. */
-function estConstructeur(valeur: unknown): boolean {
-  return typeof valeur === "function" && "prototype" in valeur;
-}
-
-function paresseux<T extends object>(cible: () => T): T {
-  const lier = (reel: T, propriete: PropertyKey, valeur: unknown): unknown => {
-    if (typeof valeur !== "function") return valeur;
-    // ⚠️ Ne lier que les **méthodes**. Lier tout ce qui est appelable cassait
-    // `adminPool.constructor` et `pool.Client` : une classe liée n'est plus
-    // elle-même (`adminPool.constructor === Pool` devenait faux, et
-    // `new pool.Client()` construisait autre chose). Une méthode n'a pas de
-    // `prototype` ; un constructeur en a toujours un.
-    if (estConstructeur(valeur)) return valeur;
-    let cache = methodesLiees.get(reel);
-    if (!cache) {
-      cache = new Map();
-      methodesLiees.set(reel, cache);
-    }
-    // La même méthode garde la même identité d'un accès à l'autre : sans cela
-    // `adminPool.query !== adminPool.query`, ce qui casse toute comparaison ou
-    // tout `removeListener`.
-    if (!cache.has(propriete)) cache.set(propriete, valeur.bind(reel));
-    return cache.get(propriete);
-  };
-
-  return new Proxy({} as T, {
-    get(_vide, propriete) {
-      const reel = cible();
-      return lier(reel, propriete, Reflect.get(reel, propriete, reel));
-    },
-    set(_vide, propriete, valeur) {
-      return Reflect.set(cible(), propriete, valeur);
-    },
-    has(_vide, propriete) {
-      return propriete in cible();
-    },
-    deleteProperty(_vide, propriete) {
-      return Reflect.deleteProperty(cible(), propriete);
-    },
-    defineProperty(_vide, propriete, descripteur) {
-      return Reflect.defineProperty(cible(), propriete, descripteur);
-    },
-    ownKeys() {
-      return Reflect.ownKeys(cible());
-    },
-    getOwnPropertyDescriptor(_vide, propriete) {
-      const descripteur = Reflect.getOwnPropertyDescriptor(cible(), propriete);
-      if (!descripteur) return undefined;
-      return { ...descripteur, configurable: true };
-    },
-    getPrototypeOf() {
-      // Rend `adminPool instanceof Pool` vrai : le proxy représente un Pool.
-      return Reflect.getPrototypeOf(cible());
-    },
-  });
-}
-
 export const adminPool: Pool = paresseux(getAdminPool);
 export const dbAdmin: NodePgDatabase = paresseux(getDbAdmin);
