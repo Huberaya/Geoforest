@@ -168,6 +168,7 @@ async function main(): Promise<void> {
   const absentJson = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditAbsent,
     format: "json",
+    country_of_activity: "CI",
   });
   check("format JSON → HTTP 422", absentJson.status === 422, `HTTP ${absentJson.status}`);
   check(
@@ -190,6 +191,7 @@ async function main(): Promise<void> {
   const absentXml = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditAbsent,
     format: "xml",
+    country_of_activity: "CI",
   });
   check("format XML → HTTP 422 (second format, même règle)", absentXml.status === 422, `HTTP ${absentXml.status}`);
   check(
@@ -233,6 +235,7 @@ async function main(): Promise<void> {
   const heriteJson = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditHerite,
     format: "json",
+    country_of_activity: "CI",
   });
   check("format JSON → HTTP 422", heriteJson.status === 422, `HTTP ${heriteJson.status}`);
   check(
@@ -249,6 +252,7 @@ async function main(): Promise<void> {
   const heriteXml = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditHerite,
     format: "xml",
+    country_of_activity: "CI",
   });
   check("format XML → HTTP 422", heriteXml.status === 422, `HTTP ${heriteXml.status}`);
 
@@ -265,6 +269,7 @@ async function main(): Promise<void> {
   const fourniJson = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditAbsent,
     format: "json",
+    country_of_activity: "CI",
     operator: { name: "Café Import SAS", eori: "FR12345678901234" },
     producer: producteur,
   });
@@ -289,6 +294,7 @@ async function main(): Promise<void> {
   const fourniXml = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditHerite,
     format: "xml",
+    country_of_activity: "CI",
     operator: { name: "Café Import SAS", eori: "DE12345678901234" },
     producer: producteur,
   });
@@ -300,9 +306,9 @@ async function main(): Promise<void> {
   );
   const etatHeriteApres = await identiteEnBase(auditHerite);
   check(
-    "le dossier hérité reste inchangé après l'export",
-    etatHeriteApres.eori === "XX0000000000000",
-    String(etatHeriteApres.eori),
+    "le dossier reste sans identité après l'export (aucune écriture)",
+    etatHeriteApres.eori === null && etatHeriteApres.name === null,
+    JSON.stringify({ eori: etatHeriteApres.eori, name: etatHeriteApres.name }),
   );
 
   // ================================================ 4. Identité stockée valide
@@ -319,6 +325,7 @@ async function main(): Promise<void> {
   const valideJson = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditValide,
     format: "json",
+    country_of_activity: "CI",
     producer: producteur,
   });
   check("identité stockée valide → HTTP 200", valideJson.status === 200, `HTTP ${valideJson.status}`);
@@ -352,6 +359,7 @@ async function main(): Promise<void> {
   const nonProbant = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditNonProbant,
     format: "json",
+    country_of_activity: "CI",
     producer: producteur,
   });
   check(
@@ -363,6 +371,7 @@ async function main(): Promise<void> {
   const nonProbantAvecIdentite = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditNonProbant,
     format: "json",
+    country_of_activity: "CI",
     operator: { name: "Café Import SAS", eori: "FR12345678901234" },
     producer: producteur,
   });
@@ -386,6 +395,7 @@ async function main(): Promise<void> {
   const nonConforme = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditNonConforme,
     format: "json",
+    country_of_activity: "CI",
     operator: { name: "Café Import SAS", eori: "FR12345678901234" },
     producer: producteur,
   });
@@ -401,6 +411,7 @@ async function main(): Promise<void> {
   const geometrie = await poster(admin, "/api/v1/export/traces", {
     audit_id: auditGeometrie,
     format: "json",
+    country_of_activity: "CI",
     producer: producteur,
   });
   check(
@@ -416,6 +427,7 @@ async function main(): Promise<void> {
   const etranger = await poster(adminB, "/api/v1/export/traces", {
     audit_id: auditAbsent,
     format: "json",
+    country_of_activity: "CI",
     operator: { name: "Café Import SAS", eori: "FR12345678901234" },
     producer: producteur,
   });

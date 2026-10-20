@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
+
 import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+import { dbAdmin } from "@/db/admin";
+import { suppliers, users } from "@/db/schema";
 import { lireCorpsJson } from "@/lib/api/body";
 import { logAction } from "@/lib/api/audit-log";
-import { suppliers, users } from "@/db/schema";
 import { guard } from "@/lib/auth/guard";
 import { hashToken } from "@/lib/auth/session";
 
@@ -67,11 +69,18 @@ export const POST = guard<Params>("supplier:write")(async (request, context, { t
     .limit(1);
   if (!fournisseur) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
 
-  // Une adresse est unique dans toute la plateforme. La recherche passe par une
-  // fonction « security definer » : elle dit si l'adresse existe, sans exposer le compte.
-  const trouves = await tx.execute(
+  // Une adresse est unique dans toute la plateforme : la rechercher dans le seul
+  // tenant courant ne suffirait pas, et laisserait créer un second compte pour la
+  // même adresse depuis une autre organisation.
+  //
+  // ⚠️ La fonction `auth_user_by_email()` n'est plus exécutable par le rôle
+  //   applicatif (023) : c'est un point d'entrée global, hors contexte de tenant.
+  //   La recherche passe donc par la connexion d'administration, qui ne ramène
+  //   que les quatre champs nécessaires — jamais le contenu du compte — et sert
+  //   uniquement à décider si l'invitation est possible.
+  const trouves = await dbAdmin.execute(
     sql`select id::text as id, organization_id::text as "organizationId", supplier_id::text as "supplierId", status
-        from auth_user_by_email(${email})`,
+        from gf_users where lower(email) = ${email} limit 1`,
   );
   const existant = ((trouves.rows ?? []) as unknown as CompteExistant[])[0] ?? null;
   // Message identique dans tous les cas : pas d'oracle sur les comptes d'autres organisations.
@@ -158,7 +167,12 @@ export const DELETE = guard<Params>("supplier:write")(async (_request, context, 
   const { id } = await context.params;
   if (!UUID_PATTERN.test(id)) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
 
-  const comptes = await tx
+  // ⚠️ Le rôle applicatif n'a **pas** le droit de lire `gf_users` (ni de lister
+  //   les comptes) : seules l'insertion et la mise à jour lui sont accordées.
+  //   La révocation a besoin de retrouver le compte rattaché à la fiche ; cette
+  //   recherche passe donc par la connexion d'administration, avec le filtre
+  //   d'organisation explicite — la RLS ne peut plus le faire ici.
+  const comptes = await dbAdmin
     .select({ id: users.id })
     .from(users)
     .where(and(eq(users.supplierId, id), eq(users.organizationId, organizationId), eq(users.role, "supplier")));
