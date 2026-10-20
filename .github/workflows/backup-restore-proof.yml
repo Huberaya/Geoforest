@@ -46,18 +46,15 @@ jobs:
       - name: Préparer les données de test
         run: npm run seed:auth -- --reset
 
-      - name: Vérifier la présence des outils PostgreSQL
+      - name: Sauvegarder, restaurer et comparer avec le client PostgreSQL 18
         run: |
           set -euo pipefail
-          if ! command -v pg_dump >/dev/null || ! command -v pg_restore >/dev/null || ! command -v psql >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y postgresql-client
-          fi
-          pg_dump --version
-          pg_restore --version
-
-      - name: Sauvegarder, restaurer dans une base distincte et comparer les données
-        run: bash scripts/ci/verifier-restauration.sh
+          docker run --rm --network host \
+            --env DATABASE_URL_ADMIN \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            postgres:18-bookworm \
+            bash scripts/ci/verifier-restauration.sh
 
       - name: Supprimer la branche Neon éphémère
         if: always()
