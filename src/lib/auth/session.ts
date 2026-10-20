@@ -40,6 +40,8 @@ export interface AuthenticatedUser {
   organizationName: string | null;
   mfa: boolean;
   tokenVersion: number;
+  /** Fiche producteur rattachée (rôle `supplier` uniquement). Lue en base à chaque requête. */
+  supplierId: string | null;
 }
 
 export interface Session {
@@ -90,6 +92,7 @@ export async function getSession(): Promise<Session | null> {
       organizationName: organizations.name,
       tokenVersion: users.tokenVersion,
       lockedUntil: users.lockedUntil,
+      supplierId: users.supplierId,
     })
     .from(users)
     .leftJoin(organizations, eq(organizations.id, users.organizationId))
@@ -112,6 +115,7 @@ export async function getSession(): Promise<Session | null> {
       organizationName: row.organizationName ?? null,
       mfa: claims.mfa,
       tokenVersion: row.tokenVersion,
+      supplierId: row.supplierId ?? null,
     },
     claims,
   };

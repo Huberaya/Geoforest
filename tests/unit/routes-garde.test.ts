@@ -38,6 +38,7 @@ const PUBLIQUES: Record<string, string> = {
   "/api/v1/auth/mfa": "second facteur : jeton d'enrôlement porteur de sa preuve",
   "/api/v1/auth/refresh": "renouvellement : le jeton de rafraîchissement est sa preuve",
   "/api/v1/auth/logout": "déconnexion idempotente, sans effet si le jeton est absent",
+  "/api/v1/auth/invitation/accept": "activation fournisseur : jeton à usage unique porteur de sa preuve",
 };
 
 function cheminsDeRoutes(dossier: string): string[] {

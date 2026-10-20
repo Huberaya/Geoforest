@@ -57,32 +57,30 @@ export const POST = guard("shipment:write")(async (request: Request, _ctx, { tx,
       return NextResponse.json({ detail: "Référence et date de récolte requises" }, { status: 422 });
     }
 
-    // ⚠️ La clé étrangère composite refuse une référence au tenant voisin,
-    //   mais elle le faisait sous la forme d'un 500 « erreur interne » : une
-    //   faute de saisie devenait un incident serveur. Le contrôle explicite
-    //   ci-dessous rend le refus lisible et ne dépend plus du seul moteur.
-    const supplierId = body.supplierId ? String(body.supplierId) : null;
-    if (supplierId) {
-      if (!UUID_PATTERN.test(supplierId)) {
-        return NextResponse.json({ detail: "Fournisseur invalide" }, { status: 422 });
-      }
+    // B-8 — les références (fournisseur, produit) doivent appartenir à
+    // l'organisation : une référence étrangère ne doit ni être enregistrée, ni
+    // provoquer une erreur de contrainte (500) qui révélerait son existence.
+    const supplierIdEntree = body.supplierId ? String(body.supplierId) : null;
+    const productIdEntree = body.productId ? String(body.productId) : null;
+    if (supplierIdEntree && !UUID_PATTERN.test(supplierIdEntree)) {
+      return NextResponse.json({ detail: "Fournisseur invalide" }, { status: 422 });
+    }
+    if (productIdEntree && !UUID_PATTERN.test(productIdEntree)) {
+      return NextResponse.json({ detail: "Produit invalide" }, { status: 422 });
+    }
+    if (supplierIdEntree) {
       const [owner] = await tx
         .select({ id: suppliers.id })
         .from(suppliers)
-        .where(and(eq(suppliers.id, supplierId), eq(suppliers.organizationId, organizationId)))
+        .where(and(eq(suppliers.id, supplierIdEntree), eq(suppliers.organizationId, organizationId)))
         .limit(1);
       if (!owner) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
     }
-
-    const productId = body.productId ? String(body.productId) : null;
-    if (productId) {
-      if (!UUID_PATTERN.test(productId)) {
-        return NextResponse.json({ detail: "Produit invalide" }, { status: 422 });
-      }
+    if (productIdEntree) {
       const [owner] = await tx
         .select({ id: products.id })
         .from(products)
-        .where(and(eq(products.id, productId), eq(products.organizationId, organizationId)))
+        .where(and(eq(products.id, productIdEntree), eq(products.organizationId, organizationId)))
         .limit(1);
       if (!owner) return NextResponse.json({ detail: "Produit introuvable" }, { status: 404 });
     }
@@ -90,8 +88,8 @@ export const POST = guard("shipment:write")(async (request: Request, _ctx, { tx,
     const newShipment: Shipment = {
       id: crypto.randomUUID(),
       reference: String(body.reference).trim().toUpperCase(),
-      supplierId,
-      productId,
+      supplierId: supplierIdEntree,
+      productId: productIdEntree,
       netWeightKg: Number(body.netWeightKg) || 0,
       harvestDate: String(body.harvestDate),
       customsDeclarationRef: body.customsDeclarationRef ? String(body.customsDeclarationRef).trim() : null,

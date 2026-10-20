@@ -23,6 +23,11 @@ export const CHEMINS_AUTH_PUBLICS: ReadonlySet<string> = new Set([
   "/api/v1/auth/mfa",
   "/api/v1/auth/refresh",
   "/api/v1/auth/logout",
+  // Activation d'un compte fournisseur : le porteur du lien n'a pas encore de
+  // session, et le jeton (256 bits, à usage unique, comparé par empreinte) est
+  // la seule preuve admise. La route ne lit que `gf_users` et `gf_suppliers`
+  // pour cette activation.
+  "/api/v1/auth/invitation/accept",
 ]);
 
 export function estCheminAuthPublic(pathname: string): boolean {

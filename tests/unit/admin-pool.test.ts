@@ -20,9 +20,12 @@ test("sans URL, le pool se charge mais refuse la première requête", async () =
 
   try {
     const { dbAdmin } = await import("../../src/db/admin");
-    // Drizzle enveloppe l'erreur du pilote : on remonte la chaîne de `cause`
-    // pour vérifier le message applicatif lui-même, pas l'emballage.
-    await assert.rejects(dbAdmin.execute(sql`select 1`), (erreur: unknown) => {
+    // L'erreur est levée au **premier usage réel** — ici l'accès à la méthode,
+    // qui construit le pool. La flèche `async` la transforme en rejet pour
+    // `assert.rejects`, sans changer l'invariant : importer ne lève pas.
+    // Drizzle peut envelopper l'erreur du pilote : on remonte la chaîne de
+    // `cause` pour vérifier le message applicatif lui-même, pas l'emballage.
+    await assert.rejects(async () => dbAdmin.execute(sql`select 1`), (erreur: unknown) => {
       const messages: string[] = [];
       let courant: unknown = erreur;
       while (courant instanceof Error) {

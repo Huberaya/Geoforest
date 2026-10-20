@@ -4,7 +4,7 @@
 
 Le projet est configuré selon le modèle **Vercel Multi-Services** :
 - **Frontend App Router** : Next.js 16 (React 19, Tailwind CSS v4, Leaflet).
-- **Backend Geospatial API** : Python 3.13 FastAPI (Shapely, GeoPandas, lxml).
+- **Backend Geospatial API** : Python 3.13 FastAPI (Shapely, GeoPandas, lxml). **Retiré du déploiement** (chantier 2) : sans cloisonnement par organisation, et non utilisé par le produit.
 - **Base de Données** : PostgreSQL Neon Serverless.
 
 ---
@@ -15,7 +15,6 @@ Le projet est configuré selon le modèle **Vercel Multi-Services** :
 | :--- | :--- | :--- |
 | `DATABASE_URL` | Connexion **applicative** : rôle `geoforest_app`, soumis à la RLS — voir §3 | `postgresql://geoforest_app:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
 | `DATABASE_URL_ADMIN` | Connexion **d'administration** : rôle propriétaire, migrations et purge uniquement | `postgresql://neondb_owner:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` || `NEXT_PUBLIC_APP_URL` | URL publique de l'application | `https://geoforest-trace.vercel.app` |
-| `BACKEND_URL` | URL de liaison interne vers le service FastAPI | Liaison automatique via `vercel.json` |
 | `GFW_API_KEY` | *(Optionnel)* Clé d'API Global Forest Watch live | `gfw_live_key_xxx` (Repli automatique sur moteur déterministe) |
 
 ---

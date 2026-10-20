@@ -3,6 +3,7 @@ import type { AuditStatus, AuditSummary, RiskLevel } from "@/lib/eudr/types";
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { classerIdentiteOperateur } from "@/lib/eudr/identite-operateur";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export const GET = guard("dds:read")(async (request: Request, _ctx, { tx, organi
     audit_id: r.id,
     created_at: r.createdAt.toISOString(),
     operator_name: r.operatorName,
+    // L'état accompagne le nom : un dossier hérité doit rester identifiable
+    // comme tel, même s'il n'est pas listé pour être réécrit.
+    operator_identity: classerIdentiteOperateur(r.operatorName, r.operatorEori).etat,
     commodity: r.commodity,
     hs_code: r.hsCode,
     harvest_date: r.harvestDate,
@@ -29,8 +33,8 @@ export const GET = guard("dds:read")(async (request: Request, _ctx, { tx, organi
     status: r.status as AuditStatus,
     compliant: r.compliant,
     loss_year: r.lossYear,
-    risk_level: r.riskLevel as RiskLevel,
-    country_code: r.countryCode,
+    risk_level: (r.compliant === false ? "HIGH" : "UNKNOWN") as RiskLevel,
+    country_code: "XX",
   }));
 
   // P0-07 : plus de liste vide en cas d'incident. Une liste vide se lit comme

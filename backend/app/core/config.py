@@ -30,6 +30,23 @@ def _env_list(name: str, default: List[str]) -> List[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
+def is_production_environment() -> bool:
+    """Reconnaît les noms d'environnement courants sans dépendre de NODE_ENV."""
+    return any(
+        os.getenv(name, "").strip().lower() in {"production", "prod"}
+        for name in ("ENVIRONMENT", "APP_ENV", "NODE_ENV")
+    )
+
+
+def validate_cors_origins(origins: List[str], *, production: bool) -> None:
+    """Refuse une origine CORS générique en production."""
+    if production and "*" in origins:
+        raise ValueError(
+            "CORS_ORIGINS ne peut pas contenir '*' en production ; "
+            "définir explicitement les origines autorisées."
+        )
+
+
 @dataclass(frozen=True)
 class Settings:
     """Paramètres immuables de l'application."""
@@ -122,3 +139,4 @@ class Settings:
 
 
 settings = Settings()
+validate_cors_origins(settings.cors_origins, production=is_production_environment())

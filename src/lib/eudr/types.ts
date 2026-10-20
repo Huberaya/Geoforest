@@ -1,6 +1,6 @@
 /** Contrats de données GeoForest Trace — miroir strict des schémas Pydantic du backend. */
 
-export type RiskLevel = "LOW" | "STANDARD" | "HIGH" | "CRITICAL";
+export type RiskLevel = "LOW" | "STANDARD" | "HIGH" | "CRITICAL" | "UNKNOWN";
 /**
  * Statut d'un audit de parcelle.
  *
@@ -44,6 +44,8 @@ export interface AnalysisEvidence {
   sql: string;
   geometry_type: string;
   retrieved_at: string;
+  /** Empreinte SHA-256 des lignes normalisées reçues, sans stocker de clé ni d'en-tête secret. */
+  rows_sha256: string;
 }
 export type GeometryRule = "POINT_ALLOWED" | "POLYGON_REQUIRED";
 
@@ -115,7 +117,8 @@ export interface OperatorInfo {
   name: string;
   eori: string;
   address?: string | null;
-  country?: string;
+  /** `null` = non déclaré. Aucun pays par défaut n'est fourni. */
+  country?: string | null;
   email?: string | null;
 }
 
@@ -171,18 +174,12 @@ export interface SatelliteCheckResult {
    */
   compliant: boolean | null;
   loss_year: number | null;
-  /** Score de confiance. `null` quand l'analyse n'est pas probante. */
+  /** Score de confiance calibré ; null tant qu'aucune méthode validée ne permet de le calculer. */
   confidence_score: number | null;
   risk_level: RiskLevel;
   country_code: string;
   country_name: string;
   country_risk: RiskLevel;
-  /**
-   * E — faux tant que l'attribution pays repose sur des boîtes englobantes.
-   * L'interface et les exports doivent présenter le pays comme estimé, jamais
-   * comme une attribution EUDR fiable.
-   */
-  country_reliable: boolean;
   /** Provenance de l'analyse — jamais libre, toujours l'une des trois valeurs. */
   source: AnalysisSource;
   /** Vrai uniquement si le verdict repose sur des données réellement mesurées. */
@@ -214,8 +211,17 @@ export interface ParcelAuditResponse {
 export interface AuditSummary {
   audit_id: string;
   created_at: string;
-  /** `null` = identité non déclarée. Jamais une valeur fictive. */
+  /**
+   * Lot A — `null` = identité non renseignée. Ce champ était `string`, ce qui
+   * obligeait la route d'audit à fabriquer une valeur pour rester typée : une
+   * contrainte de type ne doit pas pousser à inventer une donnée.
+   */
   operator_name: string | null;
+  /**
+   * Lot A — état de l'identité, pour que l'appelant distingue un dossier
+   * réellement renseigné d'un dossier hérité portant la valeur de remplissage.
+   */
+  operator_identity: "declared" | "missing" | "legacy_placeholder";
   commodity: string;
   hs_code: string;
   harvest_date: string;
@@ -317,7 +323,6 @@ export interface Product {
   sku: string | null;
   commodity: Commodity;
   hsCode: string;
-  /** `null` = origine non déclarée. Jamais un pays par défaut. */
   countryOfOrigin: string | null;
   annualVolumeKg: number;
   status: "ACTIVE" | "INACTIVE";
@@ -433,10 +438,15 @@ export const DDS_STATUSES = [
   "RISK_IDENTIFIED",
   "ACTION_REQUIRED",
   "READY_FOR_DECLARATION",
+  "EXPORTED",
+  "SUBMITTED",
   "DECLARED",
   "ARCHIVED",
 ] as const;
 export type DdsStatus = (typeof DDS_STATUSES)[number];
+// Libellés : « EXPORTED » est un brouillon non transmis ; « SUBMITTED » et « DECLARED »
+// ne sont atteignables par aucune action (TRACES_SCOPE.md §3 : « Déclaré » est interdit
+// tant qu'aucun accusé officiel n'existe).
 export const DDS_STATUS_LABELS: Record<DdsStatus, string> = {
   DRAFT: "Brouillon",
   MISSING_DATA: "Données manquantes",
@@ -445,7 +455,9 @@ export const DDS_STATUS_LABELS: Record<DdsStatus, string> = {
   RISK_IDENTIFIED: "Risque identifié",
   ACTION_REQUIRED: "Action requise",
   READY_FOR_DECLARATION: "Prêt à déclarer",
-  DECLARED: "Déclaré",
+  EXPORTED: "Brouillon exporté (non transmis)",
+  SUBMITTED: "Soumission officielle (non disponible)",
+  DECLARED: "Déclaration officielle (non disponible)",
   ARCHIVED: "Archivé",
 };
 
@@ -543,6 +555,7 @@ export interface PlotDetail extends Plot {
     analysisProbative: boolean | null;
     createdAt: string;
   }>;
+  /** plot_id : rattachement fiable · reference : analyses antérieures sans plot_id · aucune_reference : aucune analyse rattachée. */
   audits_linked_by: string;
 }
 

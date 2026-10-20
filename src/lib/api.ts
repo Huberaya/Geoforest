@@ -20,10 +20,11 @@ import type {
 
 /**
  * Client HTTP du dashboard.
- * - Par défaut : routes Next.js intégrées (`/api/v1/...`, persistance PostgreSQL).
- * - Si `NEXT_PUBLIC_API_URL` est défini (ex: http://localhost:8000) : backend FastAPI.
+ * Le navigateur n'appelle QUE les routes Next.js (`/api/v1/...`), jamais le service FastAPI :
+ * le service exige un jeton serveur (GF_BACKEND_API_TOKEN) qui ne doit pas atteindre le client
+ * (audit B9). Aucune variable NEXT_PUBLIC_* ne peut rediriger ces appels vers un autre service.
  */
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+const API_BASE = "";
 
 export class ApiError extends Error {
   constructor(

@@ -25,6 +25,8 @@ export interface EnvironnementSeed {
   SEED_DEMO_PASSWORD?: string;
   SEED_REINITIALISER?: string;
   SEED_AUTORISE_HOTE_DISTANT?: string;
+  /** Base explicitement déclarée jetable par la CI (`neon-branche.ts`). */
+  GF_BASE_JETABLE?: string;
   DATABASE_URL_ADMIN?: string;
   DATABASE_URL?: string;
 }
@@ -100,10 +102,15 @@ export function validerSeed(env: EnvironnementSeed): DecisionSeed {
     const hote = hoteDe(url);
     if (hote === null) {
       refus.push("L'URL de base est illisible : impossible d'établir si la cible est locale.");
-    } else if (!HOTES_LOCAUX.has(hote) && env.SEED_AUTORISE_HOTE_DISTANT !== "oui") {
+    } else if (
+      !HOTES_LOCAUX.has(hote) &&
+      env.SEED_AUTORISE_HOTE_DISTANT !== "oui" &&
+      env.GF_BASE_JETABLE !== "oui"
+    ) {
       refus.push(
         `La base cible n'est pas locale (${hote}). Des identifiants de démonstration connus ne doivent pas y être installés ; ` +
-          "SEED_AUTORISE_HOTE_DISTANT=oui permet de passer outre en connaissance de cause.",
+          "SEED_AUTORISE_HOTE_DISTANT=oui (ou GF_BASE_JETABLE=oui pour une branche de test) " +
+          "permet de passer outre en connaissance de cause.",
       );
     }
   }

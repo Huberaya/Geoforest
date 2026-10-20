@@ -6,6 +6,7 @@ import { stockageValide } from "@/lib/storage";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { perimetreFournisseur } from "@/lib/auth/perimetre";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +32,16 @@ export const POST = guard<{ params: Promise<{ id: string }> }>("document:write")
   // Appartenance vérifiée AVANT tout accès au support : une pièce rattachée à
   // un document d'une autre organisation serait écrite sous le répertoire de
   // l'appelant, donc hors de portée de son véritable propriétaire.
+  // Chantier 6 : un compte fournisseur ne dépose que sur les pièces de sa fiche.
+  const perimetre = perimetreFournisseur(session);
   const [doc] = await tx
     .select({ id: documents.id, version: documents.version })
     .from(documents)
-    .where(and(eq(documents.id, id), eq(documents.organizationId, organizationId)))
+    .where(
+      perimetre
+        ? and(eq(documents.id, id), eq(documents.organizationId, organizationId), eq(documents.supplierId, perimetre))
+        : and(eq(documents.id, id), eq(documents.organizationId, organizationId)),
+    )
     .limit(1);
   if (!doc) return NextResponse.json({ detail: "Document introuvable" }, { status: 404 });
 

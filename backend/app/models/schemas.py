@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-RiskLevel = Literal["LOW", "STANDARD", "HIGH"]
+RiskLevel = Literal["LOW", "STANDARD", "HIGH", "CRITICAL", "UNKNOWN"]
 # Un audit non probant n'est ni conforme ni non conforme : c'est un troisième
 # état, distinct, qui interdit toute conclusion (P0-04).
 AuditStatus = Literal[
@@ -64,7 +64,10 @@ class OperatorInfo(BaseModel):
     name: str = Field(..., min_length=2, max_length=200)
     eori: str = Field(..., description="Numéro EORI (ex: FR12345678901234)")
     address: Optional[str] = Field(default=None, max_length=300)
-    country: str = Field(default="FR", min_length=2, max_length=2)
+    #: `None` = non déclaré. ``"FR"`` était une valeur par défaut : tout
+    #: opérateur silencieux devenait français, y compris dans la déclaration
+    #: exportée. Une déduction (préfixe EORI) se fait à l'export, jamais ici.
+    country: Optional[str] = Field(default=None, min_length=2, max_length=2)
     email: Optional[str] = Field(default=None, max_length=200)
 
     @field_validator("eori")
@@ -79,8 +82,8 @@ class OperatorInfo(BaseModel):
 
     @field_validator("country")
     @classmethod
-    def upper_country(cls, value: str) -> str:
-        return value.upper()
+    def upper_country(cls, value: Optional[str]) -> Optional[str]:
+        return value.upper() if value else None
 
 
 class ParcelAuditRequest(BaseModel):
@@ -198,14 +201,20 @@ class TracesExportRequest(BaseModel):
 class AuditSummary(BaseModel):
     audit_id: str
     created_at: str
-    operator_name: str
+    # Lot A — `None` = identité non renseignée. Le type `str` obligeait la route
+    # d'audit à fabriquer une valeur pour rester sérialisable.
+    operator_name: Optional[str]
+    #: `declared` | `missing` | `legacy_placeholder` — même vocabulaire que
+    #: `classer_identite_operateur` et que la vue SQL de reprise.
+    operator_identity: str
     commodity: str
     hs_code: str
     harvest_date: str
     area_ha: float
     geometry_type: str
     status: str
-    compliant: bool
+    # None = aucun verdict (ANALYSIS_UNAVAILABLE) : ne doit pas faire échouer la sérialisation.
+    compliant: Optional[bool]
     loss_year: Optional[int]
     risk_level: str
     country_code: str
