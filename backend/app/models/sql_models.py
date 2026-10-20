@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS parcel_audits (
     id               TEXT PRIMARY KEY,
     created_at       TEXT NOT NULL,
     operator_name    TEXT NOT NULL,
-    operator_eori    TEXT NOT NULL,
+    operator_eori    TEXT NOT NULL CHECK (operator_eori <> 'XX0000000000000'),
     commodity        TEXT NOT NULL,
     hs_code          TEXT NOT NULL,
     harvest_date     TEXT NOT NULL,
