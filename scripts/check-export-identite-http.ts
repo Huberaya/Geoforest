@@ -18,7 +18,7 @@
  *   Next.js et une base PostgreSQL migrée — ceux de la CI, sur branche
  *   éphémère. Il vérifie :
  *     · 422 + `OPERATOR_IDENTITY_MISSING` pour une identité absente ;
- *     · 422 + état `legacy_placeholder` pour un dossier hérité ;
+ *     · la sentinelle héritée ne peut plus être **écrite** (contrainte 025) ;
  *     · les formats JSON **et** XML (le second aurait pu être un contournement) ;
  *     · qu'une identité fournie au moment de l'export produit bien un 200 ;
  *     · l'ordre des refus : géométrie invalide (409) → identité (422) →
@@ -205,14 +205,29 @@ async function main(): Promise<void> {
     String(etatApres422.brouillon),
   );
 
-  // ================================================ 2. Identité héritée
-  section("2. Identité héritée (`XX0000000000000`) : refus 422 et valeur conservée");
+  // ================================================ 2. Sentinelle héritée
+  section("2. Sentinelle héritée : stockage refusé, aucun faux EORI à l'export");
 
+  // ⚠️ La migration 025 pose une contrainte : la sentinelle
+  //   `XX0000000000000` ne peut plus être écrite. Une base migrée ne peut donc
+  //   plus fabriquer de dossier « faussement complet » ; l'état
+  //   `legacy_placeholder` reste géré par le code pour les bases non migrées.
   const auditHerite = await creerAudit(`EXP-IDENT-HERITE-${RUN}`);
   await rendreProbant(auditHerite);
-  await db.query(
-    "UPDATE parcel_audits SET operator_name = $2, operator_eori = $3, operator_country = $4 WHERE id = $1",
-    [auditHerite, "Opérateur non renseigné", "XX0000000000000", "XX"],
+  let refusConstraint = "";
+  try {
+    await db.query(
+      "UPDATE parcel_audits SET operator_name = $2, operator_eori = $3, operator_country = $4 WHERE id = $1",
+      [auditHerite, "Opérateur non renseigné", "XX0000000000000", "XX"],
+    );
+  } catch (erreur) {
+    const e = erreur as { code?: string; constraint?: string };
+    refusConstraint = `${e.code ?? "?"}:${e.constraint ?? "?"}`;
+  }
+  check(
+    "écrire la sentinelle est refusé par la contrainte (23514)",
+    refusConstraint.startsWith("23514"),
+    refusConstraint || "aucune erreur — la sentinelle a été acceptée",
   );
 
   const heriteJson = await poster(admin, "/api/v1/export/traces", {
@@ -226,8 +241,8 @@ async function main(): Promise<void> {
     String(heriteJson.json?.code),
   );
   check(
-    "format JSON → état `legacy_placeholder` (distinct de `missing`)",
-    heriteJson.json?.operator_identity === "legacy_placeholder",
+    "format JSON → état `missing` : aucun faux EORI n'est présenté",
+    heriteJson.json?.operator_identity === "missing",
     String(heriteJson.json?.operator_identity),
   );
 
@@ -239,9 +254,9 @@ async function main(): Promise<void> {
 
   const etatHerite = await identiteEnBase(auditHerite);
   check(
-    "la valeur héritée n'est ni réécrite ni supprimée",
-    etatHerite.eori === "XX0000000000000" && etatHerite.pays === "XX",
-    JSON.stringify({ eori: etatHerite.eori, pays: etatHerite.pays }),
+    "l'audit reste sans identité (aucune valeur écrite)",
+    etatHerite.name === null && etatHerite.eori === null && etatHerite.pays === null,
+    JSON.stringify({ name: etatHerite.name, eori: etatHerite.eori, pays: etatHerite.pays }),
   );
 
   // ============================================ 3. Identité fournie à l'export
