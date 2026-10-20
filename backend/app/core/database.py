@@ -55,7 +55,7 @@ class Database:
             self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
             self._init_schema()
-        except (OSError, sqlite3.Error) as exc:
+        except Exception as exc:
             # Une connexion déjà ouverte doit être fermée si l'initialisation
             # du schéma échoue ; l'exception remonte et empêche le démarrage.
             connexion = getattr(self, "_conn", None)
