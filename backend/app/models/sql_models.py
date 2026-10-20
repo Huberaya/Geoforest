@@ -8,8 +8,13 @@ CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS parcel_audits (
     id               TEXT PRIMARY KEY,
     created_at       TEXT NOT NULL,
-    operator_name    TEXT NOT NULL,
-    operator_eori    TEXT NOT NULL,
+    -- Lot A — identité FACULTATIVE : NULL = non renseignée. Ces colonnes
+    -- étaient NOT NULL et la route fabriquait « Opérateur non renseigné » /
+    -- XX0000000000000 / XX : un triplet indiscernable d'une identité réelle,
+    -- qui partait ensuite en déclaration. Voir `_migrer_identite_operateur`.
+    operator_name    TEXT,
+    operator_eori    TEXT,
+    operator_country TEXT,
     commodity        TEXT NOT NULL,
     hs_code          TEXT NOT NULL,
     harvest_date     TEXT NOT NULL,
@@ -47,8 +52,9 @@ class ParcelAuditRecord:
 
     id: str
     created_at: str
-    operator_name: str
-    operator_eori: str
+    #: None = identité non renseignée. Voir `classer_identite_operateur`.
+    operator_name: Optional[str]
+    operator_eori: Optional[str]
     commodity: str
     hs_code: str
     harvest_date: str
@@ -65,6 +71,9 @@ class ParcelAuditRecord:
     confidence_score: Optional[float]
     risk_level: str
     status: str
+    #: Pays déclaré de l'opérateur. None = non renseigné — surtout pas « FR »
+    #: par défaut : c'était un pays inventé pour tout opérateur silencieux.
+    operator_country: Optional[str] = None
     validation: Dict[str, Any] = field(default_factory=dict)
     satellite: Dict[str, Any] = field(default_factory=dict)
     draft_reference: Optional[str] = None

@@ -68,17 +68,19 @@ export function isDatabaseUnavailable(error: unknown, depth = 0): boolean {
 /**
  * Réponse à renvoyer quand une lecture ou une écriture n'a pas pu aboutir.
  *
- * Le corps est explicite et reprend le message d'origine : l'appelant doit
- * pouvoir comprendre ce qui s'est passé, jamais le deviner.
+ * ⚠️ Le message technique de l'erreur n'est **jamais** recopié dans la réponse.
+ *   Il contient l'hôte, le port, parfois le nom d'utilisateur et le début de la
+ *   chaîne de connexion — autant d'informations d'infrastructure qu'un appelant
+ *   n'a aucune raison de recevoir. L'exploitant les retrouve dans le journal
+ *   (`base.injoignable`), corrélé par `requestId` ; le client reçoit un message
+ *   stable et un `Retry-After`.
  */
-export function databaseUnavailableResponse(error: unknown): NextResponse {
-  const message = error instanceof Error ? error.message : String(error);
+export function databaseUnavailableResponse(_error: unknown): NextResponse {
   return NextResponse.json(
     {
       detail:
         "Persistance indisponible : l'opération n'a pas été enregistrée. " +
         "Aucune donnée n'a été créée ni modifiée ; aucune conclusion ne doit en être tirée.",
-      cause: message,
       retryable: true,
     },
     { status: 503, headers: { "Retry-After": "10" } },

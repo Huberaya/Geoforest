@@ -8,6 +8,8 @@ import { stockageValide } from "@/lib/storage";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { perimetreFournisseur } from "@/lib/auth/perimetre";
+import type { TenantTx } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +116,7 @@ async function creerAvecPiece(
   request: Request,
   tx: any,
   organizationId: string,
-  session: { user: { id: string; email: string; role: string } },
+  session: { user: { id: string; email: string; role: string; supplierId?: string | null } },
 ): Promise<Response> {
   const lecture = await lireCorpsMultipart(request);
   if (!lecture.ok) return lecture.response;
@@ -138,7 +140,7 @@ async function creerAvecPiece(
     return NextResponse.json({ detail: "Date d'expiration invalide (AAAA-MM-JJ)" }, { status: 422 });
   }
 
-  const lien = await resoudreLien(tx, organizationId, champs.supplierId, champs.plotId);
+  const lien = await resoudreLien(tx, organizationId, champs.supplierId, champs.plotId, perimetreFournisseur(session));
   if ("erreur" in lien) return lien.erreur;
 
   // ⚠️ Les contrôles du fichier passent AVANT la création de la fiche.
@@ -214,7 +216,7 @@ async function creerSansPiece(
   request: Request,
   tx: any,
   organizationId: string,
-  session: { user: { id: string; email: string; role: string } },
+  session: { user: { id: string; email: string; role: string; supplierId?: string | null } },
 ): Promise<Response> {
   const lecture = await lireCorpsJson(request);
   if (!lecture.ok) return lecture.response;
@@ -234,9 +236,25 @@ async function creerSansPiece(
     return NextResponse.json({ detail: "Date d'expiration invalide (AAAA-MM-JJ)" }, { status: 422 });
   }
 
+  // ------------------------------------------------------------ P0 (recette 2026-10-08)
+  // Ce chemin ne reçoit AUCUN fichier. Accepter une URL libre (`fileUrl`) ou une
+  // taille déclarée revenait à enregistrer une pièce qui n'existe pas : le
+  // document paraissait justifié alors qu'aucun octet n'était conservé ni
+  // empreinté. La pièce ne compte qu'une fois déposée (multipart, ou
+  // POST /api/v1/documents/{id}/file) avec son condensat SHA-256.
+  if (body.fileUrl !== undefined && body.fileUrl !== null && body.fileUrl !== "") {
+    return NextResponse.json(
+      {
+        detail:
+          "fileUrl n'est pas une pièce justificative : une adresse ne prouve rien. " +
+          "Déposez le fichier lui-même (multipart/form-data, ou POST /api/v1/documents/{id}/file).",
+      },
+      { status: 422 },
+    );
+  }
   const hasFile = typeof body.fileName === "string" && body.fileName.trim().length > 0;
 
-  const lien = await resoudreLien(tx, organizationId, str(body.supplierId), str(body.plotId));
+  const lien = await resoudreLien(tx, organizationId, str(body.supplierId), str(body.plotId), perimetreFournisseur(session));
   if ("erreur" in lien) return lien.erreur;
 
   const [row] = await tx
@@ -247,9 +265,10 @@ async function creerSansPiece(
       plotId: lien.plotId,
       title,
       category,
+      // Métadonnées seulement : aucun stockage, donc ni URL ni taille de fichier.
       fileName: hasFile ? str(body.fileName) : "—",
-      fileUrl: str(body.fileUrl) || null,
-      fileSize: Number.isFinite(Number(body.fileSize)) ? Number(body.fileSize) : 0,
+      fileUrl: null,
+      fileSize: 0,
       expiryDate: expiry || null,
       status: "TO_VERIFY",
       notes: str(body.notes) || null,
@@ -264,7 +283,7 @@ async function creerSansPiece(
       entityType: "DOCUMENT",
       entityId: row.id,
       apres: row as unknown as Record<string, unknown>,
-      details: { title, category, fileStored: false },
+      details: { title, category, fileStored: false, declaredFileName: hasFile },
     });
 
   return NextResponse.json(
@@ -291,20 +310,29 @@ async function creerSansPiece(
  * un dossier étranger.
  */
 async function resoudreLien(
-  tx: any,
+  tx: TenantTx,
   organizationId: string,
   supplierIdBrut: string | undefined,
   plotIdBrut: string | undefined,
+  // Chantier 6 : fiche producteur imposée par le compte fournisseur (null pour les autres rôles).
+  perimetre: string | null = null,
 ): Promise<{ supplierId: string | null; plotId: string | null } | { erreur: Response }> {
+  // Un compte fournisseur ne rattache qu'à sa propre fiche : toute autre désignation
+  // répond comme une fiche inexistante (pas d'oracle d'existence).
+  if (perimetre && supplierIdBrut && supplierIdBrut !== perimetre) {
+    return { erreur: NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 }) };
+  }
+  const supplierCible = perimetre ?? supplierIdBrut;
+
   let supplierId: string | null = null;
-  if (supplierIdBrut) {
-    if (!UUID_PATTERN.test(supplierIdBrut)) {
+  if (supplierCible) {
+    if (!UUID_PATTERN.test(supplierCible)) {
       return { erreur: NextResponse.json({ detail: "Fournisseur invalide" }, { status: 422 }) };
     }
     const [owner] = await tx
       .select({ id: suppliers.id })
       .from(suppliers)
-      .where(and(eq(suppliers.id, supplierIdBrut), eq(suppliers.organizationId, organizationId)))
+      .where(and(eq(suppliers.id, supplierCible), eq(suppliers.organizationId, organizationId)))
       .limit(1);
     if (!owner) return { erreur: NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 }) };
     supplierId = owner.id;
@@ -318,7 +346,11 @@ async function resoudreLien(
     const [owner] = await tx
       .select({ id: plots.id })
       .from(plots)
-      .where(and(eq(plots.id, plotIdBrut), eq(plots.organizationId, organizationId)))
+      .where(
+        perimetre
+          ? and(eq(plots.id, plotIdBrut), eq(plots.organizationId, organizationId), eq(plots.supplierId, perimetre))
+          : and(eq(plots.id, plotIdBrut), eq(plots.organizationId, organizationId)),
+      )
       .limit(1);
     if (!owner) return { erreur: NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 }) };
     plotId = owner.id;

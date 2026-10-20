@@ -1,29 +1,45 @@
 name: CI
 
 on:
+  # Déclencheurs union des deux lignes de travail : `main`, les branches de
+  # session `arena/**`, et les branches historiques `forest/**` / `security/**`.
+  # Aucun déclencheur n'a été retiré.
   push:
     branches:
       - main
+      - "arena/**"
+      - "forest/**"
   pull_request:
     branches:
       - main
+      - "arena/**"
+      - "security/**"
+      - "forest/**"
   workflow_dispatch:
+
+# Moindre privilège : le workflow ne lit que le dépôt.
+permissions:
+  contents: read
 
 concurrency:
   group: geoforest-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Compilation, typage, lint, contrôles unitaires et métier, backend, build.
+  # Aucune base de données n'est fournie : le build doit réussir sans.
+  # ---------------------------------------------------------------------------
   verify:
     name: Verify Frontend & Backend
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -36,12 +52,160 @@ jobs:
           pytest -q
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          # Le dépôt est développé sous Node 22 (`@types/node` épinglé en 22).
+          node-version: 22
+          cache: npm
 
-      - name: Install frontend dependencies & build
+      - name: Install frontend dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Workflow regression tests
+        run: npm run test:ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Suite de régression du dépôt (`tests/unit/*.test.ts`) : garde-fou de
+      # schéma, rôle applicatif, identité, cadence, routes, comptes de démo.
+      - name: Unit tests
+        run: npm run test:unit
+
+      # Contrôles hérités de la ligne `integration/` : pool paresseux, identité
+      # du lot A, règles de supervision, topologie, DDS, pack de preuves.
+      - name: Contrôles métier (ligne d'intégration)
+        run: npm run test:controles
+
+      - name: EUDR rules tests
+        run: npm run test:eudr
+
+      # Le build s'exécute sans base : c'est la propriété que le pool
+      # d'administration différé garantit.
+      - name: Build
+        run: npm run build
+
+      # Contrôle des dépendances de production. Les avis portant sur des
+      # outils de développement sont suivis séparément (`npm run audit:dev`).
+      - name: Audit des dépendances de production
+        run: npm run audit:sec
+
+  # ---------------------------------------------------------------------------
+  # Contrats de base et contrats HTTP sur PGlite (PostgreSQL embarqué, WASM).
+  # Aucun serveur externe, aucune variable d'environnement, aucun réseau : ce
+  # job vérifie la RLS et les routes sans dépendre de Neon.
+  # ---------------------------------------------------------------------------
+  base-et-http:
+    name: Base de données et contrats HTTP (PGlite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Tests SQL (rôles, RLS, privilèges, cadence, état de schéma)
+        run: npm run test:sql
+
+      - name: Tests HTTP (isolation, authentification, limites, schéma incomplet)
+        run: npm run test:http
+
+  # ---------------------------------------------------------------------------
+  # Contrôles HTTP et base sur une branche Neon éphémère : ils modifient et
+  # réinitialisent la base, donc ils ne tournent jamais sur une base partagée.
+  # La branche est créée pour ce run et supprimée en fin de job.
+  # ---------------------------------------------------------------------------
+  database:
+    name: Database & HTTP contracts (Neon branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      NEON_PARENT_BRANCH_ID: ${{ secrets.NEON_PARENT_BRANCH_ID }}
+      E2E_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Create ephemeral Neon branch
+        run: npx tsx scripts/ci/neon-branche.ts creer
+
+      - name: Apply migrations on the test branch
+        run: npm run db:migrate
+
+      - name: Set application role password (test branch only)
+        run: npx tsx scripts/ci/neon-branche.ts role-app
+
+      - name: Database controls
+        run: npm run test:db
+
+      - name: Reset demo accounts (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Start production server
         run: |
           set -euo pipefail
-          npm ci || npm install
-          npm run build
+          nohup npx next start -p 3000 -H 127.0.0.1 > "$RUNNER_TEMP/next.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/next.pid"
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/next.log"
+          exit 1
+
+      - name: End-to-end journey
+        run: npm run test:e2e
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Cross-tenant HTTP controls
+        run: npm run test:cross-tenant
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      # Lot A : la route d'export réelle répond-elle 422 sans identité ?
+      # Un test de la fonction pure ne le prouve pas (garde, statut, format).
+      - name: Export identity HTTP controls
+        run: npm run test:export-identite:http
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Supplier journey HTTP controls
+        run: npm run test:fournisseur:http
+
+      - name: Stop production server
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/next.pid" ]; then kill "$(cat "$RUNNER_TEMP/next.pid")" || true; fi
+
+      - name: Delete ephemeral Neon branch
+        if: always()
+        run: npx tsx scripts/ci/neon-branche.ts supprimer

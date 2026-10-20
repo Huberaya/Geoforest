@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { sonderBase, sonderStockage } from "@/lib/alerting/regles";
+import { sonderBase, sonderSchema, sonderStockage } from "@/lib/alerting/regles";
 import { journal } from "@/lib/observability/journal";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +30,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const debut = Date.now();
-  const [base, stockage] = await Promise.all([sonderBase(), sonderStockage()]);
+  const [base, stockage, schema] = await Promise.all([sonderBase(), sonderStockage(), sonderSchema()]);
 
-  const bloquants = [base, stockage].filter((c) => c.etat !== "ok");
+  const bloquants = [base, stockage, schema].filter((c) => c.etat !== "ok");
   const pret = bloquants.length === 0;
 
   if (!pret) {
@@ -52,7 +52,7 @@ export async function GET() {
       //   `/api/ready` est souvent laissée accessible aux équilibreurs et aux
       //   sondes externes, et un détail de montage est une information
       //   d'infrastructure.
-      composants: [base, stockage].map((c) => ({
+      composants: [base, stockage, schema].map((c) => ({
         nom: c.nom,
         etat: c.etat,
         dureeMs: c.dureeMs,

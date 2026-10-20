@@ -16,9 +16,10 @@ const RISK_STYLES: Record<RiskLevel, string> = {
   STANDARD: "bg-amber-100 text-amber-800 ring-amber-200",
   HIGH: "bg-red-100 text-red-800 ring-red-200",
   CRITICAL: "bg-rose-100 text-rose-800 ring-rose-200",
+  UNKNOWN: "bg-slate-100 text-slate-700 ring-slate-300",
 };
 
-const RISK_LABELS: Record<RiskLevel, string> = { LOW: "Faible", STANDARD: "Standard", HIGH: "Élevé", CRITICAL: "Critique" };
+const RISK_LABELS: Record<RiskLevel, string> = { LOW: "Faible", STANDARD: "Standard", HIGH: "Élevé", CRITICAL: "Critique", UNKNOWN: "Non évalué" };
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -94,9 +95,9 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
   const { status, validation, satellite } = result;
   const badge =
     status === "COMPLIANT"
-      ? { text: "CONFORME EUDR", cls: "bg-emerald-600 text-white", icon: "✓" }
+      ? { text: "PAS DE PERTE DÉTECTÉE", cls: "bg-emerald-600 text-white", icon: "✓" }
       : status === "NON_COMPLIANT"
-        ? { text: "NON CONFORME", cls: "bg-red-600 text-white", icon: "✕" }
+        ? { text: "PERTE POST-2020 DÉTECTÉE", cls: "bg-red-600 text-white", icon: "!" }
         : status === "SIMULATED_NON_PROBATIVE"
           ? { text: "ANALYSE SIMULÉE — NON PROBANT", cls: "bg-slate-600 text-white", icon: "⚠" }
           : status === "ANALYSIS_UNAVAILABLE"
@@ -147,16 +148,11 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
           </div>
           <div className="flex flex-wrap gap-2">
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.country_risk]}`}>
-              Risque pays : {RISK_LABELS[satellite.country_risk]} ({satellite.country_code})
+              Risque pays : {RISK_LABELS[satellite.country_risk]}{satellite.country_code !== "XX" ? ` (${satellite.country_code})` : ""}
             </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
               Risque parcelle : {RISK_LABELS[satellite.risk_level]}
             </span>
-            {satellite.confidence_score !== null && (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
-                Confiance {Math.round(satellite.confidence_score * 100)} %
-              </span>
-            )}
             {satellite.loss_year && (
               <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${satellite.loss_year > 2020 ? "bg-red-100 text-red-800 ring-red-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>
                 Perte de couvert : {satellite.loss_year}

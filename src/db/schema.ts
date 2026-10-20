@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  check,
   doublePrecision,
   foreignKey,
   index,
@@ -67,11 +69,24 @@ export const users = pgTable(
     mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
     /** Codes de secours à usage unique, stockés hachés (SHA-256). */
     mfaRecoveryCodes: jsonb("mfa_recovery_codes").$type<string[]>(),
+
+    // --- Compte fournisseur : invitation et périmètre (chantier 6) ----------
+    /**
+     * Fiche producteur à laquelle le compte est rattaché. Obligatoire pour le
+     * rôle `supplier`, interdit pour les autres rôles (contrainte ci-dessous).
+     * Le périmètre du fournisseur est lu ici, jamais dans le corps de requête.
+     */
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    /** Empreinte SHA-256 du jeton d'invitation. Le jeton lui-même n'est jamais stocké. Null hors invitation. */
+    invitationTokenHash: text("invitation_token_hash"),
+    invitationExpiresAt: timestamp("invitation_expires_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_gf_users_org").on(table.organizationId),
     index("idx_gf_users_email").on(table.email),
     index("idx_gf_users_org_email").on(table.organizationId, table.email),
+    index("idx_gf_users_invitation").on(table.invitationTokenHash),
+    check("ck_gf_users_lien_fournisseur", sql`(role = 'supplier') = (supplier_id IS NOT NULL)`),
   ],
 );
 
@@ -213,7 +228,11 @@ export const products = pgTable(
     sku: text("sku"),
     commodity: text("commodity").notNull(),
     hsCode: text("hs_code").notNull(),
-    countryOfOrigin: text("country_of_origin").notNull().default("FR"),
+    //
+    // P0 — `notNull().default("FR")` inventait un pays français pour tout
+    // produit créé sans pays. La colonne est nullable et sans défaut ;
+    // `025_identite_operateur.sql` retire le défaut existant en base.
+    countryOfOrigin: text("country_of_origin"),
     annualVolumeKg: doublePrecision("annual_volume_kg").default(0),
     status: text("status").notNull().default("ACTIVE"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -537,9 +556,24 @@ export const parcelAudits = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    operatorName: text("operator_name").notNull(),
-    operatorEori: text("operator_eori").notNull(),
-    operatorCountry: text("operator_country").notNull().default("FR"),
+    /**
+     * Lot A — identité de l'opérateur **facultative** : `null` = non renseignée.
+     *
+     * ⚠️ Ces trois colonnes étaient `NOT NULL`, et l'opérateur absent était
+     * remplacé par un triplet de remplissage
+     * (`"Opérateur non renseigné"` / `XX0000000000000` / `XX`). Une fois en
+     * base, ce triplet était indiscernable d'une identité réelle et partait en
+     * déclaration. `operator_country` avait en plus `DEFAULT 'FR'` : un pays
+     * inventé pour tout dossier ne le précisant pas.
+     *
+     * Aucune valeur par défaut : l'absence doit rester représentable. La
+     * classification des dossiers existants est faite par
+     * `classerIdentiteOperateur()` (cf. `src/lib/eudr/identite-operateur.ts`) et,
+     * en base, par la vue `v_parcel_audits_identite` — sans réécriture.
+     */
+    operatorName: text("operator_name"),
+    operatorEori: text("operator_eori"),
+    operatorCountry: text("operator_country"),
     operatorAddress: text("operator_address"),
     /**
      * P1-16 — identité du **producteur**, distincte de l'opérateur.
@@ -611,10 +645,30 @@ export const parcelAudits = pgTable(
     /** Accusé de réception du SI EUDR — NULL tant qu'aucune transmission réelle n'a eu lieu. */
     transmittedAt: timestamp("transmitted_at", { withTimezone: true }),
     transmissionAck: jsonb("transmission_ack"),
+    /**
+     * P0 (recette 2026-10-08) — rattachement de l'analyse à la parcelle du
+     * registre. Sans ce lien, l'analyse et la parcelle vivaient côte à côte :
+     * la parcelle restait « PENDING » indéfiniment et le dossier ne pouvait
+     * pas savoir quelles parcelles avaient été analysées.
+     */
+    plotId: uuid("plot_id"),
+    /**
+     * P0 (recette 2026-10-08) — rattachement de l'analyse au dossier de
+     * diligence. Le contrôle de complétude et de readiness ne porte que sur
+     * les analyses rattachées à ce dossier.
+     */
+    dueDiligenceId: uuid("due_diligence_id"),
   },
   (table) => [
     index("idx_parcel_audits_created_at").on(table.createdAt),
     index("idx_parcel_audits_org_created").on(table.organizationId, table.createdAt),
+    // Clés composites tenant-safe, comme le reste du schéma. Pas de `onDelete`
+    // « set null » : sur une clé composite il remettrait aussi organization_id à
+    // NULL (colonne NOT NULL). Les suppressions sont de toute façon logiques.
+    foreignKey({ columns: [table.plotId, table.organizationId], foreignColumns: [plots.id, plots.organizationId], name: "fk_gf_parcel_audits_plot_tenant" }),
+    foreignKey({ columns: [table.dueDiligenceId, table.organizationId], foreignColumns: [dueDiligenceStatements.id, dueDiligenceStatements.organizationId], name: "fk_gf_parcel_audits_dds_tenant" }),
+    index("idx_parcel_audits_dds").on(table.organizationId, table.dueDiligenceId),
+    index("idx_parcel_audits_plot").on(table.organizationId, table.plotId),
   ],
 );
 

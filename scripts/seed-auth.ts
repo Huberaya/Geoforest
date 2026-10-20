@@ -1,11 +1,21 @@
 /**
- * Amorçage des comptes de démonstration — chantier P0-01.
+ * Amorçage des comptes de démonstration — chantier P0-01, durci en P0 (recette 2026-10-08).
  *
  * Crée deux organisations distinctes (A et B) et un utilisateur par rôle, afin
- * de pouvoir vérifier l'authentification, les rôles et, au chantier suivant,
- * le cloisonnement entre tenants.
+ * de pouvoir vérifier l'authentification, les rôles et le cloisonnement entre tenants.
  *
- * Usage : `npm run seed:auth`  (lit .env.local)
+ * Usage : `SEED_DEMO_PASSWORD=… npm run seed:auth [-- --reset]`  (lit .env.local)
+ *
+ * ⚠️ Ce script n'installe plus d'identifiants connus par défaut.
+ *   Le mot de passe doit être fourni (`SEED_DEMO_PASSWORD`), ne doit pas être
+ *   celui qui figure dans l'historique du dépôt, et la cible doit être locale
+ *   ou explicitement déclarée jetable. Voir `scripts/seed-gardes.ts`, qui porte
+ *   les règles et les motifs de refus.
+ *
+ *   Les comptes **déjà présents** ne sont jamais réinitialisés silencieusement :
+ *   il faut `--reset` (ou `SEED_REINITIALISER=oui`). Sans ce drapeau, le script
+ *   les signale et les laisse intacts — c'est ce qui empêche une exécution
+ *   accidentelle sur une base partagée de remplacer des identifiants réels.
  */
 import "dotenv/config";
 import { config } from "dotenv";
@@ -17,8 +27,26 @@ config({ path: ".env.local" });
 
 import { hashPassword } from "../src/lib/auth/password";
 import { organizations, users } from "../src/db/schema";
+import { validerSeed } from "./seed-gardes";
 
-const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? "Trace!Demo2026x";
+const decision = validerSeed(process.env);
+if (!decision.autorise) {
+  console.error("🔴 Amorçage refusé :");
+  for (const raison of decision.refus) console.error(`   · ${raison}`);
+  console.error(
+    "\n   Exemple local :\n" +
+      "     SEED_DEMO_PASSWORD='<mot de passe propre à votre poste>' npm run seed:auth\n",
+  );
+  process.exit(1);
+}
+
+/**
+ * Réinitialisation explicite. Deux formes acceptées pour ne pas casser les
+ * automatisations existantes : `--reset` (ligne d'intégration) et
+ * `SEED_REINITIALISER=oui` (garde-fous historiques).
+ */
+const RESET = process.argv.includes("--reset") || decision.reinitialiser;
+const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD!.trim();
 
 const ORGS = [
   { slug: "geoforest-agro", name: "GeoForest Agrobusiness SAS (FR)", country: "FR", eori: "FR28475619283" },
@@ -34,10 +62,6 @@ const ACCOUNTS = [
 ];
 
 async function main(): Promise<void> {
-  if (!process.env.DATABASE_URL_ADMIN) {
-    throw new Error("DATABASE_URL n'est pas défini (charger .env.local).");
-  }
-
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL_ADMIN ?? process.env.DATABASE_URL,
   });
@@ -66,7 +90,15 @@ async function main(): Promise<void> {
     const organizationId = orgIds.get(account.org)!;
     const existing = await db.select().from(users).where(eq(users.email, account.email)).limit(1);
 
+    if (existing[0] && !RESET) {
+      console.log(`compte existant, inchangé : ${account.email} (relancer avec --reset pour le réinitialiser)`);
+      continue;
+    }
     if (existing[0]) {
+      if (!RESET) {
+        console.log(`compte déjà présent    : ${account.email} (${account.role}) — inchangé`);
+        continue;
+      }
       await db
         .update(users)
         .set({
@@ -105,13 +137,15 @@ async function main(): Promise<void> {
   for (const account of ACCOUNTS) {
     console.log(`  ${account.email.padEnd(28)} ${account.role.padEnd(18)} ${account.org}`);
   }
-  console.log(`\nMot de passe commun : ${DEMO_PASSWORD}`);
+  // ⚠️ Le mot de passe n'est jamais affiché : un terminal, un journal de CI ou
+  //   une capture d'écran le conserveraient bien au-delà de la démonstration.
+  console.log("\nMot de passe : celui fourni dans SEED_DEMO_PASSWORD (non affiché).");
   console.log("⚠️ Comptes de démonstration — à supprimer avant toute mise en production.");
 
   await pool.end();
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(error instanceof Error ? `🔴 ${error.message}` : error);
   process.exit(1);
 });

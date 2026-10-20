@@ -30,6 +30,23 @@ def _env_list(name: str, default: List[str]) -> List[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
+def is_production_environment() -> bool:
+    """Reconnaît les noms d'environnement courants sans dépendre de NODE_ENV."""
+    return any(
+        os.getenv(name, "").strip().lower() in {"production", "prod"}
+        for name in ("ENVIRONMENT", "APP_ENV", "NODE_ENV")
+    )
+
+
+def validate_cors_origins(origins: List[str], *, production: bool) -> None:
+    """Refuse une origine CORS générique en production."""
+    if production and "*" in origins:
+        raise ValueError(
+            "CORS_ORIGINS ne peut pas contenir '*' en production ; "
+            "définir explicitement les origines autorisées."
+        )
+
+
 @dataclass(frozen=True)
 class Settings:
     """Paramètres immuables de l'application."""
@@ -77,12 +94,44 @@ class Settings:
         )
     )
 
+    # --- Authentification du service ---
+    #
+    # ⚠️ Ce backend est **mono-tenant** : ni utilisateur, ni organisation, ni
+    #   contrôle d'accès dans SQLite. Il ne doit donc jamais être joignable
+    #   sans jeton, et ne doit jamais servir plusieurs organisations.
+    #   Sans `GF_BACKEND_TOKEN`, les routes de données répondent 503 : le
+    #   service échoue fermé au lieu de s'ouvrir par défaut.
+    backend_token: str = field(default_factory=lambda: os.getenv("GF_BACKEND_TOKEN", "").strip())
+
+    # --- Documentation interactive ---
+    #
+    # ⚠️ `/docs`, `/redoc` et `/openapi.json` décrivent l'ensemble des routes,
+    #   leurs paramètres et leurs schémas. Ce n'est pas une donnée métier, mais
+    #   c'est une carte offerte à qui veut la lire — et sur un service interne,
+    #   personne n'en a besoin. Fermées par défaut ; `GF_BACKEND_DOCS=on` les
+    #   rouvre pour un poste de développement.
+    docs_publiques: bool = field(
+        default_factory=lambda: os.getenv("GF_BACKEND_DOCS", "").strip().lower() in ("on", "1", "true", "oui")
+    )
+
     # --- CORS ---
+    # ⚠️ Pas de « * » : le middleware autorise `allow_credentials=True`, et
+    #   l'association des deux fait refléter n'importe quelle origine. Les
+    #   origines doivent être nommées. Une valeur « * » est refusée au
+    #   démarrage plutôt que silencieusement affaiblie.
     cors_origins: List[str] = field(
         default_factory=lambda: _env_list(
-            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000", "*"]
+            "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000"]
         )
     )
+
+    def __post_init__(self) -> None:
+        if any(origine.strip() == "*" for origine in self.cors_origins):
+            raise ValueError(
+                "CORS_ORIGINS ne peut pas contenir « * » : ce service autorise "
+                "les requêtes avec credentials, et une origine générique "
+                "reviendrait à ouvrir l'API à tout site web."
+            )
 
     @property
     def gfw_live_available(self) -> bool:
@@ -90,3 +139,4 @@ class Settings:
 
 
 settings = Settings()
+validate_cors_origins(settings.cors_origins, production=is_production_environment())

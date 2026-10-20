@@ -118,8 +118,11 @@ export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: Geo
   const [pasteText, setPasteText] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const [operatorName, setOperatorName] = useState("Café Import SAS");
-  const [eori, setEori] = useState("FR12345678901234");
+  // P0 — aucun opérateur fictif pré-rempli. Un champ vide oblige une
+  // déclaration réelle ; les valeurs d'exemple ne vivent que dans le
+  // placeholder, jamais dans la valeur soumise.
+  const [operatorName, setOperatorName] = useState("");
+  const [eori, setEori] = useState("");
   // P1-16 — le producteur est un rôle distinct de l'opérateur. La case
   // « identique à l'opérateur » existe pour que la coïncidence soit un choix
   // explicite de l'utilisateur, jamais une supposition du code.

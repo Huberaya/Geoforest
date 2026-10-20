@@ -9,6 +9,7 @@ import {
   type Commodity,
   type OperatorInfo,
 } from "./types";
+import { nomValide, paysValide } from "./identite-operateur";
 
 /**
  * ⚠️ FORMAT INTERNE GEOFOREST — CE N'EST PAS UN MESSAGE TRACES-NT (P0-06).
@@ -47,8 +48,10 @@ function featureCollection(row: ParcelAuditRow): Record<string, unknown> {
       {
         type: "Feature",
         properties: {
-          ProducerName: row.operatorName,
-          ProducerCountry: row.countryCode,
+          ProducerName: (row as { producerName?: string | null }).producerName ?? "",
+          ProducerCountry: paysValide((row as { producerCountry?: string | null }).producerCountry)
+            ? ((row as { producerCountry?: string }).producerCountry as string).trim().toUpperCase()
+            : "",
           ProductionPlace: row.parcelReference ?? row.id,
           Area: Number(row.areaHa.toFixed(4)),
           HarvestDate: row.harvestDate,
@@ -78,11 +81,11 @@ export const DRAFT_NOTICE =
  */
 export function producteurDe(row: ParcelAuditRow): { name: string; country: string } | null {
   const name = (row as { producerName?: string | null }).producerName;
-  if (!name || name.trim().length < 2) return null;
-  return {
-    name: name.trim(),
-    country: ((row as { producerCountry?: string | null }).producerCountry ?? row.countryCode ?? "XX").toUpperCase(),
-  };
+  const country = (row as { producerCountry?: string | null }).producerCountry;
+  // P0/P1-16 — jamais `XX`, jamais le pays de la parcelle : un producteur dont
+  // le pays n'est pas valide n'est pas un producteur déclarable.
+  if (!nomValide(name) || !paysValide(country)) return null;
+  return { name: (name as string).trim(), country: (country as string).trim().toUpperCase() };
 }
 
 export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, options: TracesOptions): Record<string, unknown> {
@@ -91,14 +94,18 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
   const geojsonB64 = Buffer.from(JSON.stringify(fc), "utf-8").toString("base64");
   const commodity = row.commodity as Commodity;
   const hsCode = row.hsCode || COMMODITY_HS_CODES[commodity] || "";
-  const satellite = (row.satellite ?? {}) as { source?: string };
+  const satellite = (row.satellite ?? {}) as {
+    source?: string;
+    evidence?: Record<string, unknown> | null;
+    provenance?: { method?: string; version?: string | null; params?: Record<string, unknown>; limits?: string[] } | null;
+  };
 
   // Un producteur non déclaré produit un nœud vide et un avertissement
   // explicite : jamais le nom de l'opérateur à la place.
   const producteur = producteurDe(row);
   const producers = producteur
     ? [{ country: producteur.country, name: producteur.name }]
-    : [{ country: row.countryCode ?? "XX", name: "" }];
+    : [{ country: "", name: "" }];
   const avertissements: string[] = producteur
     ? []
     : ["Producteur non déclaré : le nœud producers est vide. Une déclaration sans " +
@@ -112,7 +119,12 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
     operator: {
       reference_number: { type: "EORI", identifier: operator.eori },
       name: operator.name,
-      country: operator.country ?? "FR",
+      // Lot A — `operator.country ?? "FR"` déclarait « France » pour tout
+      // opérateur silencieux, dans un document destiné au SI EUDR. Le pays
+      // n'est jamais inventé : à défaut de déclaration, il est déduit du
+      // préfixe de l'EORI, qui est un fait attaché à l'identifiant (et non une
+      // valeur par défaut arbitraire).
+      country: operator.country ?? operator.eori.slice(0, 2),
       address: operator.address ?? "",
       email: operator.email ?? "",
     },
@@ -141,18 +153,38 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       provider: "GeoForest Trace",
       audit_id: row.id,
       audited_at: row.createdAt.toISOString(),
-      status: row.compliant && row.status !== "INVALID_GEOMETRY" ? "VERIFIED_COMPLIANT" : "VERIFIED_NON_COMPLIANT",
+      // ⚠️ `row.compliant` peut être NULL (aucun verdict). Le ternaire binaire
+      //   transformait « aucun verdict » en « perte détectée » : une affirmation
+      //   fausse, dans un document destiné à une déclaration.
+      status:
+        row.compliant === true
+          ? "SATELLITE_NO_POST_CUTOFF_LOSS_DETECTED"
+          : row.compliant === false
+            ? "SATELLITE_POST_CUTOFF_LOSS_DETECTED_REVIEW_REQUIRED"
+            : "NO_VERDICT",
       eudr_cutoff_date: EUDR_CUTOFF_DATE,
       harvest_date: row.harvestDate,
       geometry_type: row.geometryType,
       area_ha: Number(row.areaHa.toFixed(4)),
       geometry_rule: row.areaHa > EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED",
-      deforestation_detected_post_cutoff: !row.compliant,
+      tree_cover_loss_detected_post_cutoff: row.compliant === false,
       loss_year: row.lossYear,
-      confidence_score: row.confidenceScore,
-      risk_level: row.riskLevel,
-      country_benchmark_risk: row.countryRisk,
+      confidence_score: null,
+      risk_level: row.compliant === false ? "HIGH" : "UNKNOWN",
+      country_benchmark_risk: "UNKNOWN",
+      // E — l'attribution pays du moteur repose sur des boîtes englobantes,
+      //     pas sur des frontières. Elle est publiée comme approximative.
+      country_attribution: "approximate_bbox",
+      country_attribution_reliable: false,
+      country_attribution_warning:
+        "Pays estimé par boîte englobante : non fiable pour une attribution " +
+        "géographique EUDR. Aucune frontière versionnée n'est utilisée.",
       satellite_source: satellite.source ?? "",
+      satellite_evidence: satellite.evidence ?? null,
+      satellite_provenance: satellite.provenance ?? null,
+      satellite_evidence_hash: typeof satellite.evidence?.rows_sha256 === "string" ? satellite.evidence.rows_sha256 : null,
+      satellite_provenance_method: satellite.provenance?.method ?? null,
+      interpretation_limit: "La perte de couvert arboré ne détermine pas à elle seule la cause ou la qualification juridique de déforestation ; l'absence de perte détectée ne prouve pas à elle seule la conformité EUDR complète.",
       centroid: { lon: row.centroidLon, lat: row.centroidLat },
     },
   };
@@ -252,12 +284,15 @@ export function buildTracesXml(row: ParcelAuditRow, operator: OperatorInfo, opti
     "geometry_type",
     "area_ha",
     "geometry_rule",
-    "deforestation_detected_post_cutoff",
+    "tree_cover_loss_detected_post_cutoff",
     "loss_year",
     "confidence_score",
     "risk_level",
     "country_benchmark_risk",
     "satellite_source",
+    "satellite_evidence_hash",
+    "satellite_provenance_method",
+    "interpretation_limit",
   ] as const;
   for (const key of keys) {
     const value = d.verification[key];
