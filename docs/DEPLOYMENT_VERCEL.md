@@ -14,7 +14,8 @@ Le projet est configuré selon le modèle **Vercel Multi-Services** :
 | Variable | Description | Exemple / Valeur |
 | :--- | :--- | :--- |
 | `DATABASE_URL` | Connexion **applicative** : rôle `geoforest_app`, soumis à la RLS — voir §3 | `postgresql://geoforest_app:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
-| `DATABASE_URL_ADMIN` | Connexion **d'administration** : rôle propriétaire, migrations et purge uniquement | `postgresql://neondb_owner:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` || `NEXT_PUBLIC_APP_URL` | URL publique de l'application | `https://geoforest-trace.vercel.app` |
+| `DATABASE_URL_ADMIN` | Connexion **d'administration** : rôle propriétaire, migrations et purge uniquement | `postgresql://neondb_owner:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
+| `NEXT_PUBLIC_APP_URL` | URL publique de l'application | `https://geoforest-trace.vercel.app` |
 | `GFW_API_KEY` | *(Optionnel)* Clé d'API Global Forest Watch live | `gfw_live_key_xxx` (Repli automatique sur moteur déterministe) |
 
 ---
@@ -84,6 +85,82 @@ l'anomalie dans le composant `role_base`.
 
 ---
 
+## 3 bis. Ordre de mise en service : la base d'abord, l'application ensuite
+
+⚠️ **Le déploiement est couplé aux migrations.** Un build applicatif qui
+précède la migration démarre sur un schéma incomplet : l'application refuse de
+servir (`/api/ready` indisponible, réponses 503 pour les routes protégées) au
+lieu de produire des données fausses. Le bon ordre n'est donc pas une
+préférence.
+
+1. **Sauvegarder avant toute migration.**
+
+   ```bash
+   pg_dump "$DATABASE_URL_ADMIN" --format=custom --file="geoforest-$(date -u +%Y%m%dT%H%M%SZ).dump"
+   ```
+
+   ⚠️ Aucune restauration n'a encore été jouée sur une base hébergée
+   (`infra/supervision/mise-en-route.md` §5.4) : la sauvegarde est une pièce à
+   produire, pas une garantie tant que la restauration n'a pas été exercée.
+
+2. **Migrer la base cible, avant de déployer l'application.**
+
+   ```bash
+   DATABASE_URL_ADMIN="postgresql://neondb_owner:…" npm run db:migrate
+   ```
+
+   `db:migrate` applique, dans l'ordre :
+   - les migrations Drizzle `drizzle/0000` à `0009` ;
+   - les scripts de sûreté `scripts/sql/post-migrate/` (`010`, `020` à `025`) ;
+   - les contrôles bloquants de cohérence du registre et de cloisonnement
+     (13 tables, 34 politiques, déclencheurs du journal, fonctions d'auth non
+     exécutables par le rôle applicatif).
+
+   Le code de sortie doit être **0**. Un échec laisse la base dans l'état de la
+   dernière étape validée : ne pas déployer, restaurer la sauvegarde.
+
+   ⚠️ **À vérifier avant la première application** : la migration `0008`
+   rattache les comptes fournisseur à une fiche. Les comptes `supplier` qui
+   n'ont **aucune** fiche (`supplier_id is null`) sont mis en quarantaine par
+   la migration (rôle `viewer`, statut `suspended`). Mesurer avant :
+
+   ```sql
+   select count(*) from gf_users where role = 'supplier' and supplier_id is null;
+   ```
+
+   Si le compte doit rester actif, le rattacher d'abord ; sinon, la
+   quarantaine est réversible par une mise à jour explicite de `role`/`status`.
+
+3. **Vérifier le rôle applicatif et la santé.**
+
+   ```bash
+   DATABASE_URL="postgresql://geoforest_app:…" npx tsx scripts/verifier-role.ts
+   curl -fsS https://<domaine>/api/ready
+   ```
+
+   Attendu : `✅ Rôle conforme`, puis un `200` sur `/api/ready`. `/api/health`
+   détaille les composants (`role_base`, `schema`, `stockage`, `sauvegarde`).
+
+4. **Déployer ensuite l'application** (fusion sur `main`, ou `vercel --prod`).
+
+### Retour arrière
+
+- Les scripts `010`–`025` **n'ont pas de descente**. Le retour arrière d'une
+  migration de sûreté est une **restauration** de la sauvegarde de l'étape 1.
+- `npm run db:rollback` ne défait que la **dernière** migration Drizzle
+  enregistrée, et refuse si le fichier `.down.sql` correspondant n'existe pas
+  (`0005` n'en a pas).
+- `025` supprime les identités de remplissage (`XX0000000000000`) et pose une
+  contrainte : cette étape n'est pas réversible par une requête inverse.
+
+### Ce que la CI couvre — et ce qu'elle ne couvre pas
+
+La CI rejoue la chaîne complète sur une branche Neon **éphémère** : migrations,
+rôle applicatif, amorçage, e2e, cross-tenant, export et parcours fournisseur.
+Elle ne prouve pas que la **branche de production** migrera sans erreur : la
+qualification d'une base hébergée reste une opération d'exploitation, à faire
+selon cet ordre.
+
 ## 4. Commandes de Build & Déploiement
 ### Déploiement via CLI Vercel :
 ```bash
@@ -97,8 +174,14 @@ vercel
 vercel --prod
 ```
 
-### Déploiement Continu via GitHub Actions :
-Chaque push sur la branche `main` déclenche le pipeline CI/CD validant les tests Python (Pytest 29/29), le typage TypeScript et la compilation Next.js avant le déploiement sur Vercel.
+### Intégration continue et déploiement : deux chaînes distinctes
+Chaque push déclenche la CI (`.github/workflows/ci.yml`) : typage, lint, tests
+unitaires, contrôles métier, règles EUDR, contrats SQL/HTTP, tests backend et,
+sur une branche Neon éphémère, migrations + parcours e2e/cross-tenant.
+
+⚠️ **La CI ne migre jamais la base de production.** Le déploiement Vercel est
+déclenché par le push, indépendamment de la CI, et n'exécute aucune migration.
+L'ordre de mise en service ci-dessous n'est donc pas facultatif.
 
 ## 5. Stockage des pièces justificatives
 

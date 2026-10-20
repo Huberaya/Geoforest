@@ -24,12 +24,29 @@ geoforest-trace/
     └── db/              schema.ts (Drizzle / PostgreSQL)
 ```
 
-## Démarrage en une commande
+## Démarrage local
+
+⚠️ **Le compose ne migre rien.** Démarrer l'application avant la migration
+donne un service qui refuse de servir : c'est voulu (aucun schéma implicite,
+aucune donnée réputée valide sans elle).
 
 ```bash
-docker-compose up --build
-# Frontend : http://localhost:3000   (le service FastAPI n'est plus déployé)
+# 1. base
+docker compose up -d db
+
+# 2. schéma, RLS et invariants (drizzle 0000–0009 puis scripts de sûreté 010–025)
+DATABASE_URL_ADMIN="postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/app_db" npm run db:migrate
+
+# 3. mot de passe du rôle applicatif (créé sans mot de passe par la migration)
+docker compose exec db psql -U postgres -d app_db \
+  -c "alter role geoforest_app login password '${GF_APP_DB_PASSWORD}'"
+
+# 4. application — http://localhost:3000 (le service FastAPI n'est plus déployé)
+docker compose up --build
 ```
+
+La migration doit précéder tout déploiement : voir `docs/DEPLOYMENT_VERCEL.md`
+§3 bis pour l'ordre complet, la sauvegarde et le retour arrière.
 
 Le dashboard utilise par défaut les routes API Next.js intégrées (`/api/v1/...`, persistance PostgreSQL via Drizzle).
 Le navigateur n'appelle jamais de service externe : toutes les requêtes passent par les routes Next.js.

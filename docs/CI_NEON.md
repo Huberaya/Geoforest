@@ -4,14 +4,16 @@ Chantier 2 (restes) et chantier 1 (« test:db et E2E ne sont pas dans la CI »).
 
 ## Principe
 
-Les contrôles `test:db`, `test:e2e`, `test:cross-tenant` et `test:fournisseur:http` modifient ou réinitialisent la
+Les contrôles `test:db`, `test:e2e`, `test:cross-tenant`, `test:export-identite:http` et `test:fournisseur:http` modifient ou réinitialisent la
 base (`seed:auth -- --reset`, migrations, création de données). Ils ne s'exécutent donc **jamais** sur la base de
 production. Le job `database` de `.github/workflows/ci.yml` :
 
 1. crée une branche Neon `ci-geoforest-<run>` à partir de la branche parente désignée (`NEON_PARENT_BRANCH_ID`) ;
 2. applique les migrations sur cette branche ;
 3. fixe un mot de passe **aléatoire** au rôle `geoforest_app`, sur cette branche seulement ;
-4. lance les contrôles, puis le serveur de production ;
+4. lance les contrôles (`test:db`, `test:e2e`, `test:cross-tenant`,
+   `test:export-identite:http`, `test:fournisseur:http`), avec un réamorçage des
+   comptes de démonstration avant chaque parcours, puis le serveur de production ;
 5. supprime la branche dans une étape `always()`.
 
 ## Secrets GitHub à configurer (Settings → Secrets and variables → Actions)
@@ -28,6 +30,10 @@ Sans ces secrets, le job **échoue** dès la création de la branche : aucune ba
 
 - `scripts/ci/neon-branche.ts` ne supprime que des branches `br-…` qu'il a lui-même créées (identifiant mémorisé pour le run).
 - `seed:auth -- --reset` refuse toute base non locale, sauf si `GF_BASE_JETABLE=oui` (positionné par le job seulement).
+- Les contrôles s'exécutent avec le rôle applicatif `geoforest_app` : `023` a retiré
+  l'exécution des fonctions d'authentification à ce rôle, et les parcours doivent
+  passer par les chemins prévus (connexion d'administration dans les routes qui
+  en ont besoin) — une régression y est visible immédiatement.
 - Les secrets de test (`AUTH_SECRET`, `GF_STORAGE_SIGNING_SECRET`, mot de passe de démonstration) sont tirés au hasard à chaque run et masqués.
 
 ## Point à trancher : données copiées

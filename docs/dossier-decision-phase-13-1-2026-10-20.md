@@ -377,3 +377,36 @@ Le chemin technique est **ordonné et gardé** : la séquence `db:migrate` → d
 - aucune donnée de frontières téléchargée ou ajoutée.
 
 **Ce dossier ne déclare pas le projet terminé, ni la proposition E validée, ni le déploiement prêt.** Il constate trois états distincts et nomme, pour chacun, la preuve manquante.
+
+---
+
+## F. Suivi du 2026-10-20 — intégration effective de la PR #9
+
+Le présent addendum remplace, pour la suite, le scénario « #8 puis #9 » de la
+section A : la PR #9 a été **fusionnée dans la branche de la PR #8**
+(`arena/569eff1a-geoforest`) par le commit de fusion `e9114dc`, parents
+`35c5d06` (#8) et `39111c1` (#9). Aucune migration n'a été appliquée sur une
+base hébergée ; le déploiement reste donc soumis au verdict C.
+
+Décisions prises pendant la résolution (19 conflits) :
+
+| Sujet | Décision | Raison |
+|---|---|---|
+| `identite-operateur.ts` | module **union** : un seul classement `declared/missing/legacy_placeholder`, prédicats partagés, `resoudreIdentiteExport()` pure | les deux jeux d'appelants doivent voir la même règle ; un classement par côté cassait soit l'export, soit les contrôles |
+| migrations | `0009` (Lot A) conservée ; `025` (ligne de sécurité) conservée **après** elle | drizzle s'exécute avant les scripts de sûreté ; `025` n'ajoute que ce que `0009` ne couvre pas (produits, sentinelle, contrainte) |
+| sentinelle | écriture **refusée** en base (`XX0000000000000`), plus de dossier « faussement complet » ; l'état `legacy_placeholder` reste géré pour les bases non migrées | une identité fabriquée ne doit jamais pouvoir être stockée ; le contrôle HTTP vérifie le refus `23514` |
+| ordre des refus d'export | géométrie (409) → identité (422) → valeur probante (409) → déforestation (409) | l'identité manquante ne doit pas être masquée par « configurez GFW » |
+| `country_of_activity` | **obligatoire**, aucun repli `FR` | le pays d'activité n'est pas déductible |
+| `0008` | quarantaine des comptes `supplier` sans fiche conservée, mais **préflight documenté** dans `DEPLOYMENT_VERCEL.md` §3 bis | la mesure précède la migration ; la quarantaine est réversible |
+| invitation fournisseur | lectures globales (`unicité d'adresse`, recherche du compte à révoquer) via la connexion d'administration, filtre d'organisation explicite | `023` retire l'exécution des fonctions d'auth au rôle applicatif, et `gf_users` ne lui est pas lisible |
+
+Vérifications exécutées sur PostgreSQL 16.2 local (base vierge, rôle
+`geoforest_app` sans `BYPASSRLS`) : migrations 13/13 (`0000`–`0009`,
+`010`, `020`–`025`), RLS 13/13 · 34 politiques, `verifier-role` conforme,
+parcours e2e 49/49, cross-tenant 262/262, export identité 33/33, fournisseur
+57/57, unit 52, sql 52, http 34, 9 scripts de contrôles, backend 138 passés /
+3 ignorés / 2 xfailed, build sans base.
+
+Reste **inchangé** : le verdict C (sauvegarde/restauration jamais jouées, base
+hébergée non qualifiée, pas de descendantes), le verdict B (proposition E) et
+les réserves A.3/A.5.
