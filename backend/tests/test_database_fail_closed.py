@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from app import core as _core  # noqa: F401
 from app.core import database as module_database
 from app.core.database import Database
 
