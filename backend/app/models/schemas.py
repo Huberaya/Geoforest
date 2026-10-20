@@ -71,10 +71,12 @@ class OperatorInfo(BaseModel):
     @classmethod
     def validate_eori(cls, value: str) -> str:
         normalized = value.replace(" ", "").upper()
-        if not _EORI_PATTERN.match(normalized):
+        if not _EORI_PATTERN.fullmatch(normalized):
             raise ValueError(
                 "EORI invalide : format attendu = code pays ISO (2 lettres) + 1 à 15 caractères alphanumériques"
             )
+        if normalized == "XX0000000000000":
+            raise ValueError("L'identité opérateur fictive est interdite ; fournir un EORI réel.")
         return normalized
 
     @field_validator("country")
@@ -93,7 +95,7 @@ class ParcelAuditRequest(BaseModel):
     )
     commodity: Commodity
     harvest_date: date = Field(..., description="Date de récolte / production (ISO 8601)")
-    operator: Optional[OperatorInfo] = None
+    operator: OperatorInfo
     declared_area_ha: Optional[float] = Field(
         default=None,
         ge=0,
