@@ -178,6 +178,10 @@ async function main(): Promise<void> {
     producer: { same_as_operator: true },
     net_weight_kg: 500,
     activity_type: "IMPORT",
+    // Depuis l'arbitrage de la fusion #9, le pays d'activité est obligatoire et
+    // n'est jamais déduit (422 sinon). Ce harnais, hors CI, l'omettait encore :
+    // 10 contrôles échouaient sur une 422 sans rapport avec la machine à états.
+    country_of_activity: "FR",
   };
   // Chaque export porte une référence interne distincte (lisible dans le journal).
   let exportN = 0;

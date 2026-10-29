@@ -93,14 +93,51 @@ async function main(): Promise<void> {
     check("rôle sans BYPASSRLS", r0.bypass === false);
 
     section("Couverture : toute table portant organization_id est sous RLS");
+    // ⚠️ `information_schema.columns` liste aussi les **vues**. Depuis `025`,
+    //   `v_parcel_audits_identite` porte `organization_id` : une vue ne peut
+    //   pas recevoir de politique RLS ni d'INSERT, et ce contrôle la comptait
+    //   comme une table (2 échecs sans défaut réel). Les vues sont séparées :
+    //   leur propriété de cloisonnement est `security_invoker = true`, qui fait
+    //   appliquer la RLS des tables sous-jacentes au rôle appelant. Sans elle,
+    //   la vue s'exécuterait avec les droits de son propriétaire et
+    //   contournerait la RLS — c'est précisément ce qui est vérifié plus bas.
     const cols = await app.query(
-      `select c.table_name from information_schema.columns c
+      `select c.table_name, t.table_type from information_schema.columns c
+         join information_schema.tables t
+           on t.table_schema = c.table_schema and t.table_name = c.table_name
         where c.table_schema = 'public' and c.column_name = 'organization_id'
         order by 1`,
     );
-    const tablesOrg = cols.rows.map((r) => r.table_name as string);
+    const tablesOrg = cols.rows
+      .filter((r) => r.table_type === "BASE TABLE")
+      .map((r) => r.table_name as string);
+    const vuesOrg = cols.rows
+      .filter((r) => r.table_type === "VIEW")
+      .map((r) => r.table_name as string);
     const tablesOrgAvecOrgs = [...tablesOrg, "gf_organizations"];
     check("tables tenant identifiées", tablesOrg.length >= 10, `${tablesOrg.length} tables`);
+
+    section("Vues portant organization_id : exécutées avec les droits de l'appelant");
+    if (vuesOrg.length > 0) {
+      const etatVues = await app.query(
+        `select c.relname as nom,
+                coalesce(array_to_string(c.reloptions, ','), '') as options
+           from pg_class c join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public' and c.relkind = 'v' and c.relname = any($1::text[])`,
+        [vuesOrg],
+      );
+      for (const v of vuesOrg) {
+        const l = etatVues.rows.find((r) => r.nom === v);
+        const options = String(l?.options ?? "");
+        check(
+          `${v} : vue security_invoker (la RLS des tables sous-jacentes s'applique au rôle appelant)`,
+          /security_invoker=(true|on)/i.test(options),
+          l ? options || "aucune option" : "vue absente",
+        );
+      }
+    } else {
+      check("aucune vue tenant à contrôler", true, "0 vue");
+    }
     // Propriété vérifiée : RLS activée ET forcée, au moins une politique, et
     // **toute** politique de la table conditionnée par current_org(). Le nom des
     // politiques n'est pas figé : la migration 022 les a découpées par commande.
@@ -146,7 +183,7 @@ async function main(): Promise<void> {
     try {
       section("Sans contexte de tenant : aucune ligne visible (fail-closed)");
       await client.query("begin");
-      for (const t of tablesOrgAvecOrgs) {
+      for (const t of [...tablesOrgAvecOrgs, ...vuesOrg]) {
         const r = await client.query(`select count(*)::int as n from ${ident(t)}`);
         check(`${t} : 0 ligne sans contexte`, r.rows[0].n === 0, `${r.rows[0].n}`);
       }
@@ -155,6 +192,10 @@ async function main(): Promise<void> {
       section("Contexte B : lecture, écriture, suppression des lignes de A");
       await client.query("begin");
       await client.query("select set_config('app.current_org', $1, true)", [orgB]);
+      for (const v of vuesOrg) {
+        const lues = await client.query(`select count(*)::int as n from ${ident(v)} where organization_id = $1`, [orgA]);
+        check(`${v} : aucune ligne de A lisible depuis B (vue)`, lues.rows[0].n === 0, `${lues.rows[0].n}`);
+      }
       for (const t of tablesOrgAvecOrgs) {
         const cle = t === "gf_organizations" ? "id" : "organization_id";
         const lues = await client.query(`select count(*)::int as n from ${ident(t)} where ${cle} = $1`, [orgA]);
