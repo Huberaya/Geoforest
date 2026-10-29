@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { ACCESS_COOKIE } from "@/lib/auth/constants";
+import { estCheminAuthPublic } from "@/lib/auth/public-paths";
 import { mfaRequiredFor } from "@/lib/auth/roles";
 import { verifyAccessToken } from "@/lib/auth/tokens";
 import {
@@ -40,6 +41,8 @@ import { adresseClient, verifierCadence } from "@/lib/rate-limit";
 /** Chemins accessibles sans session. */
 const PUBLIC_PATHS = new Set<string>([
   "/login",
+  // Chantier 6 : activation d'un compte fournisseur par lien d'invitation (sans session).
+  "/accepter-invitation",
   "/api/v1/auth/login",
   "/api/v1/auth/mfa",
   "/api/v1/auth/refresh",
@@ -57,8 +60,9 @@ const PUBLIC_PATHS = new Set<string>([
 ]);
 
 function isPublic(pathname: string): boolean {
-  if (PUBLIC_PATHS.has(pathname)) return true;
-  return pathname.startsWith("/api/v1/auth/");
+  // ⚠️ `estCheminAuthPublic` est une liste exacte : voir le commentaire du
+  //   module. Un préfixe `/api/v1/auth/` ouvrirait `me` et `password`.
+  return PUBLIC_PATHS.has(pathname) || estCheminAuthPublic(pathname);
 }
 
 /**
@@ -238,6 +242,7 @@ const CHEMINS_SECRETS = new Set([
   "/api/v1/auth/login",
   "/api/v1/auth/mfa",
   "/api/v1/auth/password",
+  "/api/v1/auth/invitation/accept",
 ]);
 
 

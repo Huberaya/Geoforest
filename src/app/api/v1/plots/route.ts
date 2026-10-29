@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { logAction } from "@/lib/api/audit-log";
 import { validateGeometry } from "@/lib/eudr/gis-validator";
+import { perimetreFournisseur } from "@/lib/auth/perimetre";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,13 @@ export const POST = guard("plot:write")(async (request: Request, _ctx, { tx, org
   const commodity = str(body.commodity);
   if (!commodity) return NextResponse.json({ detail: "Matière première requise" }, { status: 422 });
 
-  const supplierId = str(body.supplierId);
+  // Chantier 6 : un compte fournisseur ne crée des parcelles que pour sa propre fiche.
+  const supplierDemande = str(body.supplierId);
+  const perimetre = perimetreFournisseur(session);
+  if (perimetre && supplierDemande && supplierDemande !== perimetre) {
+    return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
+  }
+  const supplierId = perimetre ?? supplierDemande;
   if (supplierId && !UUID_PATTERN.test(supplierId)) {
     return NextResponse.json({ detail: "Fournisseur invalide" }, { status: 422 });
   }

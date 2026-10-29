@@ -50,6 +50,34 @@
       "when": 1791135581646,
       "tag": "0006_idempotence",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791469947400,
+      "tag": "0007_parcel_audit_liens",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791988917202,
+      "tag": "0008_fournisseur_invitation",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792447869531,
+      "tag": "0009_operateur_non_renseigne",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793262961925,
+      "tag": "0010_produit_pays_origine_facultatif",
+      "breakpoints": true
     }
   ],
   "prevId": "0004_document_mime_mismatch"

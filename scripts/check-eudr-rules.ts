@@ -10,7 +10,7 @@
  *             sinon 92 % des GeoJSON valides à 6 décimales sont rejetés.
  */
 import { validateGeometry, minDecimalsFromJsonText } from "../src/lib/eudr/gis-validator";
-import { checkDeforestationRisk, deterministicCheck } from "../src/lib/eudr/satellite-checker";
+import { aplatirPourAnalyse, checkDeforestationRisk, deterministicCheck, nommerFournisseur, resolveCountry } from "../src/lib/eudr/satellite-checker";
 import { buildEudrIsGeoJson, toEudrIsGeometry } from "../src/lib/eudr/eudr-is-geojson";
 import type { GeoJsonInput } from "../src/lib/eudr/types";
 
@@ -309,13 +309,189 @@ function testFourHectares(): void {
   );
 }
 
+// ------------------------------------------------------- géométrie d'analyse
+function testFlattenPreservesPolygonHoles(): void {
+  section("Moteur forestier — préservation de l'emprise géographique");
+  const polygonWithHole = {
+    type: "Polygon",
+    coordinates: [
+      [[-5.5, 6], [-5.49, 6], [-5.49, 6.01], [-5.5, 6.01], [-5.5, 6]],
+      [[-5.498, 6.002], [-5.492, 6.002], [-5.492, 6.008], [-5.498, 6.008], [-5.498, 6.002]],
+    ],
+  } as never;
+  const normalized = aplatirPourAnalyse(polygonWithHole) as { type: string; coordinates?: unknown[] };
+  check(
+    "anneau intérieur conservé comme trou, pas transformé en surface positive",
+    normalized.type === "Polygon" && normalized.coordinates?.length === 2,
+    `type=${normalized.type} · anneaux=${normalized.coordinates?.length ?? 0}`,
+  );
+}
+
 // ---------------------------------------------------------------- moteur
 function testDeterministicEngine(): void {
   section("Moteur déterministe — cohérence");
   const a = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   const b = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   check("deux appels identiques donnent le même verdict", JSON.stringify(a) === JSON.stringify(b));
+  // P2-16 : le pays vient des frontières Natural Earth versionnées (sud-ouest
+  // ivoirien → CI), jamais d'un rectangle ; le benchmark reste UNKNOWN.
+  const country = resolveCountry(-5.5, 6.2);
+  check("pays attribué par frontières réelles, pas par boîte englobante", country.iso2 === "CI" && country.method === "natural-earth-50m");
+  check("benchmark pays non évalué sans source officielle", country.risk === "UNKNOWN");
+  check("hors couverture : XX sans voisin substitué", resolveCountry(-30, 20).iso2 === "XX");
+  check("moteur démo n'invente pas un risque pays", a.country_code === "BR" && a.country_risk === "UNKNOWN" && a.risk_level === "UNKNOWN");
 }
+
+/**
+ * P0 (recette 2026-10-08) — garde-fous de la source satellite.
+ * Aucun appel réseau : chaque cas choisi retourne avant toute requête.
+ */
+async function testSourceSatellite(): Promise<void> {
+  section("Source satellite — garde-fous (recette 2026-10-08)");
+  const cles = ["GFW_API_KEY", "GFW_API_URL", "GFW_DEMO_MODE"] as const;
+  const sauvegarde: Record<string, string | undefined> = {};
+  for (const k of cles) sauvegarde[k] = process.env[k];
+  const restaurer = () => {
+    for (const k of cles) {
+      if (sauvegarde[k] === undefined) delete process.env[k];
+      else process.env[k] = sauvegarde[k];
+    }
+  };
+
+  try {
+    // 1. Ni clé ni mode démonstration : aucun verdict.
+    delete process.env.GFW_API_KEY;
+    process.env.GFW_DEMO_MODE = "false";
+    const sansSource = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("sans source ni démo : aucun verdict", sansSource.compliant === null, `compliant=${sansSource.compliant}`);
+    check("sans source ni démo : source unavailable", sansSource.source === "unavailable", sansSource.source);
+    check("sans source ni démo : non probant", sansSource.is_probative === false);
+
+    // 2. Clé présente mais hôte non officiel : aucun verdict, pas d'appel réseau.
+    process.env.GFW_API_KEY = "cle-de-test-non-reelle";
+    process.env.GFW_API_URL = "https://miroir.example.org/api";
+    const miroir = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("hôte non officiel : aucun verdict", miroir.compliant === null, `compliant=${miroir.compliant}`);
+    check("hôte non officiel : source unavailable", miroir.source === "unavailable", miroir.source);
+    check("hôte non officiel : détail nommé", miroir.details.includes("miroir.example.org"));
+
+    // 3. Mode démonstration : résultat simulé, jamais probant, jamais « conforme » établi.
+    delete process.env.GFW_API_KEY;
+    process.env.GFW_DEMO_MODE = "true";
+    const demo = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("démo : source simulée", demo.source === "simulated", demo.source);
+    check("démo : non probante", demo.is_probative === false);
+    check("démo : jamais compliant=true", demo.compliant !== true, `compliant=${demo.compliant}`);
+
+    // 4. Identification de l'hôte officiel.
+    check("hôte officiel reconnu", nommerFournisseur("https://data-api.globalforestwatch.org").officiel === true);
+    check("sous-domaine usurpé refusé", nommerFournisseur("https://data-api.globalforestwatch.org.evil.example").officiel === false);
+    check("chemin trompeur refusé", nommerFournisseur("https://evil.example/data-api.globalforestwatch.org").officiel === false);
+  } finally {
+    restaurer();
+  }
+}
+
+/**
+ * Réponse GFW — parité avec le port Python (`live_check`).
+ * `fetch` est remplacé : aucun appel réseau. Teste la règle « absence de donnée
+ * n'est jamais une conformité » et l'absence de tolérance sur la perte post-2020.
+ */
+async function testReponseGfw(): Promise<void> {
+  section("Réponse GFW — absence de donnée ≠ conformité (parité Python)");
+  const cles = ["GFW_API_KEY", "GFW_API_URL", "GFW_DEMO_MODE"] as const;
+  const sauvegarde: Record<string, string | undefined> = {};
+  for (const k of cles) sauvegarde[k] = process.env[k];
+  const fetchOriginal = globalThis.fetch;
+  const restaurer = () => {
+    for (const k of cles) {
+      if (sauvegarde[k] === undefined) delete process.env[k];
+      else process.env[k] = sauvegarde[k];
+    }
+    globalThis.fetch = fetchOriginal;
+  };
+  const avecReponse = (
+    data: unknown,
+    url = "https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/latest/query/json",
+  ) => {
+    globalThis.fetch = (async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      url,
+      json: async () => ({ data }),
+      text: async () => "",
+    })) as unknown as typeof fetch;
+  };
+
+  try {
+    process.env.GFW_API_KEY = "cle-de-test";
+    delete process.env.GFW_API_URL;
+    process.env.GFW_DEMO_MODE = "false";
+
+    avecReponse([]);
+    const vide = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("réponse vide : aucun verdict", vide.compliant === null, `compliant=${vide.compliant}`);
+    check("réponse vide : non probant", vide.is_probative === false);
+    check("réponse vide : risque pays non évalué (pays ET attribué par frontières)", vide.country_risk === "UNKNOWN" && vide.country_code === "ET");
+
+    avecReponse([{ umd_tree_cover_loss__year: 2015, area__ha: 0.5 }]);
+    const avant = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("perte pré-cutoff seule : conforme probant", avant.compliant === true && avant.is_probative === true);
+    check("analyse satellite n'invente pas le benchmark pays", avant.country_risk === "UNKNOWN" && avant.country_code === "ET");
+
+    avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: 0.4 }]);
+    const apres = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("0,4 ha post-2020 : non conforme (aucune tolérance)", apres.compliant === false && apres.is_probative === true,
+      `compliant=${apres.compliant}`);
+    check("score de confiance non calibré : aucune valeur inventée", avant.confidence_score === null && apres.confidence_score === null);
+    check("empreinte SHA-256 des lignes conservée dans la provenance", /^[a-f0-9]{64}$/.test(avant.evidence?.rows_sha256 ?? ""));
+
+    avecReponse([{ umd_tree_cover_loss__year: null, area__ha: 1 }]);
+    const anneeInvalide = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("année absente : aucun verdict probant", anneeInvalide.source === "unavailable" && anneeInvalide.compliant === null);
+
+    avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: -0.4 }]);
+    const surfaceNegative = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("surface négative : aucun verdict probant", surfaceNegative.source === "unavailable" && surfaceNegative.compliant === null);
+
+    avecReponse({ message: "payload inattendu" });
+    const mauvaisSchema = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("champ data non-tableau : aucun verdict probant", mauvaisSchema.source === "unavailable" && mauvaisSchema.compliant === null);
+
+    avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: 0.1 }],
+      "https://evil.example/dataset/umd_tree_cover_loss/latest/query/json");
+    const redirection = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+    check("redirection vers un hôte non officiel : aucun verdict", redirection.source === "unavailable" && redirection.compliant === null);
+
+    const malformedRows: Array<{ label: string; row: unknown }> = [
+      { label: "année absente", row: { area__ha: 0.4 } },
+      { label: "année nulle", row: { umd_tree_cover_loss__year: null, area__ha: 0.4 } },
+      { label: "année vide", row: { umd_tree_cover_loss__year: "", area__ha: 0.4 } },
+      { label: "année non numérique", row: { umd_tree_cover_loss__year: "inconnue", area__ha: 0.4 } },
+      { label: "année future", row: { umd_tree_cover_loss__year: new Date().getUTCFullYear() + 1, area__ha: 0.4 } },
+      { label: "surface absente", row: { umd_tree_cover_loss__year: 2023 } },
+      { label: "surface nulle", row: { umd_tree_cover_loss__year: 2023, area__ha: null } },
+      { label: "surface vide", row: { umd_tree_cover_loss__year: 2023, area__ha: "" } },
+      { label: "surface négative", row: { umd_tree_cover_loss__year: 2023, area__ha: -0.4 } },
+      { label: "surface infinie", row: { umd_tree_cover_loss__year: 2023, area__ha: "Infinity" } },
+    ];
+    for (const { label, row } of malformedRows) {
+      avecReponse([row]);
+      const result = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+      check(`GFW ${label} : aucun verdict probant`, result.source === "unavailable" && result.compliant === null && result.is_probative === false,
+        `compliant=${result.compliant} · source=${result.source}`);
+      // Une ligne valide ne doit pas masquer une autre ligne malformée.
+      avecReponse([{ umd_tree_cover_loss__year: 2015, area__ha: 0.5 }, row]);
+      const mixed = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
+      check(`GFW mélange valide + ${label} : indisponible`,
+        mixed.source === "unavailable" && mixed.compliant === null && mixed.is_probative === false);
+    }
+  } finally {
+    restaurer();
+  }
+}
+
 
 async function main(): Promise<void> {
   console.log("=" .repeat(70));
@@ -328,6 +504,9 @@ async function main(): Promise<void> {
   testEudrIsGeoJson();
   testFourHectares();
   testDeterministicEngine();
+  testFlattenPreservesPolygonHoles();
+  await testSourceSatellite();
+  await testReponseGfw();
 
   console.log(`\n${passed}/${passed + failures.length} contrôles réussis`);
   if (failures.length) {

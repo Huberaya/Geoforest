@@ -20,10 +20,20 @@ export const GET = guard<{ params: Promise<{ id: string }> }>("dds:read")(async 
   if (!row) return NextResponse.json({ detail: "Audit introuvable" }, { status: 404 });
 
   const validation = row.validation as GeometryValidationResult;
-  const satellite = (row.satellite ?? null) as SatelliteCheckResult | null;
+  const satelliteBrut = (row.satellite ?? null) as SatelliteCheckResult | null;
+  // Les anciens audits peuvent contenir un pays issu d'une boîte englobante.
+  // Neutraliser ces champs à la lecture sans réécrire les données persistées.
+  const satellite: SatelliteCheckResult | null = satelliteBrut ? {
+    ...satelliteBrut,
+    country_code: "XX",
+    country_name: "Non déterminé",
+    country_risk: "UNKNOWN",
+    risk_level: satelliteBrut.compliant === false ? "HIGH" : "UNKNOWN",
+    details: satelliteBrut.details.includes("benchmark UE") || satelliteBrut.details.includes("Pays déduit des coordonnées")
+      ? "Classification du pays et benchmark officiel indisponibles."
+      : satelliteBrut.details,
+  } : null;
   const status = row.status as AuditStatus;
-  const confidence =
-    row.confidenceScore === null ? null : `${Math.round(row.confidenceScore * 100)} % de confiance`;
   const summary =
     status === "INVALID_GEOMETRY"
       ? `Dossier rejeté : ${validation.errors?.[0]?.message ?? "géométrie invalide"}`
@@ -32,8 +42,8 @@ export const GET = guard<{ params: Promise<{ id: string }> }>("dds:read")(async 
         : status === "SIMULATED_NON_PROBATIVE"
           ? `Résultat simulé, non probant : aucune donnée satellite n'a été consultée. Ce dossier ne peut pas servir de preuve de conformité (parcelle de ${row.areaHa.toFixed(2)} ha).`
           : status === "NON_COMPLIANT"
-            ? `NON CONFORME EUDR : déforestation détectée en ${row.lossYear} (après le 31/12/2020) sur une parcelle de ${row.areaHa.toFixed(2)} ha${confidence ? `, ${confidence}` : ""}.`
-            : `CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${row.areaHa.toFixed(2)} ha, risque ${row.riskLevel}${confidence ? `, ${confidence}` : ""}).`;
+            ? `ALERTE : perte de couvert post-2020 détectée en ${row.lossYear} sur une parcelle de ${row.areaHa.toFixed(2)} ha. Ce signal requiert une revue humaine ; il ne détermine pas à lui seul la cause ni la qualification juridique de déforestation.`
+            : `Aucune perte de couvert post-2020 détectée par l'analyse satellite (parcelle de ${row.areaHa.toFixed(2)} ha, risque non évalué). Ce résultat ne suffit pas, à lui seul, à établir la conformité EUDR complète.`;
 
   const response = {
     audit_id: row.id,

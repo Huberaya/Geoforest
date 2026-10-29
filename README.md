@@ -5,7 +5,7 @@ post-31/12/2020 (Hansen / Global Forest Watch) et export du dossier DDS au forma
 
 ```
 geoforest-trace/
-├── docker-compose.yml            # postgres + backend FastAPI + frontend Next.js
+├── docker-compose.yml            # postgres + frontend Next.js (le service FastAPI est retiré du déploiement)
 ├── Dockerfile                    # image du frontend (Next.js)
 ├── backend/                      # API FastAPI (Python 3.11)
 │   ├── Dockerfile
@@ -24,15 +24,32 @@ geoforest-trace/
     └── db/              schema.ts (Drizzle / PostgreSQL)
 ```
 
-## Démarrage en une commande
+## Démarrage local
+
+⚠️ **Le compose ne migre rien.** Démarrer l'application avant la migration
+donne un service qui refuse de servir : c'est voulu (aucun schéma implicite,
+aucune donnée réputée valide sans elle).
 
 ```bash
-docker-compose up --build
-# Frontend : http://localhost:3000   —   Backend FastAPI : http://localhost:8000/docs
+# 1. base
+docker compose up -d db
+
+# 2. schéma, RLS et invariants (drizzle 0000–0009 puis scripts de sûreté 010–025)
+DATABASE_URL_ADMIN="postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/app_db" npm run db:migrate
+
+# 3. mot de passe du rôle applicatif (créé sans mot de passe par la migration)
+docker compose exec db psql -U postgres -d app_db \
+  -c "alter role geoforest_app login password '${GF_APP_DB_PASSWORD}'"
+
+# 4. application — http://localhost:3000 (le service FastAPI n'est plus déployé)
+docker compose up --build
 ```
 
+La migration doit précéder tout déploiement : voir `docs/DEPLOYMENT_VERCEL.md`
+§3 bis pour l'ordre complet, la sauvegarde et le retour arrière.
+
 Le dashboard utilise par défaut les routes API Next.js intégrées (`/api/v1/...`, persistance PostgreSQL via Drizzle).
-Pour brancher le dashboard sur le backend FastAPI : `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+Le navigateur n'appelle jamais de service externe : toutes les requêtes passent par les routes Next.js.
 
 ## Règles EUDR implémentées (identiques en Python et TypeScript)
 
@@ -48,17 +65,23 @@ Pour brancher le dashboard sur le backend FastAPI : `NEXT_PUBLIC_API_URL=http://
 ## Données satellite
 
 - **Live** : renseignez `GFW_API_KEY` → requête `umd_tree_cover_loss` sur la GFW Data API.
-- **Hors-ligne** (défaut, tests) : moteur déterministe basé sur des hotspots documentés
-  (Pará 2022, Riau 2021, Kalimantan 2024, Taï 2023, Mato Grosso 2019…) et un hash stable du centroïde.
-  Une propriété `properties.simulated_loss_year` sur une Feature force une année de perte (démonstrations).
+- **Hors-ligne** : sans `GFW_API_KEY` et sans `GFW_DEMO_MODE=true`, **aucun verdict n'est émis**
+  (statut `ANALYSIS_UNAVAILABLE`). Le mode démonstration produit une simulation **non probante**
+  (`SIMULATED_NON_PROBATIVE`), jamais « conforme ».
+- Une propriété de Feature (ex. `simulated_loss_year`) **n'influence plus jamais le verdict** : le
+  fichier déposé ne peut pas dicter sa propre conformité (cf. docs/PRODUCTION_READINESS_REPORT.md).
 
 ## Tests
 
 ```bash
-cd backend && pip install -r requirements.txt && pytest -q     # 26 tests : conforme, non conforme 2022, formats invalides, multi-parcelles, export TRACES
+cd backend && pip install -r requirements.txt && pytest -q     # 63 réussis, 3 xfail (moteur géospatial non livré)
 ```
 
 ## Endpoints
+
+**Le service FastAPI n'est plus déployé** (chantier 2, « B-8 ») : son code reste dans `backend/` pour référence.
+Il n'a aucune notion d'organisation : il ne doit pas être réexposé sans un modèle de cloisonnement.
+Les routes décrites ci-dessous ne sont donc plus servies par l'application.
 
 - `POST /api/v1/audit/parcel` — `{ geojson, commodity, harvest_date, operator?, declared_area_ha? }` → audit complet.
 - `POST /api/v1/export/traces` — `{ audit_id, format: "xml"|"json", operator?, net_weight_kg? }` → fichier DDS.

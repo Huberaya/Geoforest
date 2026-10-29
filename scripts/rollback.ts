@@ -14,6 +14,16 @@
  * migration descendante n'a été écrite, la commande **refuse** : une descente
  * manquante ne doit pas être prise pour une descente sans effet.
  *
+ * État mesuré (0000 → 0010) : chaque migration montante a sa descente ; la
+ * chaîne 0010 → 0005 a été déroulée puis remontée sur une base neuve
+ * (PostgreSQL 16.2), et les descentes 0005, 0008, 0009 et 0010 **refusent**
+ * sur une base peuplée dès qu'elles détruiraient une information (journal
+ * scellé, comptes rattachés, dossiers sans identité, produits sans pays).
+ * Les scripts `scripts/sql/post-migrate/010…025` n'ont pas de descente : ce
+ * ne sont pas des migrations mais des gardes idempotentes (RLS, append-only,
+ * révocations) rejouées à chaque `db:migrate` ; les retirer n'est jamais un
+ * « retour arrière », c'est un abaissement de sécurité, qui se décide à part.
+ *
  * Une migration descendante n'est pas une sauvegarde : elle supprime des
  * données. En production, le retour arrière est d'abord une restauration, la
  * descente ne faisant que remettre le schéma en cohérence avec le code

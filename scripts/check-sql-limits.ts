@@ -45,7 +45,7 @@ async function main(): Promise<number> {
 
   const pool = new Pool({
     connectionString:
-      process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/app_db",
+      process.env.DATABASE_URL ?? (() => { throw new Error("DATABASE_URL requis (aucun identifiant par défaut)"); })(),
     connectionTimeoutMillis: SQL_CONNECTION_TIMEOUT_MS,
     statement_timeout: SQL_STATEMENT_TIMEOUT_MS,
     idle_in_transaction_session_timeout: SQL_IDLE_IN_TRANSACTION_TIMEOUT_MS,

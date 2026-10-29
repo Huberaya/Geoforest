@@ -145,15 +145,73 @@ export function reinitialiserCadence(): void {
 /**
  * Adresse IP du client.
  *
- * ⚠️ `X-Forwarded-For` est un en-tête que le client peut forger si aucun
- * mandataire ne le réécrit. Il ne vaut que parce que le déploiement passe
- * derrière un répartiteur qui l'écrase — à vérifier à la mise en service.
+ * ⚠️ `X-Forwarded-For` se lit **par la droite**, jamais par la gauche.
+ *
+ *   Un mandataire ajoute l'adresse du pair qui l'a contacté à la fin de
+ *   l'en-tête. La première entrée est donc, dans le meilleur des cas, celle
+ *   fournie par le client — et dans le pire, celle qu'un attaquant a inventée
+ *   pour changer de compartiment à chaque requête. Lire la première entrée
+ *   revient à laisser le client choisir son propre quota.
+ *
+ *   `GF_TRUSTED_PROXY_HOPS` déclare le nombre de mandataires de confiance
+ *   devant l'application (1 par défaut : le répartiteur de l'hébergeur). On
+ *   remonte de ce nombre d'entrées depuis la droite pour retrouver l'adresse
+ *   du client. Une valeur trop basse fait compter l'adresse d'un mandataire
+ *   (tout le monde partage alors le même quota) ; une valeur trop haute
+ *   laisse la main au client. Ce réglage est donc un fait de déploiement, pas
+ *   une préférence : il doit être ajusté en connaissance du nombre de proxys
+ *   qui réécrivent réellement l'en-tête.
+ *
+ *   `X-Real-IP` n'est utilisé qu'en l'absence d'`X-Forwarded-For` : c'est un
+ *   en-tête qu'aucun pair ne chaîne, donc plus facile à forger quand il n'est
+ *   pas posé par le mandataire lui-même.
  */
+const IPV4 = /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/;
+const IPV6 = /^[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}$/i;
+
+/** Nombre de mandataires de confiance, borné à une valeur raisonnable. */
+function nombreDeSautsDeConfiance(): number {
+  const brut = process.env.GF_TRUSTED_PROXY_HOPS;
+  if (brut === undefined || brut.trim() === "") return 1;
+  const n = Number(brut);
+  return Number.isInteger(n) && n >= 0 && n <= 10 ? n : 1;
+}
+
+/** Retire un éventuel port et les crochets d'une adresse IPv6. */
+function normaliserAdresse(valeur: string): string | null {
+  let v = valeur.trim();
+  if (!v) return null;
+
+  if (v.startsWith("[")) {
+    const fin = v.indexOf("]");
+    if (fin === -1) return null;
+    v = v.slice(1, fin);
+  } else if (/^(?:\d{1,3}\.){3}\d{1,3}:\d+$/.test(v)) {
+    // « 203.0.113.7:4431 » — un port n'est jamais ajouté par un répartiteur
+    // conforme, mais certains le font ; on ne le prend pas pour une IP.
+    v = v.slice(0, v.lastIndexOf(":"));
+  }
+
+  if (IPV4.test(v) || (v.includes(":") && IPV6.test(v))) return v.toLowerCase();
+  return null;
+}
+
 export function adresseClient(headers: Headers): string {
   const xff = headers.get("x-forwarded-for");
   if (xff) {
-    const premiere = xff.split(",")[0]?.trim();
-    if (premiere) return premiere;
+    const parties = xff
+      .split(",")
+      .map((p) => normaliserAdresse(p))
+      .filter((p): p is string => p !== null);
+    if (parties.length > 0) {
+      // `sauts = 1` ⇒ l'adresse du client est la dernière entrée ; `sauts = 2`
+      // ⇒ l'avant-dernière, etc. La borne basse protège contre un réglage
+      // supérieur au nombre d'entrées réellement présentes.
+      const sauts = nombreDeSautsDeConfiance();
+      const index = Math.min(parties.length - 1, Math.max(0, parties.length - sauts));
+      return parties[index];
+    }
   }
-  return headers.get("x-real-ip")?.trim() || "inconnue";
+  const reelle = headers.get("x-real-ip");
+  return (reelle && normaliserAdresse(reelle)) || "inconnue";
 }

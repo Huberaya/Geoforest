@@ -1,4 +1,5 @@
 import { documentVersions, documents } from "@/db/schema";
+import { journal } from "@/lib/observability/journal";
 import { stockageCourant } from "@/lib/storage";
 import { verifierUrlSignee } from "@/lib/storage/url-signee";
 import { logAction } from "@/lib/api/audit-log";
@@ -100,9 +101,18 @@ export const GET = guard<{ params: Promise<{ id: string }> }>("document:read")(a
   const contenu = await stockageCourant().lire(piece.storageKey);
   if (!contenu) {
     // ⚠️ Ne pas masquer : une pièce déclarée en base mais absente du support
-    // est un incident d'exploitation, pas un « document introuvable ».
+    //   est un incident d'exploitation, pas un « document introuvable ».
+    //   En revanche, la clé de stockage reste dans le journal : la rendre au
+    //   client exposait l'arborescence interne du support pour un incident qui
+    //   ne lui apprend rien d'utile. Le `requestId` de la réponse suffit à
+    //   relier son signalement à la ligne de journal.
+    journal.error("stockage.piece_absente", {
+      documentId: doc.id,
+      version: piece.version,
+      storageKey: piece.storageKey,
+    });
     return NextResponse.json(
-      { detail: "La pièce est déclarée mais introuvable sur le support : incident à traiter.", storageKey: piece.storageKey },
+      { detail: "La pièce est déclarée mais introuvable sur le support : incident à traiter." },
       { status: 500 },
     );
   }

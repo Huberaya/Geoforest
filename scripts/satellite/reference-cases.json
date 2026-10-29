@@ -1,0 +1,97 @@
+{
+  "_avertissement": "Jeu de validation satellite. Les géométries C et D sont FICTIVES, uniquement pour tester le format et l'indisponibilité : ce ne sont pas des parcelles réelles. Les géométries A, B et E doivent être fournies par l'expert AVANT l'exécution, avec leur résultat attendu pré-enregistré (expected_before_run). Ne pas renseigner un résultat attendu après avoir vu la réponse GFW.",
+  "cases": [
+    {
+      "id": "A",
+      "label": "Parcelle conforme : aucune perte après le cutoff (31/12/2020)",
+      "geometry": null,
+      "expected": "COMPLIANT",
+      "expected_before_run": null,
+      "note": "Géométrie réelle et perte attendue à fournir par l'expert (source : jeu GFW, vérité terrain documentée)."
+    },
+    {
+      "id": "B",
+      "label": "Parcelle déforestée après le cutoff : perte connue",
+      "geometry": null,
+      "expected": "NON_COMPLIANT",
+      "expected_before_run": null,
+      "note": "Géométrie réelle et année de perte connue à fournir par l'expert."
+    },
+    {
+      "id": "C",
+      "label": "Géométrie invalide (polygone auto-intersecté, format uniquement)",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -5.503417,
+              5.301289
+            ],
+            [
+              -5.493652,
+              5.311764
+            ],
+            [
+              -5.493652,
+              5.301289
+            ],
+            [
+              -5.503417,
+              5.311764
+            ],
+            [
+              -5.503417,
+              5.301289
+            ]
+          ]
+        ]
+      },
+      "expected": "REJECTED",
+      "expected_before_run": "REJECTED",
+      "note": "Fictive. Attendu : rejet par le validateur GIS, aucun appel satellite."
+    },
+    {
+      "id": "D",
+      "label": "API satellite indisponible (clé factice, hôte officiel injoignable ou refusant la clé)",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -5.503417,
+              5.301289
+            ],
+            [
+              -5.493652,
+              5.301289
+            ],
+            [
+              -5.493652,
+              5.311764
+            ],
+            [
+              -5.503417,
+              5.311764
+            ],
+            [
+              -5.503417,
+              5.301289
+            ]
+          ]
+        ]
+      },
+      "expected": "UNAVAILABLE",
+      "expected_before_run": "UNAVAILABLE",
+      "note": "Fictive. Attendu : ANALYSIS_UNAVAILABLE, jamais COMPLIANT."
+    },
+    {
+      "id": "E",
+      "label": "Données insuffisantes : réponse GFW vide",
+      "geometry": null,
+      "expected": "NO_VERDICT",
+      "expected_before_run": "NO_VERDICT",
+      "note": "Géométrie à fournir par l'expert (zone couverte ou non selon le dataset). Attendu : aucun verdict de conformité."
+    }
+  ]
+}

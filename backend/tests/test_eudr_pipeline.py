@@ -40,9 +40,19 @@ def _fresh_db() -> None:
     reset_db_for_tests(":memory:")
 
 
+# P0 (recette 2026-10-08) : les routes API exigent un jeton. Le client de test
+# porte le jeton de test ; un appel anonyme est testé séparément (test_backend_auth).
+JETON_DE_TEST = "jeton-de-test-pipeline-" + "x" * 24
+
+
+@pytest.fixture(autouse=True)
+def _jeton_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON_DE_TEST)
+
+
 @pytest.fixture()
 def client() -> TestClient:
-    return TestClient(app)
+    return TestClient(app, headers={"Authorization": f"Bearer {JETON_DE_TEST}"})
 
 
 @pytest.fixture()
@@ -65,7 +75,9 @@ def gfw_live(monkeypatch: pytest.MonkeyPatch):
     object.__setattr__(settings, "gfw_live_enabled", True)
     object.__setattr__(settings, "gfw_api_key", "cle-de-test")
 
-    stub_rows: List[Dict[str, Any]] = []
+    # Réponse non vide : une perte observée AVANT le cutoff (2015). Une réponse
+    # vide n'est plus un verdict « conforme » (absence de perte ≠ absence de donnée).
+    stub_rows: List[Dict[str, Any]] = [{"umd_tree_cover_loss__year": 2015, "area__ha": 0.5}]
 
     def fake_query(geometry: Dict[str, Any]):
         rows = list(stub_rows)
@@ -212,7 +224,12 @@ class TestNonCompliantParcel:
         assert sat["compliant"] is None, "un moteur simulé ne rend pas de verdict"
         assert sat["loss_year"] == 2022
         assert sat["confidence_score"] is None
+        # P2-16 : le pays est attribué par frontières réelles (Pará → BR), le
+        # benchmark de risque pays reste inconnu : ce sont deux choses distinctes.
         assert sat["country_code"] == "BR"
+        assert sat["country_attribution"] == "natural-earth-50m"
+        assert sat["country_risk"] == "UNKNOWN"
+        assert sat["risk_level"] == "HIGH", "la simulation conserve le signal de perte, sans en faire une preuve"
         assert "non probant" in sat["disclaimer"]
 
     def test_simulated_loss_year_property_is_ignored(self) -> None:
@@ -307,6 +324,26 @@ class TestInvalidGeometry:
         assert result["valid"] is False
         assert result["errors"][0]["code"] == "UNSUPPORTED_GEOMETRY_TYPE"
 
+    @pytest.mark.parametrize("geojson", [
+        {"type": "Feature", "geometry": []},
+        {"type": "GeometryCollection", "geometries": [None]},
+        {"type": "GeometryCollection", "geometries": [[]]},
+        {"type": "GeometryCollection", "geometries": [{"type": "Point"}]},
+    ])
+    def test_malformed_feature_and_geometry_collection_fail_closed(self, geojson: Dict[str, Any]) -> None:
+        result = validate_geometry(geojson)
+        assert result["valid"] is False
+        assert result["normalized_geometry"] is None
+        assert result["errors"]
+
+    def test_feature_with_malformed_properties_does_not_break_geometry_validation(self) -> None:
+        result = validate_geometry({"type": "Feature", "properties": [], "geometry": COMPLIANT_POLYGON})
+        assert result["valid"] is True
+        # The validator's public contract returns normalized geometry, not a
+        # Feature wrapper; malformed properties must not leak into that output.
+        assert result["normalized_geometry"]["type"] == "Polygon"
+        assert "properties" not in result["normalized_geometry"]
+
     def test_api_returns_invalid_geometry_status(self, client: TestClient) -> None:
         response = client.post("/api/v1/audit/parcel", json=_audit_payload(SELF_INTERSECTING_POLYGON))
         assert response.status_code == 201
@@ -372,15 +409,16 @@ class TestTracesExport:
         status_el = root.find(".//{https://geoforest-trace.eu/schema/verification/v1}status")
         assert status_el is not None and status_el.text == "VERIFIED_COMPLIANT"
 
-    def test_json_export_non_compliant_flagged(self, client: TestClient, gfw_live) -> None:
+    def test_export_non_compliant_bloque(self, client: TestClient, gfw_live) -> None:
+        # P0 (recette 2026-10-08) : la politique a changé. Une parcelle probante
+        # déforestée après 2020 n'a plus d'export « signalé » : l'export est BLOQUÉ
+        # (409), car un brouillon de déclaration ne doit pas circuler pour une
+        # marchandise non conforme. L'ancien test attendait un 200 avec drapeau.
         gfw_live.append({"umd_tree_cover_loss__year": 2022, "area__ha": 0.9})
         audit_id = self._create_audit(client, DEFORESTED_POLYGON, commodity="cocoa")
         response = client.post("/api/v1/export/traces", json={"audit_id": audit_id, "format": "json"})
-        assert response.status_code == 200
-        body = response.json()
-        assert body["statement"]["commodities"][0]["hs_heading"] == "1801"
-        assert body["verification"]["status"] == "VERIFIED_NON_COMPLIANT"
-        assert body["verification"]["loss_year"] == 2022
+        assert response.status_code == 409
+        assert "post-2020" in response.json()["detail"]
 
     def test_export_refused_for_invalid_geometry(self, client: TestClient) -> None:
         audit_id = self._create_audit(client, SELF_INTERSECTING_POLYGON)
@@ -569,7 +607,7 @@ class TestProvenanceP004:
         assert sat["disclaimer"] is None
         assert sat["evidence"]["dataset_version"] == "v1.13"
         assert sat["evidence"]["dataset"] == settings.gfw_dataset
-        assert sat["confidence_score"] is not None
+        assert sat["confidence_score"] is None, "un score non calibré ne doit pas être publié"
 
     def test_la_provenance_est_conservee_avec_l_audit(self, client: TestClient, gfw_live) -> None:
         response = client.post("/api/v1/audit/parcel", json=_audit_payload(COMPLIANT_POLYGON))
@@ -578,3 +616,100 @@ class TestProvenanceP004:
         assert record.analysis_source == "gfw-live"
         assert record.analysis_probative is True
         assert record.analysis_evidence["dataset_version"] == "v1.13"
+
+
+# --------------------------------------------------------------------------- Chantier A — fail-closed sur les réponses GFW mal formées
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": -0.1}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": float("nan")}],
+        [{"umd_tree_cover_loss__year": 2999, "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": "2022.5", "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": True, "area__ha": 0.0}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": True}],
+        [{"umd_tree_cover_loss__year": 2022, "area__ha": None}],
+        ["ligne-invalide"],
+    ],
+)
+def test_reponse_gfw_mal_formee_ne_peut_jamais_produire_un_verdict(
+    rows, gfw_live, monkeypatch
+) -> None:
+    """Toute donnée fournisseur incohérente doit devenir indisponible, jamais conforme."""
+    monkeypatch.setattr(
+        satellite_checker,
+        "_gfw_query",
+        lambda geometry: (
+            rows,
+            {
+                "provider": "Global Forest Watch (World Resources Institute)",
+                "dataset": settings.gfw_dataset,
+                "dataset_version": "v1.13",
+                "endpoint": settings.gfw_api_url,
+                "sql": satellite_checker.GFW_SQL,
+                "geometry_type": geometry.get("type", "Unknown"),
+                "retrieved_at": "2026-10-19T00:00:00+00:00",
+            },
+        ),
+    )
+    result = check_deforestation_risk(COMPLIANT_POLYGON, "2024-06-01")
+    assert result["source"] == "unavailable"
+    assert result["is_probative"] is False
+    assert result["compliant"] is None
+    assert result["evidence"] is None
+    assert "Réponse GFW invalide" in result["details"]
+
+
+def test_annee_gfw_entier_en_chaine_est_normalisee_comme_typescript(monkeypatch, gfw_live) -> None:
+    monkeypatch.setattr(
+        satellite_checker,
+        "_gfw_query",
+        lambda geometry: (
+            [{"umd_tree_cover_loss__year": "2022.0", "area__ha": "0.25"}],
+            {
+                "provider": "Global Forest Watch (World Resources Institute)",
+                "dataset": settings.gfw_dataset,
+                "dataset_version": "v1.13",
+                "endpoint": settings.gfw_api_url,
+                "sql": satellite_checker.GFW_SQL,
+                "geometry_type": geometry.get("type", "Unknown"),
+                "retrieved_at": "2026-10-19T00:00:00+00:00",
+            },
+        ),
+    )
+    result = check_deforestation_risk(COMPLIANT_POLYGON, "2024-06-01")
+    assert result["source"] == "gfw-live"
+    assert result["compliant"] is False
+    assert result["loss_year"] == 2022
+    assert result["loss_area_ha"] == 0.25
+
+
+# Chantier A — une FeatureCollection partiellement invalide ne doit pas être analysée en sous-ensemble
+@pytest.mark.parametrize(
+    "invalid_feature",
+    [
+        None,
+        "feature-invalide",
+        {"type": "Feature", "properties": {}, "geometry": None},
+        {"type": "Feature", "properties": {}, "geometry": []},
+        {"type": "Point", "coordinates": [38.201234, 6.161234]},
+    ],
+)
+def test_feature_collection_invalide_est_rejetee_sans_ignorer_une_parcelle(
+    invalid_feature: Any,
+) -> None:
+    """Un élément invalide ne doit pas être ignoré si d'autres parcelles sont valides."""
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {},
+                "geometry": {"type": "Point", "coordinates": [38.201234, 6.161234]},
+            },
+            invalid_feature,
+        ],
+    }
+    result = validate_geometry(geojson, declared_area_ha=1.0)
+    assert result["valid"] is False
+    assert any(issue["code"] in {"INVALID_FEATURE", "MISSING_GEOMETRY"} for issue in result["errors"])

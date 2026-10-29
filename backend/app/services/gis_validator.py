@@ -41,7 +41,10 @@ def _iter_positions(coords: Any) -> Iterable[Tuple[float, float]]:
     """Itère récursivement sur toutes les positions [lon, lat] d'un tableau GeoJSON."""
     if not isinstance(coords, (list, tuple)):
         return
-    if len(coords) >= 2 and all(isinstance(c, (int, float)) for c in coords[:2]):
+    if len(coords) in (2, 3) and all(
+        isinstance(c, (int, float)) and not isinstance(c, bool) and math.isfinite(float(c))
+        for c in coords
+    ):
         yield float(coords[0]), float(coords[1])
         return
     for item in coords:
@@ -127,34 +130,43 @@ def _collect_plot_items(geojson: Dict[str, Any]) -> List[SinglePlotItem]:
 
     gtype = geojson.get("type")
     if gtype == "FeatureCollection":
-        features = geojson.get("features") or []
-        if not features:
-            raise GeometryExtractionError("EMPTY_COLLECTION", "FeatureCollection vide")
+        features = geojson.get("features")
+        if not isinstance(features, list) or not features:
+            raise GeometryExtractionError("EMPTY_COLLECTION", "FeatureCollection vide ou invalide")
         items: List[SinglePlotItem] = []
         for idx, feat in enumerate(features):
-            if isinstance(feat, dict) and feat.get("geometry"):
-                items.append(
-                    SinglePlotItem(
-                        geometry=feat["geometry"],
-                        properties=feat.get("properties") or {},
-                        feature_index=idx,
-                    )
+            if not isinstance(feat, dict):
+                raise GeometryExtractionError("INVALID_FEATURE", f"Feature #{idx + 1} invalide dans la FeatureCollection")
+            geom = feat.get("geometry")
+            if feat.get("type") != "Feature" or not isinstance(geom, dict):
+                raise GeometryExtractionError("MISSING_GEOMETRY", f"Feature #{idx + 1} sans géométrie GeoJSON valide")
+            properties = feat.get("properties")
+            items.append(
+                SinglePlotItem(
+                    geometry=geom,
+                    properties=properties if isinstance(properties, dict) else {},
+                    feature_index=idx,
                 )
-        if not items:
-            raise GeometryExtractionError("EMPTY_COLLECTION", "Aucune géométrie dans la FeatureCollection")
+            )
         return items
 
     if gtype == "Feature":
         geom = geojson.get("geometry")
-        if not geom:
-            raise GeometryExtractionError("MISSING_GEOMETRY", "Feature sans géométrie")
-        return [SinglePlotItem(geometry=geom, properties=geojson.get("properties") or {}, feature_index=0)]
+        if not isinstance(geom, dict) or not isinstance(geom.get("type"), str):
+            raise GeometryExtractionError("MISSING_GEOMETRY", "Feature sans géométrie GeoJSON valide")
+        properties = geojson.get("properties")
+        return [SinglePlotItem(geometry=geom, properties=properties if isinstance(properties, dict) else {}, feature_index=0)]
 
     if gtype == "GeometryCollection":
-        geoms = geojson.get("geometries") or []
-        if not geoms:
-            raise GeometryExtractionError("EMPTY_COLLECTION", "GeometryCollection vide")
-        return [SinglePlotItem(geometry=g, properties={}, feature_index=idx) for idx, g in enumerate(geoms)]
+        geoms = geojson.get("geometries")
+        if not isinstance(geoms, list) or not geoms:
+            raise GeometryExtractionError("EMPTY_COLLECTION", "GeometryCollection vide ou invalide")
+        items: List[SinglePlotItem] = []
+        for idx, geom in enumerate(geoms):
+            if not isinstance(geom, dict) or not isinstance(geom.get("type"), str):
+                raise GeometryExtractionError("INVALID_GEOMETRY", f"Géométrie #{idx + 1} invalide dans la GeometryCollection")
+            items.append(SinglePlotItem(geometry=geom, properties={}, feature_index=idx))
+        return items
 
     return [SinglePlotItem(geometry=geojson, properties={}, feature_index=0)]
 

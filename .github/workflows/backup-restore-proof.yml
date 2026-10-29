@@ -1,0 +1,63 @@
+name: Preuve de restauration PostgreSQL (Neon jetable)
+
+on:
+  push:
+    branches:
+      - "arena/geoforest-backup-restore-proof-2026-10-21"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geoforest-restore-proof-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  restore-proof:
+    name: Sauvegarde puis restauration vérifiée
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      NEON_PARENT_BRANCH_ID: ${{ secrets.NEON_PARENT_BRANCH_ID }}
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances verrouillées
+        run: npm ci
+
+      - name: Créer une branche Neon éphémère
+        run: npx tsx scripts/ci/neon-branche.ts creer
+
+      - name: Appliquer les migrations sur la branche éphémère
+        run: npm run db:migrate
+
+      - name: Configurer le rôle applicatif sur la branche éphémère
+        run: npx tsx scripts/ci/neon-branche.ts role-app
+
+      - name: Préparer les données de test
+        run: npm run seed:auth -- --reset
+
+      - name: Sauvegarder, restaurer et comparer avec le client PostgreSQL 18
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            --env DATABASE_URL_ADMIN \
+            --env GITHUB_RUN_ID \
+            --env GITHUB_RUN_ATTEMPT \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            postgres:18-bookworm \
+            bash scripts/ci/verifier-restauration.sh
+
+      - name: Supprimer la branche Neon éphémère
+        if: always()
+        run: npx tsx scripts/ci/neon-branche.ts supprimer
