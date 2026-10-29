@@ -190,6 +190,11 @@ jobs:
       - name: Cross-tenant HTTP controls
         run: npm run test:cross-tenant
 
+      # La preuve RLS en base doit suivre le parcours HTTP qui crée des lignes
+      # dans les deux organisations ; elle échoue volontairement si elle est vacueuse.
+      - name: Cross-tenant database RLS controls
+        run: npm run test:cross-tenant:rls
+
       - name: Reset demo accounts before HTTP controls (test branch only)
         run: npm run seed:auth -- --reset
 
@@ -203,6 +208,20 @@ jobs:
 
       - name: Supplier journey HTTP controls
         run: npm run test:fournisseur:http
+
+      # Suites HTTP historiques maintenues hors CI jusqu'ici : elles tournent
+      # uniquement sur la branche Neon éphémère, avec comptes réinitialisés.
+      - name: Reset demo accounts before DDS state-machine controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: DDS state-machine HTTP controls
+        run: npm run test:dds-etats:http
+
+      - name: Reset demo accounts before evidence-pack controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Evidence-pack HTTP controls
+        run: npm run test:evidence:http
 
       - name: Stop production server
         if: always()
