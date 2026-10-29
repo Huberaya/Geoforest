@@ -33,13 +33,60 @@ logger = logging.getLogger(__name__)
 RiskLevel = str  # "LOW" | "STANDARD" | "HIGH" | "CRITICAL" | "UNKNOWN"
 
 
-# --------------------------------------------------------------------------- Risque pays
-# Aucune classification administrative ou benchmark EUDR officiel n'est intégré.
-# Une boîte englobante ne permet pas d'identifier le pays d'une parcelle fiable :
-# chevauchement de frontières et territoires voisins créeraient une fausse précision.
+# --------------------------------------------------------------------------- Pays et risque pays
+# P2-16 — deux questions distinctes :
+#   1. le pays du point est résolu par point-dans-polygone sur les frontières
+#      Natural Earth 1:50m versionnées dans data/frontieres/ (parité stricte avec
+#      src/lib/eudr/frontieres.ts, même fichier, même algorithme). Hors couverture
+#      ou frontière contestée : "XX", sans substitution d'un voisin ;
+#   2. le benchmark de risque EUDR du pays n'est PAS intégré (aucune liste
+#      officielle versionnée) : il reste "UNKNOWN". Résoudre le pays ne rend pas
+#      une table interne exacte, et un risque inventé est une fausse preuve.
+LIMITE_ATTRIBUTION_PAYS = (
+    "Pays attribué par frontières Natural Earth 1:50m (world-atlas 2.0.2, versionné avec "
+    "provenance) : généralisation régionale, un point à quelques centaines de mètres d'une "
+    "frontière peut être mal attribué ; un point hors couverture est rendu « XX » sans "
+    "substitution. Le benchmark de risque pays reste inconnu : aucune classification "
+    "officielle versionnée n'est intégrée."
+)
+
+
+def resolve_country_detail(lon: float, lat: float) -> Dict[str, Any]:
+    """Attribution complète : iso2, nom, candidats, ambiguïté, méthode, risque UNKNOWN.
+
+    Si le référentiel de frontières est absent ou illisible, la méthode vaut
+    ``unavailable`` et le pays ``XX`` : jamais une méthode approximative en repli.
+    """
+    from app.services.frontieres import FrontieresIndisponibles, resoudre_pays
+
+    try:
+        r = resoudre_pays(lon, lat)
+    except FrontieresIndisponibles as exc:
+        logger.warning("Référentiel de frontières indisponible : %s", exc)
+        return {
+            "iso2": "XX",
+            "name": "Non déterminé",
+            "ambiguous": False,
+            "candidates": [],
+            "method": "unavailable",
+            "risk": "UNKNOWN",
+        }
+    return {**r, "risk": "UNKNOWN"}
+
+
 def resolve_country(lon: float, lat: float) -> Tuple[str, str, RiskLevel]:
-    """Ne déduit jamais un pays à partir d'un rectangle géographique approximatif."""
-    return "XX", "Non déterminé", "UNKNOWN"
+    """Compatibilité : (iso2, nom, risque). Le risque est toujours UNKNOWN."""
+    d = resolve_country_detail(lon, lat)
+    return d["iso2"], d["name"], d["risk"]
+
+
+def _attribution_pays(detail: Dict[str, Any]) -> Dict[str, Any]:
+    """Champs d'attribution du pays joints à chaque résultat d'analyse."""
+    return {
+        "country_attribution": detail["method"],
+        "country_candidates": list(detail["candidates"]),
+        "country_ambiguous": bool(detail["ambiguous"]),
+    }
 
 
 # --------------------------------------------------------------------------- Hotspots déterministes
@@ -107,7 +154,8 @@ def _analysis_polygon(geom: BaseGeometry) -> Dict[str, Any]:
 def deterministic_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     centroid = geom.centroid
     lon, lat = centroid.x, centroid.y
-    iso2, country_name, country_risk = resolve_country(lon, lat)
+    pays = resolve_country_detail(lon, lat)
+    iso2, country_name, country_risk = pays["iso2"], pays["name"], pays["risk"]
     seed = f"{round(lon, 4)}:{round(lat, 4)}"
     jitter = _stable_fraction(seed)
 
@@ -170,6 +218,7 @@ def deterministic_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any
         "country_code": iso2,
         "country_name": country_name,
         "country_risk": country_risk,
+        **_attribution_pays(pays),
         "source": "simulated",
         "is_probative": False,
         "evidence": None,
@@ -282,7 +331,8 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
             "réponse GFW vide : absence de perte et absence de donnée ne sont pas distinguables ; aucun verdict de conformité",
         )
     centroid = geom.centroid
-    iso2, country_name, country_risk = resolve_country(centroid.x, centroid.y)
+    pays = resolve_country_detail(centroid.x, centroid.y)
+    iso2, country_name, country_risk = pays["iso2"], pays["name"], pays["risk"]
 
     from app.services.gis_validator import geodesic_area_ha
 
@@ -310,6 +360,7 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
             "country_code": iso2,
             "country_name": country_name,
             "country_risk": country_risk,
+            **_attribution_pays(pays),
             "source": "gfw-live",
             "is_probative": True,
             "evidence": evidence,
@@ -331,6 +382,7 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
         "country_code": iso2,
         "country_name": country_name,
         "country_risk": country_risk,
+        **_attribution_pays(pays),
         "source": "gfw-live",
         "is_probative": True,
         "evidence": evidence,
@@ -353,7 +405,8 @@ def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
     remplace par une estimation.
     """
     centroid = geom.centroid
-    iso2, country_name, country_risk = resolve_country(centroid.x, centroid.y)
+    pays = resolve_country_detail(centroid.x, centroid.y)
+    iso2, country_name, country_risk = pays["iso2"], pays["name"], pays["risk"]
     return {
         "compliant": None,
         "loss_year": None,
@@ -362,6 +415,7 @@ def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
         "country_code": iso2,
         "country_name": country_name,
         "country_risk": country_risk,
+        **_attribution_pays(pays),
         "source": "unavailable",
         "is_probative": False,
         "evidence": None,
@@ -373,7 +427,7 @@ def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
         "tree_cover_2000_pct": None,
         "details": (
             f"Analyse satellite impossible : {reason}. "
-            "Classification du pays et benchmark officiel indisponibles."
+            "Benchmark de risque pays indisponible."
         ),
     }
 

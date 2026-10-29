@@ -1,20 +1,73 @@
 import { createHash } from "node:crypto";
 import { geodesicAreaHa } from "./gis-validator";
+import { frontieresDisponibles, resoudrePays } from "./frontieres";
 import { EUDR_CUTOFF_DATE, EUDR_CUTOFF_YEAR, type AnalysisEvidence, type Position, type RiskLevel, type SatelliteCheckResult, type SupportedGeometry } from "./types";
 import { incrementer, noterJauges } from "@/lib/observability/metriques";
 import { journal } from "@/lib/observability/journal";
 
-// ---------------------------------------------------------------- Risque pays
+// ---------------------------------------------------------------- Pays et risque pays
 /**
- * La géométrie seule ne permet pas d'assigner un pays ni un benchmark EUDR.
- * Les anciennes boîtes englobantes chevauchaient des frontières et des pays
- * voisins ; aucune classification administrative officielle n'est intégrée.
- * Le moteur échoue donc explicitement en « inconnu » au lieu d'inventer un
- * niveau de risque. À remplacer uniquement par une source administrative et
- * un benchmark officiel versionné, avec provenance.
+ * P2-16 — attribution du pays par **frontières réelles**, risque pays **inconnu**.
+ *
+ * Deux questions distinctes, traitées différemment :
+ *
+ *  1. **Dans quel pays se trouve le point ?** Résolu par point-dans-polygone
+ *     sur le jeu Natural Earth 1:50m versionné dans `data/frontieres/`
+ *     (`world-atlas@2.0.2`, empreinte SHA-256 et licence dans
+ *     `PROVENANCE.md`). Un point hors couverture — haute mer, entité sans
+ *     code ISO, effet de généralisation — reste `XX` : aucun voisin n'est
+ *     substitué. Si deux polygones contiennent le point, les candidats sont
+ *     exposés et le code reste `XX` : choisir serait inventer une souveraineté.
+ *
+ *  2. **Quel est le benchmark EUDR de ce pays ?** Aucune classification
+ *     officielle versionnée n'est intégrée au dépôt : le niveau reste
+ *     `UNKNOWN`. Résoudre correctement le pays ne rend pas une table interne
+ *     exacte, et un risque inventé est une fausse preuve. À remplacer
+ *     uniquement par la liste publiée par la Commission (art. 29), avec
+ *     version, date d'application et provenance.
  */
-export function resolveCountry(_lon: number, _lat: number): { iso2: string; name: string; risk: RiskLevel } {
-  return { iso2: "XX", name: "Non déterminé", risk: "UNKNOWN" as RiskLevel };
+export interface CountryResolution {
+  iso2: string;
+  name: string;
+  /** Toujours `UNKNOWN` tant qu'aucun benchmark officiel versionné n'est intégré. */
+  risk: RiskLevel;
+  /** Vrai si plusieurs pays contiennent le point (frontière contestée). */
+  ambiguous: boolean;
+  /** Tous les pays candidats, triés. Vide si aucun. */
+  candidates: string[];
+  /** Méthode réellement employée ; `unavailable` si le référentiel n'a pas pu être chargé. */
+  method: "natural-earth-50m" | "unavailable";
+}
+
+export const LIMITE_ATTRIBUTION_PAYS =
+  "Pays attribué par frontières Natural Earth 1:50m (world-atlas 2.0.2, versionné avec provenance) : " +
+  "généralisation régionale, un point à quelques centaines de mètres d'une frontière peut être mal " +
+  "attribué ; un point hors couverture est rendu « XX » sans substitution. Le benchmark de risque pays " +
+  "reste inconnu : aucune classification officielle versionnée n'est intégrée.";
+
+export function resolveCountry(lon: number, lat: number): CountryResolution {
+  if (!frontieresDisponibles()) {
+    return { iso2: "XX", name: "Non déterminé", risk: "UNKNOWN", ambiguous: false, candidates: [], method: "unavailable" };
+  }
+  const r = resoudrePays(lon, lat);
+  return {
+    iso2: r.iso2,
+    name: r.name,
+    risk: "UNKNOWN",
+    ambiguous: r.ambiguous,
+    candidates: r.candidates,
+    method: r.method,
+  };
+}
+
+/** Paramètres de provenance décrivant l'attribution du pays, joints à chaque résultat. */
+function provenanceAttributionPays(country: CountryResolution): Record<string, unknown> {
+  return {
+    resolution_pays: country.method,
+    pays_candidats: country.candidates,
+    pays_ambigu: country.ambiguous,
+    benchmark_pays: "non évalué : aucune classification officielle versionnée intégrée",
+  };
 }
 
 // ---------------------------------------------------------------- Hotspots déterministes (mode hors-ligne)
@@ -262,11 +315,11 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
         date_butoir: EUDR_CUTOFF_DATE,
         scenarios_disponibles: LOSS_HOTSPOTS.length,
         scenario_retenu: hotspotLabel,
-        resolution_pays: "non évaluée : aucune source administrative officielle intégrée",
+        ...provenanceAttributionPays(country),
       },
       limits: [
         "Aucune donnée satellite n'a été consultée : les chiffres sont inventés pour la démonstration.",
-        "Aucune classification de pays ou de benchmark EUDR n’est calculée : une source administrative officielle versionnée est requise.",
+        LIMITE_ATTRIBUTION_PAYS,
         ...LIMITES_METHODE_COUVERT,
       ],
     },
@@ -305,15 +358,15 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
     provenance: {
       method: "aucune",
       version: null,
-      params: {},
-      limits: [reason, "Aucun verdict de conformité n'a été établi.", ...LIMITES_METHODE_COUVERT],
+      params: provenanceAttributionPays(country),
+      limits: [reason, "Aucun verdict de conformité n'a été établi.", LIMITE_ATTRIBUTION_PAYS, ...LIMITES_METHODE_COUVERT],
     },
     disclaimer:
       "Analyse non disponible — aucun verdict de conformité n'a été établi. " +
       "Aucune conclusion ne doit en être tirée pour un dossier EUDR.",
     loss_area_ha: 0,
     tree_cover_2000_pct: null,
-    details: `Analyse satellite impossible : ${reason}. Classification du pays et benchmark officiel indisponibles.`,
+    details: `Analyse satellite impossible : ${reason}. Benchmark de risque pays indisponible.`,
   };
 }
 
@@ -535,8 +588,9 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
           fournisseur: evidence.provider,
           seuil_significativite_ha: 0,
           date_butoir: EUDR_CUTOFF_DATE,
+          ...provenanceAttributionPays(country),
         },
-        limits: LIMITES_METHODE_COUVERT,
+        limits: [LIMITE_ATTRIBUTION_PAYS, ...LIMITES_METHODE_COUVERT],
       },
       disclaimer: null,
       loss_area_ha: lossArea,
@@ -568,8 +622,9 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
         fournisseur: evidence.provider,
         seuil_significativite_ha: 0,
         date_butoir: EUDR_CUTOFF_DATE,
+        ...provenanceAttributionPays(country),
       },
-      limits: LIMITES_METHODE_COUVERT,
+      limits: [LIMITE_ATTRIBUTION_PAYS, ...LIMITES_METHODE_COUVERT],
     },
     disclaimer: null,
     loss_area_ha: lossArea,

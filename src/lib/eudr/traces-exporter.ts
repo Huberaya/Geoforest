@@ -79,6 +79,20 @@ export const DRAFT_NOTICE =
  * le demander à l'opérateur. Substituer l'opérateur en silence est le défaut
  * que l'on corrige, on ne le réintroduit pas par une porte dérobée.
  */
+/**
+ * Méthode d'attribution du pays telle que consignée par le moteur au moment de
+ * l'analyse. Aucune valeur n'est reconstituée : un audit antérieur à P2-16 ne
+ * porte pas de `resolution_pays` et reste `legacy_unknown`.
+ */
+export function attributionPays(
+  params: Record<string, unknown> | undefined | null,
+): "natural-earth-50m" | "unavailable" | "legacy_unknown" {
+  const methode = params?.resolution_pays;
+  if (methode === "natural-earth-50m") return "natural-earth-50m";
+  if (methode === "unavailable") return "unavailable";
+  return "legacy_unknown";
+}
+
 export function producteurDe(row: ParcelAuditRow): { name: string; country: string } | null {
   const name = (row as { producerName?: string | null }).producerName;
   const country = (row as { producerCountry?: string | null }).producerCountry;
@@ -172,13 +186,21 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       confidence_score: null,
       risk_level: row.compliant === false ? "HIGH" : "UNKNOWN",
       country_benchmark_risk: "UNKNOWN",
-      // E — l'attribution pays du moteur repose sur des boîtes englobantes,
-      //     pas sur des frontières. Elle est publiée comme approximative.
-      country_attribution: "approximate_bbox",
+      // E / P2-16 — l'attribution du pays est lue dans la provenance de
+      //     l'analyse telle qu'elle a été enregistrée : `natural-earth-50m`
+      //     (frontières versionnées, data/frontieres/PROVENANCE.md) ou
+      //     `unavailable`. Un dossier antérieur à l'intégration des frontières
+      //     ne porte pas cette information et est publié comme `legacy_unknown`,
+      //     jamais rétro-qualifié. L'attribution 1:50m n'est pas de précision
+      //     cadastrale : elle reste déclarée non fiable pour une parcelle
+      //     riveraine d'une frontière.
+      country_code: row.countryCode,
+      country_attribution: attributionPays(satellite.provenance?.params),
       country_attribution_reliable: false,
       country_attribution_warning:
-        "Pays estimé par boîte englobante : non fiable pour une attribution " +
-        "géographique EUDR. Aucune frontière versionnée n'est utilisée.",
+        "Pays attribué par frontières Natural Earth 1:50m (généralisation régionale) : " +
+        "à confirmer pour toute parcelle située à moins de quelques centaines de mètres " +
+        "d'une frontière. « XX » signifie non déterminé, sans substitution.",
       satellite_source: satellite.source ?? "",
       satellite_evidence: satellite.evidence ?? null,
       satellite_provenance: satellite.provenance ?? null,
@@ -289,6 +311,8 @@ export function buildTracesXml(row: ParcelAuditRow, operator: OperatorInfo, opti
     "confidence_score",
     "risk_level",
     "country_benchmark_risk",
+    "country_code",
+    "country_attribution",
     "satellite_source",
     "satellite_evidence_hash",
     "satellite_provenance_method",

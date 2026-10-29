@@ -333,10 +333,13 @@ function testDeterministicEngine(): void {
   const a = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   const b = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   check("deux appels identiques donnent le même verdict", JSON.stringify(a) === JSON.stringify(b));
+  // P2-16 : le pays vient des frontières Natural Earth versionnées (sud-ouest
+  // ivoirien → CI), jamais d'un rectangle ; le benchmark reste UNKNOWN.
   const country = resolveCountry(-5.5, 6.2);
-  check("aucun pays attribué par boîte englobante", country.iso2 === "XX" && country.name === "Non déterminé");
+  check("pays attribué par frontières réelles, pas par boîte englobante", country.iso2 === "CI" && country.method === "natural-earth-50m");
   check("benchmark pays non évalué sans source officielle", country.risk === "UNKNOWN");
-  check("moteur démo n'invente pas un risque pays", a.country_code === "XX" && a.country_risk === "UNKNOWN" && a.risk_level === "UNKNOWN");
+  check("hors couverture : XX sans voisin substitué", resolveCountry(-30, 20).iso2 === "XX");
+  check("moteur démo n'invente pas un risque pays", a.country_code === "BR" && a.country_risk === "UNKNOWN" && a.risk_level === "UNKNOWN");
 }
 
 /**
@@ -430,12 +433,12 @@ async function testReponseGfw(): Promise<void> {
     const vide = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("réponse vide : aucun verdict", vide.compliant === null, `compliant=${vide.compliant}`);
     check("réponse vide : non probant", vide.is_probative === false);
-    check("réponse vide : risque pays non évalué", vide.country_risk === "UNKNOWN" && vide.country_code === "XX");
+    check("réponse vide : risque pays non évalué (pays ET attribué par frontières)", vide.country_risk === "UNKNOWN" && vide.country_code === "ET");
 
     avecReponse([{ umd_tree_cover_loss__year: 2015, area__ha: 0.5 }]);
     const avant = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("perte pré-cutoff seule : conforme probant", avant.compliant === true && avant.is_probative === true);
-    check("analyse satellite n'invente pas le benchmark pays", avant.country_risk === "UNKNOWN" && avant.country_code === "XX");
+    check("analyse satellite n'invente pas le benchmark pays", avant.country_risk === "UNKNOWN" && avant.country_code === "ET");
 
     avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: 0.4 }]);
     const apres = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");

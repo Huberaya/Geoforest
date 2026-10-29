@@ -224,8 +224,10 @@ class TestNonCompliantParcel:
         assert sat["compliant"] is None, "un moteur simulé ne rend pas de verdict"
         assert sat["loss_year"] == 2022
         assert sat["confidence_score"] is None
-        assert sat["country_code"] == "XX"
-        assert sat["country_name"] == "Non déterminé"
+        # P2-16 : le pays est attribué par frontières réelles (Pará → BR), le
+        # benchmark de risque pays reste inconnu : ce sont deux choses distinctes.
+        assert sat["country_code"] == "BR"
+        assert sat["country_attribution"] == "natural-earth-50m"
         assert sat["country_risk"] == "UNKNOWN"
         assert sat["risk_level"] == "HIGH", "la simulation conserve le signal de perte, sans en faire une preuve"
         assert "non probant" in sat["disclaimer"]

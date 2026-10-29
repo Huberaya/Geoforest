@@ -199,15 +199,23 @@ def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     if record is None:
         raise HTTPException(status_code=404, detail="Audit introuvable")
     data = record.__dict__.copy()
-    # Neutraliser les valeurs historiques issues des boîtes englobantes.
-    data["country_code"] = "XX"
+    satellite = data.get("satellite")
+    # P2-16 — un pays n'est conservé que s'il a été attribué par le référentiel
+    # de frontières versionné, ce que l'analyse consigne elle-même. Toute valeur
+    # historique (boîtes englobantes, moteur antérieur) est neutralisée : elle
+    # n'est pas rétro-qualifiée. Le benchmark de risque pays reste UNKNOWN.
+    attribue_par_frontieres = (
+        isinstance(satellite, dict) and satellite.get("country_attribution") == "natural-earth-50m"
+    )
+    if not attribue_par_frontieres:
+        data["country_code"] = "XX"
     data["country_risk"] = "UNKNOWN"
     data["risk_level"] = "HIGH" if record.compliant is False else "UNKNOWN"
-    satellite = data.get("satellite")
     if isinstance(satellite, dict):
         satellite = dict(satellite)
-        satellite["country_code"] = "XX"
-        satellite["country_name"] = "Non déterminé"
+        if not attribue_par_frontieres:
+            satellite["country_code"] = "XX"
+            satellite["country_name"] = "Non déterminé"
         satellite["country_risk"] = "UNKNOWN"
         satellite["risk_level"] = "HIGH" if satellite.get("compliant") is False else "UNKNOWN"
         details = satellite.get("details")

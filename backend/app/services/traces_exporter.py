@@ -142,6 +142,13 @@ def _dds_payload(record: ParcelAuditRecord, operator: Dict[str, Any], options: D
             "confidence_score": record.confidence_score,
             "risk_level": "HIGH" if record.compliant is False else "UNKNOWN",
             "country_benchmark_risk": "UNKNOWN",
+            # P2-16 — méthode d'attribution consignée par l'analyse ; un dossier
+            # antérieur sans méthode est publié « legacy_unknown », jamais requalifié.
+            "country_code": record.country_code
+            if record.satellite.get("country_attribution") == "natural-earth-50m"
+            else "XX",
+            "country_attribution": record.satellite.get("country_attribution") or "legacy_unknown",
+            "country_attribution_reliable": False,
             "satellite_source": record.satellite.get("source", ""),
             "centroid": {"lon": record.centroid_lon, "lat": record.centroid_lat},
         },
@@ -214,6 +221,8 @@ def export_traces_xml(record: ParcelAuditRecord, operator: Dict[str, Any], optio
         "confidence_score",
         "risk_level",
         "country_benchmark_risk",
+        "country_code",
+        "country_attribution",
         "satellite_source",
     ):
         value = verification[key]

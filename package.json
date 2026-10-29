@@ -35,7 +35,7 @@
     "test:sql": "NODE_OPTIONS=--conditions=react-server tsx --test tests/sql/*.test.ts",
     "verif:chaine": "tsx scripts/verifier-chaine.ts",
     "verif:comptes-demo": "tsx scripts/verifier-comptes-demo.ts",
-    "test:controles": "tsx --conditions=react-server scripts/check-identite-operateur.ts && tsx --conditions=react-server scripts/check-pool-admin.ts && tsx --conditions=react-server scripts/check-pool-tenant.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts && tsx scripts/check-evidence-pack.ts"
+    "test:controles": "tsx --conditions=react-server scripts/check-identite-operateur.ts && tsx --conditions=react-server scripts/check-pool-admin.ts && tsx --conditions=react-server scripts/check-pool-tenant.ts && tsx --conditions=react-server scripts/check-p106-regles.ts && tsx scripts/check-gis-topology.ts && tsx --conditions=react-server scripts/check-frontieres.ts && tsx scripts/check-csv-latin.ts && tsx --conditions=react-server scripts/check-readiness.ts && tsx --conditions=react-server scripts/check-dds-etats.ts && tsx scripts/check-evidence-pack.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",

@@ -92,16 +92,36 @@ def test_hote_officiel(url, attendu):
     assert sc._hote_officiel(url) is attendu
 
 
-def test_country_risk_not_inferred_from_bounding_boxes():
-    # A coordinate must not be assigned a country/official benchmark by rectangle approximation.
-    assert sc.resolve_country(-5.5, 6.2) == ("XX", "Non déterminé", "UNKNOWN")
+def test_country_resolved_by_borders_but_risk_never_inferred():
+    # P2-16 : le pays vient des frontières Natural Earth (sud-ouest ivoirien → CI),
+    # jamais d'un rectangle ; le benchmark officiel n'est pas intégré → UNKNOWN.
+    assert sc.resolve_country(-5.5, 6.2) == ("CI", "Côte d'Ivoire", "UNKNOWN")
+    detail = sc.resolve_country_detail(-5.5, 6.2)
+    assert detail["method"] == "natural-earth-50m"
+    assert detail["candidates"] == ["CI"] and detail["ambiguous"] is False
+    # Haute mer : aucun pays voisin substitué.
+    assert sc.resolve_country(-30.0, 0.0) == ("XX", "Non déterminé", "UNKNOWN")
+
+
+def test_country_unavailable_when_borders_missing(monkeypatch):
+    # Sans référentiel, le moteur refuse d'attribuer (méthode "unavailable"), il
+    # ne retombe sur aucune approximation.
+    import app.services.frontieres as fr
+
+    def _absent(_lon, _lat):
+        raise fr.FrontieresIndisponibles("test : référentiel retiré")
+
+    monkeypatch.setattr(fr, "resoudre_pays", _absent)
+    detail = sc.resolve_country_detail(-5.5, 6.2)
+    assert detail["iso2"] == "XX" and detail["method"] == "unavailable" and detail["risk"] == "UNKNOWN"
 
 
 def test_live_clean_signal_does_not_invent_country_risk_or_confidence(monkeypatch):
     rows = [{"umd_tree_cover_loss__year": 2015, "area__ha": 1.0}]
     monkeypatch.setattr(sc, "_gfw_query", lambda _poly: (rows, EVIDENCE))
     result = sc.live_check(_geom(), date(2025, 1, 1))
-    assert result["country_code"] == "XX"
+    assert result["country_code"] == "CI"
+    assert result["country_attribution"] == "natural-earth-50m"
     assert result["country_risk"] == "UNKNOWN"
     assert result["risk_level"] == "UNKNOWN"
     assert result["confidence_score"] is None

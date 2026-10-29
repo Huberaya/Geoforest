@@ -159,6 +159,12 @@ class SatelliteCheckResult(BaseModel):
     country_code: str
     country_name: str = ""
     country_risk: RiskLevel
+    # P2-16 — méthode d'attribution du pays, consignée avec le résultat :
+    # "natural-earth-50m" (frontières versionnées) ou "unavailable". Jamais
+    # reconstituée a posteriori.
+    country_attribution: Literal["natural-earth-50m", "unavailable"] = "unavailable"
+    country_candidates: List[str] = Field(default_factory=list)
+    country_ambiguous: bool = False
     source: Literal["gfw-live", "simulated", "unavailable"]
     is_probative: bool = False
     evidence: Optional[AnalysisEvidence] = None
