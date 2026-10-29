@@ -144,6 +144,78 @@ if [ "$SOUMIS" != "t" ]; then
 fi
 echo "   · sans BYPASSRLS, le propriétaire est bien soumis à la RLS (contrôle de démarrage justifié)"
 
+echo "== 6c. Reprise de la migration sur une base **peuplée** =="
+# ⚠️ L'étape 5 rejoue la migration sur une base vide : le contrôle d'application
+#   de 022 y est reporté (« aucune ligne vivante »). Il ne s'exerce qu'ici, une
+#   fois que 6 a créé des fournisseurs. Mesuré (PostgreSQL 16.2) : sans
+#   l'auto-attribution de SET ROLE ajoutée à 022, cette reprise échouait avec
+#   « permission denied to set role "geoforest_app" » — le propriétaire créé
+#   par CREATEROLE n'a que l'ADMIN OPTION sur le rôle applicatif. La CI, qui
+#   migre en superutilisateur, ne pouvait pas le voir.
+# L'étape 6 remet la base à vide derrière elle : on pose ici une organisation
+# et un fournisseur synthétiques (sous le propriétaire, dans le périmètre de
+# l'organisation), que l'on retire après la reprise.
+ORG_6C="cccccccc-6666-4666-8666-cccccccccccc"
+"$PG_BIN/psql" "$URL_ADMIN" -v ON_ERROR_STOP=1 -q -o /dev/null <<SQL
+begin;
+select set_config('app.current_org', '$ORG_6C', true);
+insert into gf_organizations (id, name, slug, country) values ('$ORG_6C', 'Org recette 6c', 'org-6c', 'FR');
+insert into gf_suppliers (organization_id, name, country, commodity, completeness_score, risk_level, status, plots_count)
+values ('$ORG_6C', 'Fournisseur recette 6c', 'FR', 'coffee', 10, 'STANDARD', 'ACTIVE', 0);
+commit;
+SQL
+VIVANTES="$("$PG_BIN/psql" -h 127.0.0.1 -p "$PORT_DB" -U postgres -d geoforest_recette -At \
+  -c "select count(*) from gf_suppliers where deleted_at is null")"
+if [ "$VIVANTES" = "0" ]; then
+  echo "   🔴 aucune ligne vivante dans gf_suppliers : la reprise ne prouverait rien" >&2
+  exit 1
+fi
+# Sans BYPASSRLS, le propriétaire ne voit aucune ligne : 022 se déclare « non
+# exerçable » (vérifié ci-dessous), puis on rejoue avec l'attribut de
+# production (cf. 6b) pour que le contrôle s'exerce réellement.
+STATUT_SOUMIS=0
+SORTIE_SOUMIS="$(cd "$RACINE" && DATABASE_URL_ADMIN="$URL_ADMIN" npm run --silent db:migrate 2>&1)" || STATUT_SOUMIS=$?
+if [ "$STATUT_SOUMIS" != "0" ]; then
+  echo "   🔴 reprise de la migration (propriétaire soumis à la RLS) échouée (code $STATUT_SOUMIS)" >&2
+  echo "$SORTIE_SOUMIS" | tail -n 20 >&2
+  exit 1
+fi
+if ! grep -q 'gf_suppliers — contrôle non exerçable' <<<"$SORTIE_SOUMIS"; then
+  echo "   🔴 sous un propriétaire soumis à la RLS, 022 devait annoncer un contrôle non exerçable" >&2
+  echo "$SORTIE_SOUMIS" | tail -n 20 >&2
+  exit 1
+fi
+echo "   · propriétaire soumis à la RLS : 022 annonce « contrôle non exerçable » (pas un faux « appliqué »)"
+"$PG_BIN/psql" -h 127.0.0.1 -p "$PORT_DB" -U postgres -d geoforest_recette -q \
+  -c "alter role geoforest_owner bypassrls;"
+STATUT_PEUPLEE=0
+SORTIE_PEUPLEE="$(cd "$RACINE" && DATABASE_URL_ADMIN="$URL_ADMIN" npm run --silent db:migrate 2>&1)" || STATUT_PEUPLEE=$?
+"$PG_BIN/psql" -h 127.0.0.1 -p "$PORT_DB" -U postgres -d geoforest_recette -q \
+  -c "alter role geoforest_owner nobypassrls;"
+if [ "$STATUT_PEUPLEE" != "0" ]; then
+  echo "   🔴 reprise de la migration sur base peuplée échouée (code $STATUT_PEUPLEE)" >&2
+  echo "$SORTIE_PEUPLEE" | tail -n 20 >&2
+  exit 1
+fi
+if ! grep -q 'gf_suppliers — suppression logique possible' <<<"$SORTIE_PEUPLEE"; then
+  echo "   🔴 022 n'a pas exercé la suppression logique sous geoforest_app" >&2
+  echo "$SORTIE_PEUPLEE" | tail -n 20 >&2
+  exit 1
+fi
+DROIT_SET="$("$PG_BIN/psql" "$URL_ADMIN" -At -c "
+  select coalesce(bool_or(set_option), false) || '/' || coalesce(bool_or(inherit_option), false)
+    from pg_auth_members
+   where roleid = 'geoforest_app'::regrole and member = 'geoforest_owner'::regrole")"
+if [ "$DROIT_SET" != "true/false" ]; then
+  echo "   🔴 droit d'endosser geoforest_app inattendu (set/inherit = $DROIT_SET, attendu true/false)" >&2
+  exit 1
+fi
+echo "   · reprise sur $VIVANTES fournisseur(s) vivant(s) : 022 a exercé la suppression logique sous geoforest_app (SET sans héritage)"
+"$PG_BIN/psql" -h 127.0.0.1 -p "$PORT_DB" -U postgres -d geoforest_recette -v ON_ERROR_STOP=1 -q <<SQL
+delete from gf_suppliers where organization_id = '$ORG_6C';
+delete from gf_organizations where id = '$ORG_6C';
+SQL
+
 echo "== 7. Dédoublonnage de 024 sur une base déjà migrée =="
 # On reconstitue l'état d'avant `024` : index unique retiré, deux lignes pour la
 # même clé, compteurs 2 et 3. Le script doit conserver **la somme** (5) : une

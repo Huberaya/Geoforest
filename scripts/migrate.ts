@@ -87,8 +87,32 @@ async function appliquerPostMigration(): Promise<number> {
 
     // Le pool exécute le fichier en une requête simple : les blocs `$$` et les
     // scripts multi-instructions sont donc acceptés tels quels.
-    await pool.query(sql);
+    //
+    // ⚠️ Les `raise notice` des scripts sont relayés. Mesuré : le contrôle
+    //   d'application de `022` se déclarait « reporté » (aucune ligne vivante
+    //   visible) sous un propriétaire soumis à la RLS, et personne ne le
+    //   voyait — la ligne « sûreté appliquée » laissait croire qu'il avait
+    //   exercé la suppression logique. Un contrôle qui ne s'exerce pas doit
+    //   le dire dans la sortie que l'exploitant lit.
+    const client = await pool.connect();
+    const notices: string[] = [];
+    const relayer = (n: { message?: string }) => {
+      // Les « …, skipping » sont les avis du moteur sur `if exists` /
+      // `if not exists` : attendus sur un rejeu, sans valeur pour l'exploitant.
+      if (n.message && !/, skipping$/.test(n.message)) notices.push(n.message);
+    };
+    client.on("notice", relayer);
+    try {
+      await client.query(sql);
+    } finally {
+      client.off("notice", relayer);
+      client.release();
+    }
     console.log(`  · sûreté appliquée : ${fichier}`);
+    for (const n of notices) {
+      const reporte = /report[ée]|non exer|impossible/i.test(n);
+      console.log(`      ${reporte ? "⚠️ " : "· "}${n}`);
+    }
   }
   return fichiers.length;
 }

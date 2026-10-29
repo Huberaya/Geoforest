@@ -190,7 +190,56 @@ grant execute on function gf_marquer_suppression(regclass, uuid, text) to geofor
 -- ⚠️ Le changement de rôle n'est pas facultatif : la sécurité par ligne
 --   n'est pas appliquée au propriétaire. Exécuté en tant que `postgres`, ce
 --   contrôle réussirait toujours — et ne contrôlerait donc rien.
+--
+-- ⚠️ Pré-requis mesuré (PostgreSQL 16.2, propriétaire non superutilisateur) :
+--   depuis PostgreSQL 16, un rôle doté de CREATEROLE qui crée `geoforest_app`
+--   (bloc 010) n'en reçoit que l'ADMIN OPTION, **sans** le droit SET ROLE
+--   (`createrole_self_grant` vide par défaut). Sur une base vide le contrôle
+--   est reporté (aucune ligne vivante) et le défaut est invisible ; sur une
+--   base déjà peuplée, le rejeu de `npm run db:migrate` échouait avec
+--   « permission denied to set role "geoforest_app" » — l'idempotence
+--   promise en tête de scripts/migrate.ts n'était donc vraie que la
+--   première fois, ou sous superutilisateur (la CI). Le bloc ci-dessous
+--   s'accorde le droit d'endosser le rôle applicatif (SET seulement, sans
+--   hériter de ses privilèges) quand il en a l'ADMIN OPTION ; sinon il
+--   s'arrête avec la commande à exécuter par l'administrateur.
 -- ---------------------------------------------------------------------------
+do $$
+declare
+  peut_endosser boolean := false;
+begin
+  begin
+    execute 'set local role geoforest_app';
+    execute 'reset role';
+    peut_endosser := true;
+  exception
+    when insufficient_privilege then
+      peut_endosser := false;
+  end;
+
+  if peut_endosser then
+    raise notice 'contrôle 022 — % peut endosser geoforest_app', current_user;
+    return;
+  end if;
+
+  begin
+    if current_setting('server_version_num')::int >= 160000 then
+      execute format('grant geoforest_app to %I with set true, inherit false', current_user);
+    else
+      execute format('grant geoforest_app to %I', current_user);
+    end if;
+    raise notice 'contrôle 022 — % s''est accordé SET ROLE geoforest_app (sans héritage) pour exercer les politiques', current_user;
+  exception
+    when others then
+      raise exception using
+        message = format(
+          'Le contrôle 022 ne peut pas endosser geoforest_app : %s. '
+          'Exécuter en tant qu''administrateur : grant geoforest_app to %I with set true, inherit false ; '
+          'puis relancer npm run db:migrate.',
+          sqlerrm, current_user);
+  end;
+end $$;
+
 do $$
 declare
   t text;
@@ -208,7 +257,15 @@ begin
        into org, id_;
 
     if org is null then
-      raise notice '% — aucune ligne vivante à éprouver, contrôle reporté au produit', t;
+      if row_security_active(t::regclass) then
+        -- ⚠️ Le rôle qui migre est lui-même soumis à la RLS (propriétaire sans
+        --   BYPASSRLS, aucun contexte d'organisation) : il ne voit aucune
+        --   ligne, qu'il y en ait ou non. Le contrôle n'est pas « reporté »,
+        --   il est **non exerçable** sous ce rôle — et doit le dire.
+        raise notice '% — contrôle non exerçable : % est soumis à la RLS et ne voit aucune ligne (migrer avec un rôle BYPASSRLS pour l''exercer)', t, current_user;
+      else
+        raise notice '% — aucune ligne vivante à éprouver, contrôle reporté au produit', t;
+      end if;
       continue;
     end if;
 

@@ -9,6 +9,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:push": "drizzle-kit push --force",
     "db:rollback": "tsx scripts/rollback.ts",
+    "db:check": "bash scripts/ci/verifier-derive-schema.sh",
     "db:tenancy": "psql -h 127.0.0.1 -U postgres -d app_db -f scripts/sql/post-migrate/010_row_level_security.sql",
     "dev": "next dev",
     "lint": "eslint .",

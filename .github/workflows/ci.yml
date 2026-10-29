@@ -67,6 +67,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Schema drift (schema.ts vs Drizzle journal, no database)
+        run: npm run db:check
+
       - name: Lint
         run: npm run lint
 

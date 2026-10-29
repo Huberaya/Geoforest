@@ -87,3 +87,6 @@ pnpm-debug.log*
 .npm/
 Geoforest/
 uploads/
+
+# copie de travail du contrôle de dérive Drizzle (scripts/ci/verifier-derive-schema.sh)
+/.derive-schema-tmp/

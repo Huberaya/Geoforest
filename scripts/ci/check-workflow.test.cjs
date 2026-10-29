@@ -36,7 +36,7 @@ test('database mutation follows ephemeral creation and cleanup is unconditional'
 test('verification keeps install, regression tests, lint, types and build gates', () => {
   const commands = workflow.jobs.verify.steps.map(s => s.run || '').join('\n');
   for (const command of ['npm ci', 'pytest -q', 'npm run test:ci', 'npm run typecheck',
-    'npm run lint', 'npm run test:unit', 'npm run test:eudr', 'npm run build']) {
+    'npm run db:check', 'npm run lint', 'npm run test:unit', 'npm run test:eudr', 'npm run build']) {
     assert.ok(commands.includes(command), command);
   }
 });
