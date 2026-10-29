@@ -1,6 +1,20 @@
 # Attribution géographique EUDR — proposition de frontières versionnées
 
-**Statut : PROPOSITION — non approuvée, non implémentée, aucun jeu de données ajouté au dépôt.**
+> **Actualisation du 29/10/2026 — implémentée** (commit `1c2273e`, branche
+> `arena/ba2f9eba-geoforest`). Jeu de données : `data/frontieres/` (Natural Earth
+> 1:50m via `world-atlas@2.0.2`, empreinte SHA-256 `04342cdc…2394` vérifiée contre
+> le paquet npm, notice dans `PROVENANCE.md`). Moteurs : `src/lib/eudr/frontieres.ts`
+> et `backend/app/services/frontieres.py`. Écarts avec la proposition ci-dessous :
+> la valeur publiée est `country_attribution: "natural-earth-50m"` (pas
+> `point_in_polygon`), `unavailable` si le référentiel est illisible, et
+> `legacy_unknown` pour les dossiers antérieurs, jamais rétro-qualifiés ; le
+> **risque pays reste `UNKNOWN`** (aucun benchmark officiel versionné n'est
+> intégré) ; `country_attribution_reliable` reste `false`. Preuves : 48 contrôles
+> `scripts/check-frontieres.ts` (CI, `test:controles`), 26 tests
+> `backend/tests/test_frontieres.py`, 18 points de contrôle partagés. Détail :
+> [RAPPORT_CLOTURE_CHANTIERS_2026-10-29.md](RAPPORT_CLOTURE_CHANTIERS_2026-10-29.md).
+
+**Statut d'origine : PROPOSITION — non approuvée, non implémentée, aucun jeu de données ajouté au dépôt.**
 
 **Date** : 20 octobre 2026
 **Contexte** : phase 13, chantier E. Aucun fichier de frontières n'a été

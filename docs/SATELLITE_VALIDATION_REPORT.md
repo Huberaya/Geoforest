@@ -1,3 +1,5 @@
+> Actualisation du 29/10/2026 : runner hors-ligne rejoué sur `94c5f14466da2fca895718430644b56f991ffaf7` — résultat inchangé (`exécutés 2/5 · échecs 0 · non exécutés 3`, code 2) ; GFW toujours injoignable depuis l'environnement (HTTP 000), aucune `GFW_API_KEY`. A, B et E restent **BLOQUÉS — action externe** ; cette suite hors-ligne n'est pas une validation d'intégration réelle. Voir [RAPPORT_CLOTURE_CHANTIERS_2026-10-29.md](RAPPORT_CLOTURE_CHANTIERS_2026-10-29.md).
+
 > Actualisation technique du 19/10/2026 : voir [la consolidation Agent A](AGENT_A_CONSOLIDATION_2026-10-19.md), code vérifié localement `26350a1e0ce89cde8af4c1a9a643b9123b5f1a8b`. Les chiffres et constats ci-dessous restent historiques ; ils ne valent pas validation de la tête finale ni de la production.
 
 # Validation satellite — rapport (B1)
