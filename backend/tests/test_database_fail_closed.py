@@ -45,6 +45,8 @@ def test_echec_creation_repertoire_interrompt_sans_fallback(monkeypatch, tmp_pat
     assert appels == []
 
 
+# Intégration ASGI : ce n'est pas seulement le constructeur qui échoue ; le
+# lifespan FastAPI doit lui aussi refuser d'ouvrir le service.
 def test_lifespan_fastapi_refuse_de_demarrer_si_db_inaccessible(monkeypatch, tmp_path: Path):
     def echec_connexion(*args, **kwargs):
         raise sqlite3.OperationalError("base inaccessible")
