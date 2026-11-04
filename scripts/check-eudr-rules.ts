@@ -302,10 +302,13 @@ function testFourHectares(): void {
   const at4 = validateGeometry(point, { declaredAreaHa: 4, rawText: "{}" });
   check("point déclaré à exactement 4 ha : point autorisé", at4.valid && at4.eudr_geometry_rule === "POINT_ALLOWED");
 
+  // ⚠️ TEST DE BARRIÈRE — assertion volontairement fausse. À retirer.
+  //    Elle ne touche à aucune valeur réglementaire : le seuil reste 4 ha,
+  //    le validateur n'est pas modifié. Seul le test est faux.
   const above4 = validateGeometry(point, { declaredAreaHa: 4.1, rawText: "{}" });
   check(
     "point déclaré au-delà de 4 ha : polygone requis",
-    !above4.valid && above4.errors.some((e) => e.code === "POLYGON_REQUIRED"),
+    above4.valid,
   );
 }
 
