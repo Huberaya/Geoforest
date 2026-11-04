@@ -69,7 +69,7 @@ export const COMMODITY_LABELS: Record<Commodity, string> = Object.fromEntries(
 
 export const EUDR_CUTOFF_DATE = "2020-12-31";
 export const EUDR_CUTOFF_YEAR = 2020;
-export const EUDR_POLYGON_THRESHOLD_HA = 5;
+export const EUDR_POLYGON_THRESHOLD_HA = 4;
 export const EUDR_MIN_COORD_DECIMALS = 6;
 /** Le système d'information EUDR tronque les coordonnées à 6 décimales. */
 export const EUDR_IS_COORD_DECIMALS = 6;
