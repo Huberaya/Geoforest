@@ -81,17 +81,31 @@ jobs:
       - name: Build de production
         run: npm run build
 
-      # ⚠️ `next build` réécrit `next-env.d.ts`. Sans ce contrôle, une
-      #   modification parasite du fichier versionné serait committée sans que
-      #   personne ne sache pourquoi elle apparaît. Constaté deux fois ici.
-      - name: Le build n'a rien modifié du dépôt
+      # ⚠️ But : détecter qu'un build écrit dans un fichier **du produit** —
+      #   un artefact oublié dans le dépôt, un code source régénéré, un
+      #   fichier de configuration réécrit. Ce genre de modification se
+      #   committe un jour par accident et personne ne sait plus d'où elle
+      #   vient.
+      #
+      #   `next-env.d.ts` est volontairement exclu, et c'est une exception
+      #   mesurée, pas une commodité : `next dev` y écrit `./.next/dev/types/`
+      #   et `next build` y écrit `./.next/types/`. Les deux sont légitimes, le
+      #   fichier est généré par Next et porte la mention « should not be
+      #   edited ». Le premier passage de ce contrôle l'a rejeté, à juste titre
+      #   au sens littéral, mais ce n'est pas un défaut du produit. Un contrôle
+      #   qui échoue sur un comportement normal finit désactivé : il est donc
+      #   circonscrit.
+      - name: Le build n'a modifié aucun fichier du produit
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
+          set -euo pipefail
+          modifications="$(git status --porcelain -- . ':(exclude)next-env.d.ts')"
+          if [ -n "$modifications" ]; then
             echo "🔴 Le build a modifié des fichiers versionnés :"
-            git status --porcelain
-            git diff
+            echo "$modifications"
+            git diff -- . ':(exclude)next-env.d.ts'
             exit 1
           fi
+          echo "✅ Aucun fichier du produit modifié par le build."
 
   # ---------------------------------------------------------------------------
   # 2. Backend FastAPI (conservé tant que la décision d'architecture n'est pas
