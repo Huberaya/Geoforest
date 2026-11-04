@@ -1,6 +1,7 @@
 # Protéger `main` — la dernière étape de C1
 
-**État constaté le 04/11/2026 :** `gh api repos/Huberaya/Geoforest/branches/main --jq .protected` → **`false`**
+**État constaté le 04/11/2026 (après fusion de la PR #12) :**
+`gh api repos/Huberaya/Geoforest/branches/main --jq .protected` → **`false`**
 **Aucun ruleset actif :** `gh api repos/Huberaya/Geoforest/rulesets` → **`[]`**
 
 Tant que ce n'est pas fait, **tout le travail de C1 est contournable** : n'importe
@@ -10,13 +11,31 @@ seulement si la branche l'exige.
 
 ---
 
+## 0. La PR #12 a été fusionnée — ce qui est fait, et ce qui ne l'est pas
+
+| Geste | État |
+|---|---|
+| Fusionner la PR #12 | ✅ faite (`1c97a88`, 04/11/2026 15:40 UTC) |
+| `main` verte sur son dernier commit | ✅ **oui** — 4 jobs verts sur `1c97a88`, premier succès depuis le 30/09/2026 |
+| Protéger `main` | ❌ **non** — refusée par GitHub, voir §1 |
+
+Le critère « `main` affiche un ✅ sur le dernier commit » de C1 est donc **rempli**. Il
+reste les trois autres, qui dépendent tous de cette page de réglages.
+
 ## 1. Pourquoi l'agent n'a pas pu le faire
 
-Deux tentatives, deux refus, avec un jeton pourtant `admin: true` sur le dépôt :
+Trois tentatives (deux avant la fusion, une après), trois refus, avec un jeton
+pourtant `admin: true` sur le dépôt :
 
 ```
 PUT  /repos/Huberaya/Geoforest/branches/main/protection   → 403 Resource not accessible by integration
 POST /repos/Huberaya/Geoforest/rulesets                   → 403 Resource not accessible by integration
+```
+
+Tentative 3, après la fusion, en formulaire plutôt qu'en JSON — même refus :
+
+```
+PUT  /repos/Huberaya/Geoforest/branches/main/protection   → 403 Resource not accessible by integration
 ```
 
 Le jeton utilisé est une **intégration GitHub**, à laquelle il manque la
@@ -122,11 +141,23 @@ C'est cette capture-là qui vaut preuve, pas la case cochée.
 
 ---
 
-## 6. Ce qui reste ouvert après cette étape
+## 6. Après la protection : les deux mesures qui closent C1
+
+```bash
+gh api repos/Huberaya/Geoforest/branches/main --jq .protected     # attendu : true
+gh run list --branch main --limit 1 --json conclusion             # attendu : success
+```
+
+Puis le test de §5 (une PR qui casse `EUDR_POLYGON_THRESHOLD_HA` doit voir son
+bouton **Merge** désactivé). C'est cette capture qui vaut preuve.
+
+---
+
+## 7. Ce qui reste ouvert après cette étape
 
 | Point | État |
 |---|---|
-| `main` verte sur son dernier commit | ❌ **non** — dernier run `1c95f4c`, échec. Le devient au merge de la PR #12. |
+| `main` verte sur son dernier commit | ✅ **oui** — `1c97a88`, 4 jobs verts |
 | PR cassant un `check-*` refusée | ⚠️ mécanisme en place, refus **non encore constaté** (cf. §5) |
 | PR sans revue non fusionnable | ❌ dépend de cette page de réglages |
 | `protected: true` | ❌ dépend de cette page de réglages |
