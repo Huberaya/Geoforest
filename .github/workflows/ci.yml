@@ -235,19 +235,15 @@ jobs:
       #   démarrage mesure la configuration réelle — un superutilisateur ferait
       #   refuser le démarrage, ce qui est le comportement voulu.
       - name: Attribuer un mot de passe au rôle applicatif (base jetable)
-        run: |
-          set -euo pipefail
-          node -e "
-          const { Client } = require('pg');
-          (async () => {
-            const c = new Client({ connectionString: process.env.DATABASE_URL_ADMIN });
-            await c.connect();
-            await c.query(\\"alter role geoforest_app login password '\${GF_E2E_MOT_DE_PASSE_BASE}'\\");
-            await c.end();
-          })().catch((e) => { console.error(e); process.exit(1); });
-          "
+        # ⚠️ Un `node -e` écrit directement ici a été la première version de
+        #   cette étape : l'échafaudage de guillemets a échoué au premier
+        #   passage en CI, avec un message qui ne disait rien du problème.
+        #   Un script versionné est relisible, testable en local, et refuse
+        #   de s'exécuter sur une base qui n'est pas déclarée jetable.
+        run: npx tsx scripts/ci-mot-de-passe-role.ts
         env:
-          GF_E2E_MOT_DE_PASSE_BASE: mot-de-passe-jetable-de-ci
+          GF_BASE_JETABLE: "oui"
+          GF_MOT_DE_PASSE_APP: mot-de-passe-jetable-de-ci-pour-le-role
 
       - name: Build de production
         run: npm run build
@@ -255,7 +251,7 @@ jobs:
       - name: Bout en bout (démarrage, sondes, auth, parcours, isolation)
         run: npm run check:e2e:complet
         env:
-          DATABASE_URL: postgresql://geoforest_app:mot-de-passe-jetable-de-ci@127.0.0.1:5432/ci
+          DATABASE_URL: postgresql://geoforest_app:mot-de-passe-jetable-de-ci-pour-le-role@127.0.0.1:5432/ci
           DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
           SEED_AUTORISE_HOTE_DISTANT: "oui"
           GF_STORAGE_DIR: /tmp/gf-stockage
