@@ -13,9 +13,72 @@ concurrency:
   group: geoforest-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # ⚠️ Le build Next.js exige une base configurée : `src/db/admin.ts` refuse de
+  #   s'instancier sans URL. Ce sont des valeurs **factices** — aucun job ne se
+  #   connecte à cette adresse. Si un jour l'un d'eux en dépendait vraiment, il
+  #   échouerait franchement au lieu de réussir par accident.
+  DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+  DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+  AUTH_SECRET: ci-secret-de-build-uniquement-non-utilise-en-production
+
 jobs:
-  verify:
-    name: Verify Frontend & Backend
+  # ---------------------------------------------------------------------------
+  # 1. Qualité : ce qui ne dépend ni d'une base ni d'un déploiement.
+  #    ⚠️ Ces contrôles existaient dans le dépôt mais n'étaient **jamais
+  #    exécutés** : une régression de règle EUDR ou de topologie pouvait être
+  #    fusionnée sans que rien ne le signale.
+  # ---------------------------------------------------------------------------
+  qualite:
+    name: Qualité (types, lint, règles EUDR, dépendances)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (aucune erreur tolérée)
+        run: npm run lint
+
+      - name: Règles EUDR (GeoJSON, 4 ha, précision, export)
+        run: npm run check:eudr
+
+      - name: Topologie des géométries (référence GEOS)
+        run: npm run check:topologie
+
+      - name: Règles d'exploitation (P1-06)
+        run: npm run check:regles
+
+      - name: Encodages CSV / Latin-1
+        run: npm run check:csv
+
+      - name: Garde-fous de l'amorçage de démonstration
+        run: npm run check:seed
+
+      - name: Vulnérabilités des dépendances de production
+        run: npm run audit:prod
+
+      - name: Build de production
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # 2. Backend FastAPI (conservé tant que la décision d'architecture n'est pas
+  #    tranchée — cf. chantier C5).
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (pytest)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -33,15 +96,49 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+          # 41 tests actifs ; 3 sont explicitement `skipped` (routes
+          # /api/v1/geospatial/* absentes — cf. backend/tests/test_geospatial.py
+          # et chantier C9). `-q` les affiche : ils ne sont pas comptés verts.
           pytest -q
+
+  # ---------------------------------------------------------------------------
+  # 3. Contrôles exigeant une vraie base PostgreSQL.
+  #    ⚠️ `check-sql-limits.ts` échouait en local par `AggregateError` faute de
+  #    base : il n'était donc exécutable nulle part. Ici, il l'est.
+  # ---------------------------------------------------------------------------
+  base:
+    name: Contrôles SQL (PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Install frontend dependencies & build
-        run: |
-          set -euo pipefail
-          npm ci || npm install
-          npm run build
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Délais du pool réellement appliqués par PostgreSQL
+        run: npx tsx scripts/check-sql-limits.ts
+
+      - name: Migrations sur base vierge
+        run: npm run db:migrate
