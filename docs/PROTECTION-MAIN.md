@@ -182,3 +182,36 @@ Corollaire : avant de vérifier un dispositif, mesurer **qu'il est dans l'état
 qu'on croit**. Le contrôle des noms de checks était utile, mais il portait sur
 un ruleset que `enforcement: disabled` rendait inopérant. Vérifier un détail
 avec soin ne dispense pas de vérifier que l'ensemble est allumé.
+
+---
+
+## 7. Contrôle de la règle « 1 revue requise » — 05/11/2026
+
+Question restée ouverte après les tests de barrière : avec
+`required_approving_review_count: 1` et un dépôt à un seul contributeur, une PR
+**entièrement verte** peut-elle encore être fusionnée ?
+
+C'est un risque concret et asymétrique :
+
+| Cas | Comportement de GitHub | Effet |
+|---|---|---|
+| L'auteur peut approuver sa propre PR | approuver puis fusionner | la règle n'apporte rien, mais ne bloque pas |
+| L'auteur **ne peut pas** approuver sa propre PR | `REVIEW_REQUIRED` sans issue | **toutes les fusions sont bloquées** |
+
+GitHub interdit par défaut de valider sa propre pull request. Si aucune seconde
+personne ne contribue, la règle transforme la protection en impasse.
+
+**Le test doit être fait par une personne, pas par un agent** : le compte qui
+ouvre la PR et celui qui l'approuve doivent être distincts. Procédure :
+
+1. ouvrir une PR triviale (un commentaire dans un fichier) ;
+2. attendre les 4 jobs verts ;
+3. *Files changed* → **Review changes** → *Approve* ;
+4. si le bouton **Merge** se débloque : la règle est compatible avec un projet solo ;
+5. s'il reste grisé avec *« 1 approval required »* après votre propre approbation :
+   abaisser `required_approving_review_count` à **0** — la protection par les
+   **checks** reste entière, et c'est elle qui compte.
+
+⚠️ Ne pas laisser cette configuration dans le doute : une barrière qui bloque
+une mise en production légitime est aussi coûteuse qu'une barrière absente, et
+elle pousse à utiliser `--admin`, ce qui annule tout le dispositif.
