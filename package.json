@@ -20,7 +20,12 @@
     "check:topologie": "tsx --conditions=react-server scripts/check-gis-topology.ts",
     "check:regles": "tsx --conditions=react-server scripts/check-p106-regles.ts",
     "check:csv": "tsx --conditions=react-server scripts/check-csv-latin.ts",
-    "audit:prod": "npm audit --omit=dev --audit-level=high"
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "check:e2e": "tsx --conditions=react-server scripts/check-bout-en-bout.ts",
+    "check:e2e:complet": "tsx --conditions=react-server scripts/check-bout-en-bout.ts --complet",
+    "check:derive-schema": "drizzle-kit generate --name derive && git diff --exit-code --quiet drizzle/ || (echo \"DÉRIVE : drizzle/ modifié par generate — une migration manque\" && exit 1)",
+    "check:version": "tsx --conditions=react-server scripts/check-version.ts",
+    "check:schema": "drizzle-kit generate --name ci-derive > /tmp/schema-gen.log 2>&1; grep -q \"No schema changes\" /tmp/schema-gen.log || (cat /tmp/schema-gen.log && echo \"DÉRIVE : src/db/schema.ts et drizzle/ ne concordent pas — une migration manque\" && exit 1)"
   },
   "overrides": {
     "esbuild": "^0.25.12",
@@ -54,5 +59,9 @@
     "postcss": "8.5.28",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"
+  },
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20.9.0"
   }
 }

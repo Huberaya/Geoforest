@@ -21,6 +21,11 @@ env:
   DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
   DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
   AUTH_SECRET: ci-secret-de-build-uniquement-non-utilise-en-production
+  # Mot de passe des comptes de démonstration du job de bout en bout. Il n'a de
+  # valeur que sur la base jetable de ce job, détruite avec le runner. Il est
+  # ici en clair parce qu'un runner n'a pas de coffre ; le seed refuse par
+  # ailleurs tout environnement de production et tout hôte non local.
+  SEED_DEMO_PASSWORD: ci-mot-de-passe-de-demonstration-jetable
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -52,6 +57,9 @@ jobs:
       - name: Lint (aucune erreur tolérée)
         run: npm run lint
 
+      - name: Cohérence de la version et du moteur Node
+        run: npm run check:version
+
       - name: Règles EUDR (GeoJSON, 4 ha, précision, export)
         run: npm run check:eudr
 
@@ -72,6 +80,18 @@ jobs:
 
       - name: Build de production
         run: npm run build
+
+      # ⚠️ `next build` réécrit `next-env.d.ts`. Sans ce contrôle, une
+      #   modification parasite du fichier versionné serait committée sans que
+      #   personne ne sache pourquoi elle apparaît. Constaté deux fois ici.
+      - name: Le build n'a rien modifié du dépôt
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "🔴 Le build a modifié des fichiers versionnés :"
+            git status --porcelain
+            git diff
+            exit 1
+          fi
 
   # ---------------------------------------------------------------------------
   # 2. Backend FastAPI (conservé tant que la décision d'architecture n'est pas
@@ -99,7 +119,9 @@ jobs:
           # 41 tests actifs ; 3 sont explicitement `skipped` (routes
           # /api/v1/geospatial/* absentes — cf. backend/tests/test_geospatial.py
           # et chantier C9). `-q` les affiche : ils ne sont pas comptés verts.
-          pytest -q
+          # ⚠️ `--strict-markers` : un test qui se saute doit le déclarer par un
+          #   marqueur connu. Un `skip` implicite passerait sinon pour un succès.
+          pytest -q --strict-markers
 
   # ---------------------------------------------------------------------------
   # 3. Contrôles exigeant une vraie base PostgreSQL.
@@ -142,3 +164,106 @@ jobs:
 
       - name: Migrations sur base vierge
         run: npm run db:migrate
+
+      # ⚠️ Une dérive entre `src/db/schema.ts` et `drizzle/` signifie qu'une
+      #   migration a été oubliée : le code attend une colonne que la base n'a
+      #   pas. En production, cela se découvre à la première requête, sous
+      #   forme d'une erreur 500 sans rapport apparent avec la migration.
+      - name: Aucune dérive entre le schéma et les migrations
+        run: npm run check:schema
+
+      - name: Migrations idempotentes (rejeu sans effet)
+        run: npm run db:migrate
+
+      - name: Retour arrière puis remontée
+        run: |
+          set -euo pipefail
+          npm run db:rollback
+          npm run db:migrate
+
+  # ---------------------------------------------------------------------------
+  # 4. Bout en bout : l'application **démarrée**, sur une vraie base.
+  #
+  #    ⚠️ Pourquoi ce job existe, alors que les trois précédents sont verts.
+  #
+  #    Aucun d'eux ne prouve que l'application *démarre*. Mesuré le 04/11/2026 :
+  #    sur une base migrée et un build valide, le serveur a refusé **toutes** ses
+  #    requêtes (500), parce que le contrôle de rôle au démarrage jugeait la
+  #    connexion non conforme. `next build`, `tsc`, les cinq `check:*` et
+  #    `db:migrate` étaient verts. Le défaut était dans le produit, et invisible
+  #    de la CI. Ce job le rend visible : il vérifie les sondes, le contrôle de
+  #    rôle, l'authentification à deux facteurs, un parcours métier réel, et
+  #    l'isolation entre deux organisations.
+  # ---------------------------------------------------------------------------
+  bout-en-bout:
+    name: Bout en bout (application démarrée, PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Migrations
+        run: npm run db:migrate
+
+      # ⚠️ Le rôle applicatif est créé **sans mot de passe** par la migration
+      #   (décision de sécurité : aucun secret dans un fichier versionné). Le
+      #   banc se connecte avec ce rôle précisément pour que le contrôle de
+      #   démarrage mesure la configuration réelle — un superutilisateur ferait
+      #   refuser le démarrage, ce qui est le comportement voulu.
+      - name: Attribuer un mot de passe au rôle applicatif (base jetable)
+        run: |
+          set -euo pipefail
+          node -e "
+          const { Client } = require('pg');
+          (async () => {
+            const c = new Client({ connectionString: process.env.DATABASE_URL_ADMIN });
+            await c.connect();
+            await c.query(\\"alter role geoforest_app login password '\${GF_E2E_MOT_DE_PASSE_BASE}'\\");
+            await c.end();
+          })().catch((e) => { console.error(e); process.exit(1); });
+          "
+        env:
+          GF_E2E_MOT_DE_PASSE_BASE: mot-de-passe-jetable-de-ci
+
+      - name: Build de production
+        run: npm run build
+
+      - name: Bout en bout (démarrage, sondes, auth, parcours, isolation)
+        run: npm run check:e2e:complet
+        env:
+          DATABASE_URL: postgresql://geoforest_app:mot-de-passe-jetable-de-ci@127.0.0.1:5432/ci
+          DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          SEED_AUTORISE_HOTE_DISTANT: "oui"
+          GF_STORAGE_DIR: /tmp/gf-stockage
+          GF_E2E_PORT: "3110"
+          GF_E2E_MOT_DE_PASSE: ci-mot-de-passe-de-demonstration-jetable
+
+      - name: Journaux du serveur en cas d'échec
+        if: failure()
+        run: |
+          echo "— journaux éventuels —"
+          ls -la /tmp/gf-stockage 2>/dev/null || true
