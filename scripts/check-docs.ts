@@ -266,6 +266,34 @@ verifier(
   "docs/SECURITE-BACKEND.md doit nommer ce qui reste ouvert et sa condition de sortie",
 );
 
+/* --- Rotation des secrets : la procédure doit couvrir le code ----------- */
+
+// ⚠️ `check:rotation-secrets` vérifie que la procédure est cohérente avec
+//   elle-même. Ici on vérifie qu'elle est cohérente avec le CODE : tout secret
+//   que le code refuse de voir manquer doit figurer dans la procédure.
+//
+//   Le défaut trouvé le 05/11/2026 était exactement celui-là : le runbook
+//   était bien écrit, il couvrait quatre secrets sur six.
+const rotation = lire(join("docs", "ROTATION_SECRETS.md"));
+const variablesEnService = ["AUTH_SECRET", "GF_METRICS_TOKEN", "GF_STORAGE_SIGNING_SECRET", "BACKEND_API_TOKEN"];
+const secretsAbsents = variablesEnService.filter((v) => !rotation.includes(v));
+verifier(
+  "la procédure de rotation couvre tout secret exigé par le code",
+  secretsAbsents.length === 0,
+  `absents de docs/ROTATION_SECRETS.md : ${secretsAbsents.join(", ")}`,
+);
+
+// ⚠️ Le code doit refuser un secret de stockage court même hors production ?
+//   Non : en développement la valeur par défaut est tolérée. Mais en
+//   production, un secret court ne doit pas passer — sinon la garde ne garde
+//   que les développeurs.
+const urlSignee = lire(join("src", "lib", "storage", "url-signee.ts"));
+verifier(
+  "le secret de signature des URLs est refusé s'il est court en production",
+  /32/.test(urlSignee) && /production/i.test(urlSignee),
+  "src/lib/storage/url-signee.ts n'impose plus de longueur minimale en production",
+);
+
 /* --- Dates réglementaires ------------------------------------------------ */
 
 // ⚠️ Les échéances EUDR ont été reportées deux fois. Une documentation qui

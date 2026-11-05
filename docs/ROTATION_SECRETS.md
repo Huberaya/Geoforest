@@ -3,7 +3,17 @@
 **Chantier C2** — 4 novembre 2026
 **Statut :** procédure écrite. **Aucune rotation n'a été exécutée** par l'agent (voir §3).
 
-**Référence :** `EP-02` du registre d'anomalies (`AUDIT-GEOFOREST-2026-11-04.md`, AN-18).
+**Référence interne :** `EP-02`, anomalie `AN-18`.
+
+> ⚠️ Un rapport d'audit externe (`AUDIT-GEOFOREST-2026-11-04.md`) était cité ici.
+> Ce fichier n'existe pas dans le dépôt : la référence était morte. Les constats
+> utiles ont été reportés dans ce document et dans `docs/TEST_REPORT.md`.
+
+**Révisé le 05/11/2026** après les chantiers C5 et C6 :
+- deux secrets ne figuraient pas dans cette procédure et le seront désormais
+  (`GF_STORAGE_SIGNING_SECRET`, `BACKEND_API_TOKEN`) ;
+- un défaut de cache rendait la rotation d'`AUTH_SECRET` **inopérante à chaud** :
+  corrigé, et vérifié par `npm run check:rotation-secrets`.
 
 ---
 
@@ -68,6 +78,17 @@ Effet de bord **attendu** : tous les jetons d'accès et de rafraîchissement
 deviennent invalides. Toutes les sessions actives sont déconnectées. À planifier
 hors heures ouvrées, et à annoncer.
 
+⚠️ **Ce qui a changé (05/11/2026).** La valeur du secret était mise en cache au
+premier accès, définitivement. Après rotation, le processus continuait de
+signer et de vérifier avec l'**ancienne** valeur jusqu'à son redémarrage. La
+rotation ne prenait donc effet que par le redémarrage — et une rotation ratée
+(variable posée sur un seul environnement, faute de frappe, déploiement
+partiel) restait invisible.
+
+Le cache est désormais invalidé dès que `AUTH_SECRET` change. Redémarrer reste
+**recommandé** : c'est plus sûr, et cela vide aussi les autres caches de
+processus. Ce n'est plus ce qui fait la rotation.
+
 ### 2.3 — `GF_METRICS_TOKEN`
 
 ```bash
@@ -76,6 +97,34 @@ openssl rand -hex 32
 
 Mettre à jour les collecteurs de supervision **avant** l'application, sinon
 `/api/metrics` répond 401 et la supervision se tait — une panne silencieuse.
+
+### 2.5 — `GF_STORAGE_SIGNING_SECRET` *(ajouté le 05/11/2026)*
+
+Signe les URLs de téléchargement des pièces justificatives. Refusé au démarrage
+s'il fait moins de 32 caractères ou s'il porte la valeur de développement
+(`src/lib/storage/url-signee.ts`).
+
+```bash
+openssl rand -base64 48
+```
+
+⚠️ **Effet de bord : tous les liens de téléchargement déjà émis deviennent
+invalides.** C'est le comportement voulu — un lien signé qui survivrait à la
+rotation du secret serait un lien qui ne dépend pas de lui. À annoncer aux
+utilisateurs ayant des téléchargements en cours.
+
+### 2.6 — `BACKEND_API_TOKEN` *(ajouté le 05/11/2026, chantier C5)*
+
+Ferme le backend FastAPI. Sans lui, toutes les routes métier répondent `503` —
+voir `docs/SECURITE-BACKEND.md`.
+
+```bash
+openssl rand -base64 48
+```
+
+Mettre à jour l'appelant **avant** le backend si un client automatisé existe,
+sinon ses appels passent en `503`. Aucun client navigateur ne doit le porter :
+une variable `NEXT_PUBLIC_*` finit dans le bundle public.
 
 ### 2.4 — `SEED_DEMO_PASSWORD`
 
@@ -110,8 +159,31 @@ indiscernable d'une rotation non faite.
 | `AUTH_SECRET` | Vercel — production | _à remplir_ | | déconnexion globale constatée ☐ | |
 | `AUTH_SECRET` | Vercel — preview | _à remplir_ | | | |
 | `GF_METRICS_TOKEN` | Vercel — production | _à remplir_ | | `/api/metrics` → 200 ☐ | |
+| `GF_STORAGE_SIGNING_SECRET` | Vercel — production | _à remplir_ | | téléchargement d'une pièce → 200 ☐ | |
+| `BACKEND_API_TOKEN` | Vercel — production | _à remplir_ | | `/fastapi/api/v1/health` → 200 ☐ ; `/fastapi/api/v1/audits` → 410 ☐ | |
 
 ---
+
+## 4 bis — Vérification avant rotation
+
+```bash
+npm run check:rotation-secrets
+```
+
+Treize contrôles, qui prouvent **avant** la rotation qu'elle aura l'effet
+attendu :
+
+| Ce qui est prouvé | Pourquoi ça compte |
+|---|---|
+| Un jeton signé avec l'ancien secret est **rejeté** après rotation | Sans cela, la rotation change une variable sans fermer les sessions |
+| Un jeton signé avec le nouveau secret est accepté | La rotation ne doit pas casser l'application |
+| Un secret de moins de 32 caractères est refusé en production | Une valeur faible passerait pour une rotation |
+| La valeur de développement est refusée en production | Idem, avec une valeur connue de tous |
+| La procédure cite des fichiers qui existent | Elle renvoyait vers un rapport supprimé |
+| Tout secret en service est couvert par la procédure | Deux manquaient |
+
+⚠️ Ce contrôle **ne fait pas** la rotation et ne lit aucun secret réel. Il
+empêche de découvrir la procédure inopérante le jour où on l'applique.
 
 ## 5. Critère de clôture du chantier C2
 
