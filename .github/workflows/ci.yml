@@ -98,6 +98,13 @@ jobs:
       - name: Intégrité des frontières pays
         run: npm run check:frontieres-pays
 
+      # ⚠️ Décision D-001 : le parcours de diligence raisonnée ne se raccourcit
+      #   pas selon le pays d'origine, alors que l'article 13 le permettrait.
+      #   C'est un choix argumenté ; ce contrôle empêche qu'il soit défait par
+      #   inadvertance.
+      - name: Le parcours DDR ne dépend pas du risque pays
+        run: npm run check:parcours-ddr
+
       # ⚠️ Risque PARCELLE contre risque PAYS. Avant C6d, `risk_level` valait
       #   `country.risk` : une parcelle ghanéenne jamais analysée s'affichait
       #   « Risque parcelle : Faible », et l'interface présentait cela comme une

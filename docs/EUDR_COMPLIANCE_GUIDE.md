@@ -76,6 +76,32 @@ considéré comme **non fiable**.
 
 ---
 
+## 2 ter — Diligence raisonnée simplifiée : volontairement non implémentée
+
+L'**article 13** du règlement (UE) 2023/1115 ouvre une diligence raisonnée
+simplifiée aux produits dont **toutes** les matières proviennent de pays classés
+low-risk. L'annexe du règlement d'exécution (UE) 2025/1093 en compte 140,
+dont le Ghana, l'Inde, le Kenya, la Thaïlande, le Vietnam et le Costa Rica.
+
+**GeoForest ne l'implémente pas.** Toutes les origines passent par le parcours
+complet. C'est la décision **D-001** de `docs/DECISIONS.md`.
+
+**Ce que cela coûte à l'opérateur.** Sur une origine ghanéenne ou indienne,
+l'outil demande une évaluation et une atténuation des risques que le règlement
+n'exige pas. C'est un **surcroît de travail délibéré**, pas une non-conformité.
+
+**Pourquoi.** La simplification ne vaut que si *tout* le produit est low-risk.
+Une seule parcelle d'origine standard fait retomber l'ensemble sous le régime
+complet. Un parcours allégé déclenché par le pays d'une parcelle, alors que le
+produit en mélange plusieurs, produirait une diligence insuffisante sur un
+dossier qui se présente comme complet. Le coût d'un parcours en trop est nul
+pour l'opérateur ; le coût d'un parcours en moins est un dossier non opposable.
+
+⚠️ Ce choix doit être **annoncé** au client, pas découvert. Un opérateur qui
+sait pourquoi l'outil en demande plus ne le vit pas comme un défaut.
+
+---
+
 ## 3. Ce que l'export TRACES n'est pas
 
 L'application produit un **fichier** conforme au format attendu. Elle ne
