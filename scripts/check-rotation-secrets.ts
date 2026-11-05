@@ -196,6 +196,38 @@ async function main(): Promise<void> {
     );
   }
 
+  /* --- La commande de vérification est-elle exécutable telle quelle ? ----- */
+
+  // ⚠️ Défaut trouvé le 05/11/2026, en rédigeant l'explication destinée à
+  //   l'exploitant. Le runbook faisait vérifier le rôle avec :
+  //
+  //       DATABASE_URL='postgresql://geoforest_app:…@…' npx tsx scripts/verifier-role.ts
+  //
+  //   Or `verifier-role.ts` contrôle AUSSI la séparation des deux connexions.
+  //   Sans `DATABASE_URL_ADMIN`, `src/db/admin.ts` se replie sur
+  //   `DATABASE_URL` : les deux rôles sont alors identiques, et le script
+  //   sort en code 1 avec « Rôle non conforme » — sur un environnement
+  //   parfaitement conforme. La commande du runbook échouait donc TOUJOURS, et
+  //   l'exploitant aurait été tenté de « corriger » une configuration saine,
+  //   ou de passer outre le contrôle.
+  //
+  //   On ne peut pas se contenter de chercher `DATABASE_URL_ADMIN` dans le
+  //   document : ce texte figure ailleurs, et un contrôle lexical resterait
+  //   vert sur une commande fautive. On extrait donc les blocs de commande
+  //   qui invoquent `verifier-role.ts` et on exige que chacun déclare les DEUX
+  //   variables.
+  const blocsVerificationRole = [...doc.matchAll(/```bash\n([\s\S]*?)```/g)]
+    .map((m) => m[1])
+    .filter((bloc) => bloc.includes("verifier-role.ts"));
+  verifier(
+    "la commande de vérification du rôle déclare l'URL d'administration",
+    blocsVerificationRole.length > 0 &&
+      blocsVerificationRole.every(
+        (bloc) => bloc.includes("DATABASE_URL_ADMIN") && bloc.includes("DATABASE_URL="),
+      ),
+    "une commande du runbook appelle verifier-role.ts sans DATABASE_URL_ADMIN : elle échoue sur un environnement conforme",
+  );
+
   /* ------------------------------- Rapport -------------------------------- */
 
   const echecs = controles.filter((c) => !c.ok);
