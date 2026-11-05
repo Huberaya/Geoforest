@@ -25,7 +25,8 @@
     "check:e2e:complet": "tsx --conditions=react-server scripts/check-bout-en-bout.ts --complet",
     "check:derive-schema": "drizzle-kit generate --name derive && git diff --exit-code --quiet drizzle/ || (echo \"DÉRIVE : drizzle/ modifié par generate — une migration manque\" && exit 1)",
     "check:version": "tsx --conditions=react-server scripts/check-version.ts",
-    "check:schema": "drizzle-kit generate --name ci-derive > /tmp/schema-gen.log 2>&1; grep -q \"No schema changes\" /tmp/schema-gen.log || (cat /tmp/schema-gen.log && echo \"DÉRIVE : src/db/schema.ts et drizzle/ ne concordent pas — une migration manque\" && exit 1)"
+    "check:schema": "drizzle-kit generate --name ci-derive > /tmp/schema-gen.log 2>&1; grep -q \"No schema changes\" /tmp/schema-gen.log || (cat /tmp/schema-gen.log && echo \"DÉRIVE : src/db/schema.ts et drizzle/ ne concordent pas — une migration manque\" && exit 1)",
+    "check:docs": "tsx --conditions=react-server scripts/check-docs.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",

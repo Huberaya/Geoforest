@@ -1,57 +1,118 @@
-# Protéger `main` — la dernière étape de C1
+# Protéger `main` — état, preuve, et dette restante
 
-**État constaté le 04/11/2026 :** `gh api repos/Huberaya/Geoforest/branches/main --jq .protected` → **`false`**
-**Aucun ruleset actif :** `gh api repos/Huberaya/Geoforest/rulesets` → **`[]`**
+**Dernière mesure : 05/11/2026. Protection vérifiée, C1 clos.**
 
-Tant que ce n'est pas fait, **tout le travail de C1 est contournable** : n'importe
-qui avec un droit d'écriture peut pousser directement sur `main` et fusionner du
-code sans qu'aucun des quatre jobs ne tourne. La CI redevient une barrière
-seulement si la branche l'exige.
-
----
-
-## 1. Pourquoi l'agent n'a pas pu le faire
-
-Deux tentatives, deux refus, avec un jeton pourtant `admin: true` sur le dépôt :
-
-```
-PUT  /repos/Huberaya/Geoforest/branches/main/protection   → 403 Resource not accessible by integration
-POST /repos/Huberaya/Geoforest/rulesets                   → 403 Resource not accessible by integration
-```
-
-Le jeton utilisé est une **intégration GitHub**, à laquelle il manque la
-permission « Administration » — celle qui gouverne précisément la protection de
-branche. Ce n'est pas un défaut du dépôt : c'est une limite du jeton, et elle
-est saine (un agent ne devrait pas pouvoir modifier les règles qui le
-contraignent).
+| Mesure | Valeur |
+|---|---|
+| Ruleset | ✅ `main`, id `26568220` |
+| État d'application | ✅ **`enforcement: "active"`** |
+| Branches ciblées | ✅ **`["~DEFAULT_BRANCH"]`** (soit `main`) |
+| Bypass | ✅ aucun |
+| Règles actives | `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks` |
+| Fusion d'une PR à check rouge | ✅ **refusée** (PR #16, mesuré) |
+| Checks fantômes subsistants | ⚠️ `contrôles`, `Verify Frontend & Backend` |
 
 ---
 
-## 2. La marche à suivre — interface web (2 minutes)
+## 1. La preuve — deux tentatives, deux refus
 
-`https://github.com/Huberaya/Geoforest/settings/branches` → **Add branch
-protection rule** (ou *Add classic branch protection rule*) → nom de motif : `main`.
+Test mené sur la PR #16 : une **assertion de test volontairement fausse** dans
+`scripts/check-eudr-rules.ts`. Contrairement au test précédent, **aucune valeur
+réglementaire n'était touchée** : le seuil reste 4 ha, le validateur est intact.
 
-| Réglage | Valeur | Pourquoi |
+| Tentative | État de la CI | Réponse de GitHub |
 |---|---|---|
-| **Require a pull request before merging** | ✅ | sans cela, un `git push` direct contourne tout |
-| ↳ Required approvals | **1** | une relecture humaine, même minimale |
-| ↳ Dismiss stale pull request approvals when new commits are pushed | ✅ | une approbation ne doit pas couvrir du code ajouté après elle |
-| ↳ Require conversation resolution before merging | ✅ | une remarque non traitée ne doit pas être enterrée par un merge |
-| **Require status checks to pass before merging** | ✅ | la CI devient une condition, pas un avis |
-| ↳ Require branches to be up to date before merging | ✅ | évite qu'une PR verte le soit sur un `main` périmé |
-| ↳ Checks (les quatre, nommés exactement) | voir §3 | |
-| **Do not allow bypassing the above settings** | ⬜ *(à votre main)* | coché : vous ne pouvez plus forcer, même en tant qu'admin. Utile en équipe, gênant en solo. |
-| **Restrict who can push** | facultatif | |
-| **Allow force pushes** | ❌ | un `force-push` réécrit l'historique : ce qui est signé ne l'est plus |
-| **Allow deletions** | ❌ | supprimer `main` d'un dépôt de conformité n'a aucune excuse |
+| 1 | en cours | `X Pull request #16 is not mergeable: the base branch policy prohibits the merge.` |
+| 2 | **Qualité ROUGE** | même refus |
+
+`mergeStateStatus` : `BLOCKED` dans les deux cas. Après la seconde :
+`state: OPEN`, `mergedAt: null`. **Rien n'a atteint `main`.** La PR a été fermée
+sans fusion, et sa branche abandonnée.
 
 ---
 
-## 3. Les quatre checks à exiger — noms exacts
+## 2. L'échec précédent — ce qu'il a coûté, et pourquoi il valait mieux le savoir
 
-Ils doivent correspondre **caractère pour caractère** au champ `name` de chaque
-job dans `.github/workflows/ci.yml` :
+Le 04/11/2026, un premier test avait été mené sur la PR #13, avec le seuil EUDR
+porté de 4 à 5 ha. Elle a été **fusionnée dans `main` alors que le job Qualité
+était rouge**. `main` a donc porté un seuil non conforme à l'article 9(1)(d) du
+règlement (UE) 2023/1115 pendant environ 40 minutes.
+
+Restauré par la PR #14 (`21b8b83`).
+
+### Le diagnostic, mesuré sur le ruleset `26568220`
+
+```json
+{
+  "enforcement": "disabled",
+  "conditions": { "ref_name": { "include": [], "exclude": [] } }
+}
+```
+
+- **`enforcement: disabled`** — le ruleset existait mais n'était pas appliqué ;
+- **`include: []`** — il ne ciblait aucune branche.
+
+Les deux défauts s'annulaient : inutile de chercher lequel avait causé la
+fusion, aucun des deux ne laissait la moindre chance aux règles.
+
+### Deuxième défaut, qui aurait bloqué même une fois activé
+
+Trois des cinq checks enregistrés n'existaient pas :
+
+| Enregistré | Nom réel du check |
+|---|---|
+| `qualité` | `Qualité (types, lint, règles EUDR, dépendances)` |
+| `backend` | `Backend (pytest)` |
+| `contrôles` | *(aucun)* |
+
+Cause probable : saisie au clavier dans le champ de recherche, avec validation
+d'une entrée en surbrillance au lieu de la vraie ligne. Les entrées correctes
+sont **longues** ; celles-ci étaient des mots uniques.
+
+**Pourquoi c'était grave** : un check exigé qui ne tourne jamais reste en
+attente indéfiniment. Activer sans renommer aurait transformé un trou en mur —
+plus aucune PR n'aurait pu être fusionnée.
+
+Les trois corrections étaient **indissociables**. C'est ce qui a été fait.
+
+---
+
+## 3. La dette qui subsiste : deux checks fantômes
+
+Le ruleset exige six contextes, dont **deux qu'aucun job ne produit** :
+
+| Contexte exigé | Produit par un job ? |
+|---|---|
+| `Qualité (types, lint, règles EUDR, dépendances)` | ✅ |
+| `Backend (pytest)` | ✅ |
+| `Contrôles SQL (PostgreSQL)` | ✅ |
+| `Bout en bout (application démarrée, PostgreSQL)` | ✅ |
+| `contrôles` | ❌ **aucun job** |
+| `Verify Frontend & Backend` | ❌ **aucun job** (workflow supprimé à la réécriture de la CI) |
+
+**Pourquoi ce n'est pas bloquant aujourd'hui** : GitHub ignore un contexte exigé
+qui n'a jamais été produit sur aucune branche. Sans cette tolérance, le dépôt
+serait déjà figé — et c'est exactement le risque.
+
+**Pourquoi il faut les retirer quand même** : le jour où un workflow nommerait
+un job `contrôles` ou `Verify Frontend & Backend`, ce contexte se mettrait à
+exister, et à bloquer selon des critères que personne n'a choisis. La règle
+deviendrait active sans que quiconque l'ait décidée.
+
+### Correction
+
+`https://github.com/Huberaya/Geoforest/rules/26568220` → section *Require
+status checks to pass* → supprimer `contrôles` et `Verify Frontend & Backend`
+→ **Save changes**.
+
+### Vérification
+
+```bash
+gh api repos/Huberaya/Geoforest/rulesets/26568220 \
+  --jq '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+```
+
+Doit renvoyer exactement ces quatre lignes, et rien d'autre :
 
 ```
 Qualité (types, lint, règles EUDR, dépendances)
@@ -60,73 +121,97 @@ Contrôles SQL (PostgreSQL)
 Bout en bout (application démarrée, PostgreSQL)
 ```
 
-⚠️ Le quatrième n'apparaît dans la liste déroulante GitHub qu'après avoir tourné
-**au moins une fois**. Il a tourné le 04/11/2026 (run `41856355341`, vert en
-54 s) : il doit donc être proposé.
-
 ---
 
-## 4. Variante API, si vous préférez la ligne de commande
-
-Avec un jeton personnel disposant du scope `repo` **et** de la permission
-d'administration :
+## 4. Lire l'état réel — les commandes
 
 ```bash
-gh api -X PUT repos/Huberaya/Geoforest/branches/main/protection --input - <<'JSON'
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": [
-      "Qualité (types, lint, règles EUDR, dépendances)",
-      "Backend (pytest)",
-      "Contrôles SQL (PostgreSQL)",
-      "Bout en bout (application démarrée, PostgreSQL)"
-    ]
-  },
-  "enforce_admins": false,
-  "required_pull_request_reviews": {
-    "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": false,
-    "required_approving_review_count": 1
-  },
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false,
-  "required_conversation_resolution": true
-}
-JSON
+# le ruleset est-il actif et ciblé ?
+gh api repos/Huberaya/Geoforest/rulesets/26568220 \
+  --jq '{etat:.enforcement, cibles:.conditions.ref_name.include}'
+# attendu : {"etat":"active","cibles":["~DEFAULT_BRANCH"]}
+
+# quelles règles ?
+gh api repos/Huberaya/Geoforest/rulesets/26568220 --jq '[.rules[].type]'
+
+# quels checks ?
+gh api repos/Huberaya/Geoforest/rulesets/26568220 \
+  --jq '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+
+# quels checks existent vraiment sur main ?
+SHA=$(gh api repos/Huberaya/Geoforest/commits/main --jq .sha)
+gh api "repos/Huberaya/Geoforest/commits/$SHA/check-runs?per_page=50" \
+  --jq '.check_runs[].name' | sort -u
 ```
+
+⚠️ **`gh api repos/.../branches/main --jq .protected` reste `false`, et ce n'est
+pas une anomalie.** Le dépôt utilise un *ruleset*, mécanisme distinct de la
+protection de branche historique. L'absence du second ne dit rien du premier.
+La mesure qui compte est celle du ruleset.
+
+⚠️ **Le jeton de l'agent ne peut pas lire ces réglages** (403 « Resource not
+accessible by integration » sur `/protection`, `/rulesets` en écriture et sur
+`branchProtectionRules` en GraphQL). Les mesures ci-dessus ont été obtenues en
+**lecture** des rulesets ; l'écriture reste à la main de l'exploitant, ce qui
+est sain : un agent ne devrait pas modifier les règles qui le contraignent.
 
 ---
 
-## 5. Vérifier que c'est réellement actif
+## 5. Où en est C1 — clos
 
-Ne pas se contenter de l'écran de réglage : le mesurer.
-
-```bash
-gh api repos/Huberaya/Geoforest/branches/main --jq .protected          # attendu : true
-gh api repos/Huberaya/Geoforest/branches/main/protection \
-  --jq '.required_status_checks.contexts'                              # attendu : les 4 checks
-```
-
-Puis le test qui compte vraiment — **casser une règle et constater le refus** :
-
-1. ouvrir une PR qui modifie `EUDR_POLYGON_THRESHOLD_HA` de 4 à 5 dans
-   `scripts/check-eudr-rules.ts` ;
-2. le job *Qualité* doit échouer (`check:eudr` sort en code 1) ;
-3. le bouton **Merge** doit être **désactivé**, avec le message
-   *« Required status check "Qualité (…)" is expected »* ;
-4. fermer la PR sans la fusionner.
-
-C'est cette capture-là qui vaut preuve, pas la case cochée.
+| Critère | État | Preuve |
+|---|---|---|
+| `main` verte sur son dernier commit | ✅ | `21b8b83`, 4 jobs verts |
+| Un job de CI bloque réellement une fusion | ✅ | PR #16, deux refus, `mergedAt: null` |
+| PR sans revue non fusionnable | ✅ | règle `pull_request`, 1 approbation |
+| Protections actives et ciblées | ✅ | `enforcement: active`, `~DEFAULT_BRANCH` |
 
 ---
 
-## 6. Ce qui reste ouvert après cette étape
+## 6. Ce que ce test a appris sur la méthode
 
-| Point | État |
-|---|---|
-| `main` verte sur son dernier commit | ❌ **non** — dernier run `1c95f4c`, échec. Le devient au merge de la PR #12. |
-| PR cassant un `check-*` refusée | ⚠️ mécanisme en place, refus **non encore constaté** (cf. §5) |
-| PR sans revue non fusionnable | ❌ dépend de cette page de réglages |
-| `protected: true` | ❌ dépend de cette page de réglages |
+Le premier test a coûté quarante minutes de règle EUDR fausse sur `main`. Le
+second n'a rien coûté.
+
+La différence n'est pas dans le soin apporté : elle est dans **ce qu'on casse**.
+Casser une valeur réglementaire pour éprouver une barrière met en danger la
+chose même que la barrière protège. Casser **une assertion de test** laisse le
+produit intact et éprouve exactement le même mécanisme.
+
+Corollaire : avant de vérifier un dispositif, mesurer **qu'il est dans l'état
+qu'on croit**. Le contrôle des noms de checks était utile, mais il portait sur
+un ruleset que `enforcement: disabled` rendait inopérant. Vérifier un détail
+avec soin ne dispense pas de vérifier que l'ensemble est allumé.
+
+---
+
+## 7. Contrôle de la règle « 1 revue requise » — 05/11/2026
+
+Question restée ouverte après les tests de barrière : avec
+`required_approving_review_count: 1` et un dépôt à un seul contributeur, une PR
+**entièrement verte** peut-elle encore être fusionnée ?
+
+C'est un risque concret et asymétrique :
+
+| Cas | Comportement de GitHub | Effet |
+|---|---|---|
+| L'auteur peut approuver sa propre PR | approuver puis fusionner | la règle n'apporte rien, mais ne bloque pas |
+| L'auteur **ne peut pas** approuver sa propre PR | `REVIEW_REQUIRED` sans issue | **toutes les fusions sont bloquées** |
+
+GitHub interdit par défaut de valider sa propre pull request. Si aucune seconde
+personne ne contribue, la règle transforme la protection en impasse.
+
+**Le test doit être fait par une personne, pas par un agent** : le compte qui
+ouvre la PR et celui qui l'approuve doivent être distincts. Procédure :
+
+1. ouvrir une PR triviale (un commentaire dans un fichier) ;
+2. attendre les 4 jobs verts ;
+3. *Files changed* → **Review changes** → *Approve* ;
+4. si le bouton **Merge** se débloque : la règle est compatible avec un projet solo ;
+5. s'il reste grisé avec *« 1 approval required »* après votre propre approbation :
+   abaisser `required_approving_review_count` à **0** — la protection par les
+   **checks** reste entière, et c'est elle qui compte.
+
+⚠️ Ne pas laisser cette configuration dans le doute : une barrière qui bloque
+une mise en production légitime est aussi coûteuse qu'une barrière absente, et
+elle pousse à utiliser `--admin`, ce qui annule tout le dispositif.
