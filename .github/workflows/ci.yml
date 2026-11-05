@@ -162,7 +162,13 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # 2. Backend FastAPI (conservé tant que la décision d'architecture n'est pas
-  #    tranchée — cf. chantier C5).
+  #    tranchée).
+  #
+  #    ⚠️ C5 : ce backend n'authentifiait personne et `GET /audits` renvoyait
+  #    tous les dossiers de toutes les organisations. Il est désormais fermé
+  #    par défaut (503 sans jeton), `GET /audits` est désactivée (410), le
+  #    joker CORS est écarté et la documentation interactive est fermée.
+  #    Voir docs/SECURITE-BACKEND.md.
   # ---------------------------------------------------------------------------
   backend:
     name: Backend (pytest)
@@ -183,9 +189,13 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          # 41 tests actifs ; 3 sont explicitement `skipped` (routes
+          # 53 tests actifs ; 3 sont explicitement `skipped` (routes
           # /api/v1/geospatial/* absentes — cf. backend/tests/test_geospatial.py
           # et chantier C9). `-q` les affiche : ils ne sont pas comptés verts.
+          # ⚠️ C5 : 12 de ces tests éprouvent la fermeture du backend
+          #   (`test_securite_backend.py`). Ils vérifient d'abord que l'accès
+          #   NON autorisé échoue — un test qui ne vérifierait que l'accès
+          #   autorisé passerait aussi sur un backend ouvert.
           # ⚠️ `--strict-markers` : un test qui se saute doit le déclarer par un
           #   marqueur connu. Un `skip` implicite passerait sinon pour un succès.
           pytest -q --strict-markers

@@ -213,6 +213,59 @@ verifier(
   docsAvecComptesDeTests.map((d) => d.fichier).join(", "),
 );
 
+/* --- Sécurité du backend : la documentation doit suivre le code --------- */
+
+const securiteBackend = lire(join("docs", "SECURITE-BACKEND.md"));
+const endpointsPy = lire(join("backend", "app", "api", "v1", "endpoints.py"));
+const securityPy = lire(join("backend", "app", "core", "security.py"));
+
+const nbRoutes = (endpointsPy.match(/@router\.(get|post)/g) ?? []).length;
+const nbJetons = (endpointsPy.match(/Depends\(exiger_jeton\)/g) ?? []).length;
+verifier(
+  "toute route métier du backend exige un jeton",
+  // `GET /health` est la seule exception admise.
+  nbJetons === nbRoutes - 1,
+  `${nbRoutes} routes, ${nbJetons} protégées — il en manque une`,
+);
+
+// ⚠️ Contrôle STRUCTUREL, pas lexical. Chercher « 503 » dans le fichier
+//   passait au vert alors que la branche était désactivée : le texte de la
+//   ligne `raise` restait présent, simplement inatteignable. Il faut que
+//   l'absence de jeton soit IMMÉDIATEMENT suivie du refus.
+verifier(
+  "le backend est fermé quand aucun jeton n'est configuré",
+  /if not attendu:\s*\n\s*raise HTTPException\(\s*\n\s*status_code=status\.HTTP_503_SERVICE_UNAVAILABLE/.test(
+    securityPy,
+  ),
+  "la branche « aucun jeton » ne renvoie pas 503 : le backend s'ouvrirait par défaut",
+);
+
+// ⚠️ Et la comparaison doit être à temps constant : une comparaison naïve
+//   laisse fuir la longueur du préfixe correct par le temps de réponse.
+verifier(
+  "le jeton est comparé à temps constant",
+  /hmac\.compare_digest\(/.test(securityPy),
+  "comparaison de jeton non constante : le préfixe correct fuit par le temps de réponse",
+);
+
+verifier(
+  "la liste inter-tenant des dossiers est désactivée",
+  /HTTP_410_GONE/.test(endpointsPy),
+  "GET /audits n'est plus fermée : elle listerait tous les dossiers de toutes les organisations",
+);
+
+verifier(
+  "le joker CORS n'est pas honoré",
+  /cors_valides/.test(lire(join("backend", "app", "core", "config.py"))),
+  "le joker CORS n'est pas écarté : allow_credentials + * exposent les réponses",
+);
+
+verifier(
+  "la dette résiduelle du backend est documentée",
+  /inter-tenant/i.test(securiteBackend) && /Condition de sortie/i.test(securiteBackend),
+  "docs/SECURITE-BACKEND.md doit nommer ce qui reste ouvert et sa condition de sortie",
+);
+
 /* --- Dates réglementaires ------------------------------------------------ */
 
 // ⚠️ Les échéances EUDR ont été reportées deux fois. Une documentation qui

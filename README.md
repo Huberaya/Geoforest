@@ -32,7 +32,28 @@ docker-compose up --build
 ```
 
 Le dashboard utilise par défaut les routes API Next.js intégrées (`/api/v1/...`, persistance PostgreSQL via Drizzle).
-Pour brancher le dashboard sur le backend FastAPI : `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+
+⚠️ **Le backend FastAPI est fermé par défaut.** Il exige
+`BACKEND_API_TOKEN` sur toutes ses routes métier ; sans ce jeton, elles
+répondent `503`. Seule la sonde `/api/v1/health` reste ouverte. Générer un
+jeton :
+
+```bash
+openssl rand -base64 48
+```
+
+⚠️ Ce jeton **ne doit jamais** être exposé au navigateur. Une variable
+`NEXT_PUBLIC_*` finit dans le bundle envoyé au client, donc publique. Le
+dashboard ne peut donc pas appeler directement un backend distant : il faut
+une route Next.js qui relaie avec le jeton côté serveur. Le client refuse
+explicitement ce branchement plutôt que d'échouer en `401` à l'exécution.
+
+En développement local uniquement, `NEXT_PUBLIC_API_URL=http://localhost:8000`
+reste accepté, avec un avertissement.
+
+⚠️ `GET /api/v1/audits` du backend est **désactivée** (`410`) : elle renvoyait
+l'intégralité des dossiers de toutes les organisations. Le multi-tenant vit
+dans l'application Next.js. Détail : `docs/SECURITE-BACKEND.md`.
 
 ## Règles EUDR implémentées (identiques en Python et TypeScript)
 
