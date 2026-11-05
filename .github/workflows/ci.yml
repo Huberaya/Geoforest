@@ -75,6 +75,13 @@ jobs:
       - name: Garde-fous de l'amorçage de démonstration
         run: npm run check:seed
 
+      # ⚠️ Un document qui affirme « 29/29 tests », « 25 routes » et « CSP
+      #   applicative » alors que tout trois sont faux ne casse aucun build.
+      #   Ce contrôle transforme les affirmations chiffrées en contraintes, et
+      #   échoue quand la documentation et le code divergent.
+      - name: Cohérence entre la documentation et le code
+        run: npm run check:docs
+
       - name: Vulnérabilités des dépendances de production
         run: npm run audit:prod
 
