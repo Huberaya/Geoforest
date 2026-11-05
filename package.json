@@ -27,7 +27,8 @@
     "check:version": "tsx --conditions=react-server scripts/check-version.ts",
     "check:schema": "drizzle-kit generate --name ci-derive > /tmp/schema-gen.log 2>&1; grep -q \"No schema changes\" /tmp/schema-gen.log || (cat /tmp/schema-gen.log && echo \"DÉRIVE : src/db/schema.ts et drizzle/ ne concordent pas — une migration manque\" && exit 1)",
     "check:docs": "tsx --conditions=react-server scripts/check-docs.ts",
-    "check:banc-pays": "tsx --conditions=react-server scripts/check-banc-pays.ts"
+    "check:banc-pays": "tsx --conditions=react-server scripts/check-banc-pays.ts",
+    "check:referentiel-pays": "tsx --conditions=react-server scripts/check-referentiel-pays.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",

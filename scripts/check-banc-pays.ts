@@ -103,8 +103,8 @@ const POINTS: PointReference[] = [
   { nom: "Kampala (UG)", lon: 32.58, lat: 0.35, iso2Attendus: ["UG"], tier: "STANDARD", motif: "STANDARD par défaut" },
   { nom: "Monrovia (LR)", lon: -10.76, lat: 6.3, iso2Attendus: ["LR"], tier: "STANDARD", motif: "STANDARD par défaut — caoutchouc" },
   { nom: "Phnom Penh (KH)", lon: 104.92, lat: 11.55, iso2Attendus: ["KH"], tier: "STANDARD", motif: "STANDARD — boîte VN voisine" },
-  { nom: "Oulan-Bator (MN)", lon: 106.92, lat: 47.89, iso2Attendus: ["MN"], tier: "STANDARD", motif: "STANDARD — boîte CN voisine" },
-  { nom: "Port Moresby (PG)", lon: 147.15, lat: -9.44, iso2Attendus: ["PG"], tier: "STANDARD", motif: "STANDARD par défaut — bois" },
+  { nom: "Oulan-Bator (MN)", lon: 106.92, lat: 47.89, iso2Attendus: ["MN"], tier: "LOW", motif: "LOW officiel — boîte RU voisine" },
+  { nom: "Port Moresby (PG)", lon: 147.15, lat: -9.44, iso2Attendus: ["PG"], tier: "LOW", motif: "LOW officiel — bois" },
 ];
 
 /* -------------------------------------------------------------------------- */

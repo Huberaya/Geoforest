@@ -82,6 +82,16 @@ jobs:
       - name: Cohérence entre la documentation et le code
         run: npm run check:docs
 
+      # ⚠️ Le référentiel pays (règlement d'exécution (UE) 2025/1093) est une
+      #   donnée réglementaire recopiée à la main. Une coquille y produit un
+      #   faux verdict de conformité, sans qu'aucun test de code ne bronche.
+      #   Ce contrôle vérifie la fidélité de la table à l'annexe : 140 LOW,
+      #   4 HIGH nommés, 27 États membres, aucun conflit.
+      #   Le banc de régression complet (check:banc-pays) reste hors CI tant
+      #   que la résolution géographique est fausse : C6c.
+      - name: Intégrité du référentiel pays EUDR
+        run: npm run check:referentiel-pays
+
       - name: Vulnérabilités des dépendances de production
         run: npm run audit:prod
 

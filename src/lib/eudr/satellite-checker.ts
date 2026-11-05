@@ -1,65 +1,114 @@
 import { createHash } from "node:crypto";
 import { geodesicAreaHa } from "./gis-validator";
+import { niveauBenchmark, nomOfficiel, estListeALAnnexe, REFERENTIEL_VERSION } from "./benchmark-pays";
+
+/**
+ * L'annexe liste les États membres individuellement ; le code les résout
+ * encore par une boîte « EU ». Un regroupement d'États membres est LOW par
+ * construction — chacun des 27 y figure. Ce cas est isolé et nommé pour ne pas
+ * être confondu avec un pays non résolu.
+ */
+const CODE_UE = "EU";
 import { EUDR_CUTOFF_DATE, EUDR_CUTOFF_YEAR, type AnalysisEvidence, type Position, type RiskLevel, type SatelliteCheckResult, type SupportedGeometry } from "./types";
 import { incrementer, noterJauges } from "@/lib/observability/metriques";
 import { journal } from "@/lib/observability/journal";
 
 // ---------------------------------------------------------------- Benchmark pays (Commission UE, art. 29 EUDR)
+/**
+ * Rectangle englobant servant UNIQUEMENT à identifier le pays.
+ *
+ * ⚠️ Aucun niveau de risque ici. Il vient exclusivement de
+ *   `benchmark-pays.ts` (règlement d'exécution (UE) 2025/1093). Un champ `risk`
+ *   local a existé : il avait dérivé de l'annexe et contaminait `risk_level`.
+ *   Ne pas le réintroduire — une seconde source de vérité finit toujours par
+ *   diverger de la première.
+ */
 interface CountryBox {
   iso2: string;
   name: string;
   box: [number, number, number, number]; // lonMin, latMin, lonMax, latMax
-  risk: RiskLevel;
 }
 
 const COUNTRY_BOXES: CountryBox[] = [
-  { iso2: "BY", name: "Biélorussie", box: [23.1, 51.2, 32.8, 56.2], risk: "HIGH" },
-  { iso2: "MM", name: "Myanmar", box: [92.1, 9.5, 101.2, 28.6], risk: "HIGH" },
-  { iso2: "KP", name: "Corée du Nord", box: [124.1, 37.6, 130.7, 43.0], risk: "HIGH" },
-  { iso2: "RU", name: "Russie", box: [27.3, 41.1, 180.0, 81.9], risk: "HIGH" },
-  { iso2: "CI", name: "Côte d'Ivoire", box: [-8.6, 4.3, -2.5, 10.8], risk: "STANDARD" },
-  { iso2: "GH", name: "Ghana", box: [-3.3, 4.7, 1.2, 11.2], risk: "STANDARD" },
-  { iso2: "NG", name: "Nigeria", box: [2.6, 4.2, 14.7, 13.9], risk: "STANDARD" },
-  { iso2: "CM", name: "Cameroun", box: [8.4, 1.6, 16.2, 13.1], risk: "STANDARD" },
-  { iso2: "CD", name: "RD Congo", box: [12.2, -13.5, 31.3, 5.4], risk: "STANDARD" },
-  { iso2: "UG", name: "Ouganda", box: [29.5, -1.5, 35.0, 4.2], risk: "STANDARD" },
-  { iso2: "ET", name: "Éthiopie", box: [32.9, 3.4, 48.0, 14.9], risk: "STANDARD" },
-  { iso2: "KE", name: "Kenya", box: [33.9, -4.7, 41.9, 5.5], risk: "STANDARD" },
-  { iso2: "TZ", name: "Tanzanie", box: [29.3, -11.8, 40.5, -0.9], risk: "STANDARD" },
-  { iso2: "LR", name: "Liberia", box: [-11.5, 4.3, -7.4, 8.6], risk: "STANDARD" },
-  { iso2: "ID", name: "Indonésie", box: [95.0, -11.0, 141.0, 6.1], risk: "STANDARD" },
-  { iso2: "MY", name: "Malaisie", box: [99.6, 0.8, 119.3, 7.4], risk: "STANDARD" },
-  { iso2: "VN", name: "Vietnam", box: [102.1, 8.4, 109.5, 23.4], risk: "STANDARD" },
-  { iso2: "TH", name: "Thaïlande", box: [97.3, 5.6, 105.7, 20.5], risk: "STANDARD" },
-  { iso2: "PG", name: "Papouasie-Nouvelle-Guinée", box: [140.8, -11.7, 156.0, -1.3], risk: "STANDARD" },
-  { iso2: "IN", name: "Inde", box: [68.1, 6.7, 97.4, 35.5], risk: "STANDARD" },
-  { iso2: "BR", name: "Brésil", box: [-74.0, -33.8, -34.8, 5.3], risk: "STANDARD" },
-  { iso2: "CO", name: "Colombie", box: [-79.0, -4.2, -66.9, 12.5], risk: "STANDARD" },
-  { iso2: "PE", name: "Pérou", box: [-81.4, -18.4, -68.7, -0.03], risk: "STANDARD" },
-  { iso2: "EC", name: "Équateur", box: [-81.1, -5.0, -75.2, 1.7], risk: "STANDARD" },
-  { iso2: "BO", name: "Bolivie", box: [-69.6, -22.9, -57.5, -9.7], risk: "STANDARD" },
-  { iso2: "PY", name: "Paraguay", box: [-62.7, -27.6, -54.3, -19.3], risk: "STANDARD" },
-  { iso2: "AR", name: "Argentine", box: [-73.6, -55.1, -53.6, -21.8], risk: "STANDARD" },
-  { iso2: "HN", name: "Honduras", box: [-89.4, 12.9, -83.1, 16.5], risk: "STANDARD" },
-  { iso2: "GT", name: "Guatemala", box: [-92.3, 13.7, -88.2, 17.8], risk: "STANDARD" },
-  { iso2: "NI", name: "Nicaragua", box: [-87.7, 10.7, -83.1, 15.0], risk: "STANDARD" },
-  { iso2: "CR", name: "Costa Rica", box: [-85.9, 8.0, -82.6, 11.2], risk: "STANDARD" },
-  { iso2: "MX", name: "Mexique", box: [-118.4, 14.5, -86.7, 32.7], risk: "STANDARD" },
-  { iso2: "US", name: "États-Unis", box: [-125.0, 24.5, -66.9, 49.4], risk: "LOW" },
-  { iso2: "CA", name: "Canada", box: [-141.0, 41.7, -52.6, 83.1], risk: "LOW" },
-  { iso2: "AU", name: "Australie", box: [113.3, -43.6, 153.6, -10.7], risk: "LOW" },
-  { iso2: "NZ", name: "Nouvelle-Zélande", box: [166.5, -47.3, 178.6, -34.4], risk: "LOW" },
-  { iso2: "JP", name: "Japon", box: [129.4, 31.0, 145.8, 45.5], risk: "LOW" },
-  { iso2: "CN", name: "Chine", box: [73.5, 18.2, 134.8, 53.6], risk: "LOW" },
-  { iso2: "EU", name: "Union européenne", box: [-10.5, 35.0, 31.6, 71.2], risk: "LOW" },
+  { iso2: "BY", name: "Biélorussie", box: [23.1, 51.2, 32.8, 56.2] },
+  { iso2: "MM", name: "Myanmar", box: [92.1, 9.5, 101.2, 28.6] },
+  { iso2: "KP", name: "Corée du Nord", box: [124.1, 37.6, 130.7, 43.0] },
+  { iso2: "RU", name: "Russie", box: [27.3, 41.1, 180.0, 81.9] },
+  { iso2: "CI", name: "Côte d'Ivoire", box: [-8.6, 4.3, -2.5, 10.8] },
+  { iso2: "GH", name: "Ghana", box: [-3.3, 4.7, 1.2, 11.2] },
+  { iso2: "NG", name: "Nigeria", box: [2.6, 4.2, 14.7, 13.9] },
+  { iso2: "CM", name: "Cameroun", box: [8.4, 1.6, 16.2, 13.1] },
+  { iso2: "CD", name: "RD Congo", box: [12.2, -13.5, 31.3, 5.4] },
+  { iso2: "UG", name: "Ouganda", box: [29.5, -1.5, 35.0, 4.2] },
+  { iso2: "ET", name: "Éthiopie", box: [32.9, 3.4, 48.0, 14.9] },
+  { iso2: "KE", name: "Kenya", box: [33.9, -4.7, 41.9, 5.5] },
+  { iso2: "TZ", name: "Tanzanie", box: [29.3, -11.8, 40.5, -0.9] },
+  { iso2: "LR", name: "Liberia", box: [-11.5, 4.3, -7.4, 8.6] },
+  { iso2: "ID", name: "Indonésie", box: [95.0, -11.0, 141.0, 6.1] },
+  { iso2: "MY", name: "Malaisie", box: [99.6, 0.8, 119.3, 7.4] },
+  { iso2: "VN", name: "Vietnam", box: [102.1, 8.4, 109.5, 23.4] },
+  { iso2: "TH", name: "Thaïlande", box: [97.3, 5.6, 105.7, 20.5] },
+  { iso2: "PG", name: "Papouasie-Nouvelle-Guinée", box: [140.8, -11.7, 156.0, -1.3] },
+  { iso2: "IN", name: "Inde", box: [68.1, 6.7, 97.4, 35.5] },
+  { iso2: "BR", name: "Brésil", box: [-74.0, -33.8, -34.8, 5.3] },
+  { iso2: "CO", name: "Colombie", box: [-79.0, -4.2, -66.9, 12.5] },
+  { iso2: "PE", name: "Pérou", box: [-81.4, -18.4, -68.7, -0.03] },
+  { iso2: "EC", name: "Équateur", box: [-81.1, -5.0, -75.2, 1.7] },
+  { iso2: "BO", name: "Bolivie", box: [-69.6, -22.9, -57.5, -9.7] },
+  { iso2: "PY", name: "Paraguay", box: [-62.7, -27.6, -54.3, -19.3] },
+  { iso2: "AR", name: "Argentine", box: [-73.6, -55.1, -53.6, -21.8] },
+  { iso2: "HN", name: "Honduras", box: [-89.4, 12.9, -83.1, 16.5] },
+  { iso2: "GT", name: "Guatemala", box: [-92.3, 13.7, -88.2, 17.8] },
+  { iso2: "NI", name: "Nicaragua", box: [-87.7, 10.7, -83.1, 15.0] },
+  { iso2: "CR", name: "Costa Rica", box: [-85.9, 8.0, -82.6, 11.2] },
+  { iso2: "MX", name: "Mexique", box: [-118.4, 14.5, -86.7, 32.7] },
+  { iso2: "US", name: "États-Unis", box: [-125.0, 24.5, -66.9, 49.4] },
+  { iso2: "CA", name: "Canada", box: [-141.0, 41.7, -52.6, 83.1] },
+  { iso2: "AU", name: "Australie", box: [113.3, -43.6, 153.6, -10.7] },
+  { iso2: "NZ", name: "Nouvelle-Zélande", box: [166.5, -47.3, 178.6, -34.4] },
+  { iso2: "JP", name: "Japon", box: [129.4, 31.0, 145.8, 45.5] },
+  { iso2: "CN", name: "Chine", box: [73.5, 18.2, 134.8, 53.6] },
+  { iso2: "EU", name: "Union européenne", box: [-10.5, 35.0, 31.6, 71.2] },
 ];
 
-export function resolveCountry(lon: number, lat: number): { iso2: string; name: string; risk: RiskLevel } {
+export function resolveCountry(
+  lon: number,
+  lat: number,
+): { iso2: string; name: string; risk: RiskLevel; listeALAnnexe: boolean; referentiel: string } {
   for (const c of COUNTRY_BOXES) {
     const [lonMin, latMin, lonMax, latMax] = c.box;
-    if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) return { iso2: c.iso2, name: c.name, risk: c.risk };
+    if (lon < lonMin || lon > lonMax || lat < latMin || lat > latMax) continue;
+
+    // ⚠️ Le niveau de risque ne vient PLUS du rectangle. Il vient exclusivement
+    //   du règlement d'exécution (UE) 2025/1093. Les anciennes boîtes portaient
+    //   un `risk` propre, qui avait dérivé de l'annexe et contaminait
+    //   `risk_level` (C6a : Ghana, Inde, Kenya, Thaïlande, Vietnam, Costa Rica
+    //   et Ukraine tous faux).
+    // ⚠️ La boîte « EU » n'est pas un pays de l'annexe. Elle ne peut donc pas
+    //   passer par le référentiel sans retomber en STANDARD par défaut — c'est
+    //   la régression qu'a révélée le banc. Le niveau est fixé explicitement,
+    //   et C6c remplacera cette boîte par les 27 pays réels.
+    const dansUE = c.iso2 === CODE_UE;
+    return {
+      iso2: c.iso2,
+      name: nomOfficiel(c.iso2) ?? c.name,
+      risk: dansUE ? "LOW" : niveauBenchmark(c.iso2),
+      listeALAnnexe: dansUE || estListeALAnnexe(c.iso2),
+      referentiel: REFERENTIEL_VERSION,
+    };
   }
-  return { iso2: "XX", name: "Non déterminé", risk: "STANDARD" };
+
+  // ⚠️ Un point non résolu n'est pas « standard par défaut » : il est
+  //   INCONNU. L'article 1(2) du règlement s'applique à un pays identifié,
+  //   pas à un point dont on ignore le pays. Confondre les deux ferait passer
+  //   un défaut de résolution pour une classification réglementaire.
+  return {
+    iso2: "XX",
+    name: "Non déterminé",
+    risk: "STANDARD",
+    listeALAnnexe: false,
+    referentiel: REFERENTIEL_VERSION,
+  };
 }
 
 // ---------------------------------------------------------------- Hotspots déterministes (mode hors-ligne)
