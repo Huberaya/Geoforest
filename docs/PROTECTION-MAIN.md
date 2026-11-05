@@ -10,7 +10,7 @@
 | Bypass | ✅ aucun |
 | Règles actives | `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks` |
 | Fusion d'une PR à check rouge | ✅ **refusée** (PR #16, mesuré) |
-| Checks fantômes subsistants | ⚠️ `contrôles`, `Verify Frontend & Backend` |
+| Checks exigés | ✅ **exactement les 4 vrais** — les deux fantômes ont été retirés |
 
 ---
 
@@ -77,7 +77,18 @@ Les trois corrections étaient **indissociables**. C'est ce qui a été fait.
 
 ---
 
-## 3. La dette qui subsiste : deux checks fantômes
+## 3. Dette soldée : les deux checks fantômes ont été retirés
+
+**Vérifié le 05/11/2026 :** le ruleset n'exige plus que les quatre contextes
+réels. Il n'y a plus de check fantôme.
+
+Historique de cette dette, conservé parce qu'elle explique la méthode :
+le ruleset exigeait six contextes, dont `contrôles` et
+`Verify Frontend & Backend` qu'aucun job ne produisait. GitHub tolère un
+contexte jamais produit ; le risque était qu'un futur workflow porte ce nom et
+active la règle sans que personne ne l'ait décidé.
+
+
 
 Le ruleset exige six contextes, dont **deux qu'aucun job ne produit** :
 
@@ -99,13 +110,7 @@ un job `contrôles` ou `Verify Frontend & Backend`, ce contexte se mettrait à
 exister, et à bloquer selon des critères que personne n'a choisis. La règle
 deviendrait active sans que quiconque l'ait décidée.
 
-### Correction
-
-`https://github.com/Huberaya/Geoforest/rules/26568220` → section *Require
-status checks to pass* → supprimer `contrôles` et `Verify Frontend & Backend`
-→ **Save changes**.
-
-### Vérification
+### Vérification (faite, verte)
 
 ```bash
 gh api repos/Huberaya/Geoforest/rulesets/26568220 \
