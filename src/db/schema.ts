@@ -567,6 +567,21 @@ export const parcelAudits = pgTable(
     centroidLat: doublePrecision("centroid_lat").notNull().default(0),
     countryCode: text("country_code").notNull().default("XX"),
     countryRisk: text("country_risk").notNull().default("STANDARD"),
+    /**
+     * C6d — statut de la résolution pays : RESOLU, CONFLIT ou HORS_COUVERTURE.
+     * Sans lui, un point en mer et une parcelle ghanéenne se relisent pareil.
+     */
+    countryStatut: text("country_statut").notNull().default("RESOLU"),
+    /**
+     * C6d — `risk_level` est désormais **nullable**.
+     *
+     * ⚠️ Une colonne NOT NULL obligeait à écrire une valeur alors qu'aucune
+     *   analyse n'avait eu lieu : le code écrivait `?? "HIGH"`, c'est-à-dire
+     *   « risque élevé » sur un dossier jamais analysé. Une colonne ne peut pas
+     *   distinguer « pas analysé » de « pas de risque » ; une absence de
+     *   valeur, si.
+     */
+    riskLevel: text("risk_level"),
     // `compliant` est nullable : une analyse non probante n'a PAS de verdict,
     // et « pas de verdict » est différent de « non conforme » (P0-04).
     compliant: boolean("compliant"),
@@ -591,7 +606,6 @@ export const parcelAudits = pgTable(
     analysisVersion: text("analysis_version"),
     analysisParams: jsonb("analysis_params"),
     analysisLimits: jsonb("analysis_limits"),
-    riskLevel: text("risk_level").notNull().default("STANDARD"),
     status: text("status").notNull(),
     validation: jsonb("validation").notNull(),
     satellite: jsonb("satellite"),

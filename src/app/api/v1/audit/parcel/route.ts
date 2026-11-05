@@ -190,6 +190,10 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         centroidLat: validation.centroid?.[1] ?? 0,
         countryCode: satellite?.country_code ?? "XX",
         countryRisk: satellite?.country_risk ?? "STANDARD",
+        // ⚠️ C6d : un point en mer et une parcelle ghanéenne se relisaient
+        //   pareil, tous deux en « STANDARD ». Le statut de résolution les
+        //   distingue.
+        countryStatut: satellite?.country_statut ?? "HORS_COUVERTURE",
         // ⚠️ `null ?? false` vaut `false` : écrire cette ligne ainsi
         // transformait « aucun verdict » en « NON CONFORME » persisté.
         compliant: satellite?.compliant ?? null,
@@ -212,7 +216,11 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         analysisLimits: satellite?.provenance.limits ?? [
           "Aucune analyse n'a été menée : la provenance n'a pas été établie.",
         ],
-        riskLevel: satellite?.risk_level ?? "HIGH",
+        // ⚠️ C6d : cette ligne valait `?? "HIGH"`, c'est-à-dire « risque
+        //   élevé » écrit sur un dossier jamais analysé. Une colonne
+        //   nullable dit « non établi » ; c'est ce que la colonne doit
+        //   contenir quand aucune analyse n'a eu lieu.
+        riskLevel: satellite?.risk_level ?? null,
         status,
         validation,
         satellite,
@@ -275,7 +283,10 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       // Ce qui distingue une preuve d'un jeu d'essai est consigné ici, dans
       // une table qu'on ne peut plus ni modifier ni effacer.
       probante: satellite?.is_probative ?? false,
-      risque: satellite?.risk_level ?? "STANDARD",
+      // ⚠️ `null` et non "STANDARD" : confondre « non établi » et « standard »
+      //   dans la piste d'audit reviendrait à y consigner une classification
+      //   qui n'a jamais été prononcée.
+      risque: satellite?.risk_level ?? null,
     },
   });
 

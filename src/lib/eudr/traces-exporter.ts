@@ -150,8 +150,11 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       deforestation_detected_post_cutoff: !row.compliant,
       loss_year: row.lossYear,
       confidence_score: row.confidenceScore,
-      risk_level: row.riskLevel,
-      country_benchmark_risk: row.countryRisk,
+      // ⚠️ C6d : vide quand aucune analyse n'a établi de niveau. Écrire une
+      //   valeur par défaut ici ferait entrer dans le dossier TRACES une
+      //   classification qui n'a jamais été prononcée.
+      risk_level: row.riskLevel ?? "",
+      country_benchmark_risk: row.countryRisk ?? "",
       satellite_source: satellite.source ?? "",
       centroid: { lon: row.centroidLon, lat: row.centroidLat },
     },

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { geodesicAreaHa } from "./gis-validator";
 import { resoudrePays, type StatutResolution } from "./resolution-pays";
+import { niveauRisqueParcelle } from "./risque-parcelle";
 
 import { EUDR_CUTOFF_DATE, EUDR_CUTOFF_YEAR, type AnalysisEvidence, type Position, type RiskLevel, type SatelliteCheckResult, type SupportedGeometry } from "./types";
 import { incrementer, noterJauges } from "@/lib/observability/metriques";
@@ -269,10 +270,14 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
     compliant: null,
     loss_year: lossYear,
     confidence_score: null,
-    risk_level: country.risk,
+    // ⚠️ Un moteur de démonstration ne rend pas de verdict : pas de niveau de
+    //   risque parcellaire. Le risque pays est conservé comme contexte.
+    risk_level: niveauRisqueParcelle("SIMULATION", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "simulated",
     is_probative: false,
     evidence: null,
@@ -316,10 +321,15 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
     compliant: null,
     loss_year: null,
     confidence_score: null,
-    risk_level: country.risk,
+    // ⚠️ C6d : une analyse indisponible ne produit AUCUN niveau de risque
+    //   parcellaire. Avant, on recopiait `country.risk` — une parcelle
+    //   ghanéenne jamais analysée s'affichait « Risque parcelle : Faible ».
+    risk_level: niveauRisqueParcelle("NON_ANALYSEE", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "unavailable",
     is_probative: false,
     evidence: null,
@@ -465,10 +475,12 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
       compliant: false,
       loss_year: lossYear,
       confidence_score: Number(Math.min(0.99, 0.8 + fraction * 0.5).toFixed(3)),
-      risk_level: "HIGH",
+      risk_level: niveauRisqueParcelle("PERTE_CONSTATEE", country.risk),
       country_code: country.iso2,
       country_name: country.name,
       country_risk: country.risk,
+      country_statut: country.statut,
+      country_liste_annexe: country.listeALAnnexe,
       source: "gfw-live",
       is_probative: true,
       evidence,
@@ -498,10 +510,12 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     compliant: true,
     loss_year: historic,
     confidence_score: 0.95,
-    risk_level: country.risk,
+    risk_level: niveauRisqueParcelle("AUCUNE_PERTE", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "gfw-live",
     is_probative: true,
     evidence,

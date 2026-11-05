@@ -162,6 +162,7 @@ export interface GeometryValidationResult {
 }
 
 import type { AnalyseProvenance } from "./satellite-checker";
+import type { StatutResolution } from "./resolution-pays";
 
 export interface SatelliteCheckResult {
   /**
@@ -173,10 +174,27 @@ export interface SatelliteCheckResult {
   loss_year: number | null;
   /** Score de confiance. `null` quand l'analyse n'est pas probante. */
   confidence_score: number | null;
-  risk_level: RiskLevel;
+  /**
+   * Risque de LA PARCELLE, résultant de l'analyse.
+   *
+   * ⚠️ `null` quand aucune analyse n'a été menée. Ce n'est PAS le risque du
+   *    pays : une parcelle non analysée dans un pays à faible risque n'est pas
+   *    une parcelle à faible risque, c'est une parcelle dont on ne sait rien.
+   *    Confondre les deux faisait afficher « Risque parcelle : Faible » sur un
+   *    dossier ghanéen jamais analysé (C6d).
+   */
+  risk_level: RiskLevel | null;
   country_code: string;
   country_name: string;
+  /**
+   * Risque du pays de production, au titre du règlement d'exécution
+   * (UE) 2025/1093. Entrée du raisonnement, jamais son résultat.
+   */
   country_risk: RiskLevel;
+  /** Statut de la résolution pays : RESOLU, CONFLIT ou HORS_COUVERTURE. */
+  country_statut: StatutResolution;
+  /** Vrai si le pays figure explicitement à l'annexe (LOW ou HIGH). */
+  country_liste_annexe: boolean;
   /** Provenance de l'analyse — jamais libre, toujours l'une des trois valeurs. */
   source: AnalysisSource;
   /** Vrai uniquement si le verdict repose sur des données réellement mesurées. */
@@ -218,7 +236,8 @@ export interface AuditSummary {
   /** Null quand l'analyse n'était pas probante (P0-04). */
   compliant: boolean | null;
   loss_year: number | null;
-  risk_level: RiskLevel;
+  /** ⚠️ `null` quand aucune analyse n'a établi de niveau (C6d). */
+  risk_level: RiskLevel | null;
   country_code: string;
 }
 

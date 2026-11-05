@@ -149,9 +149,18 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.country_risk]}`}>
               Risque pays : {RISK_LABELS[satellite.country_risk]} ({satellite.country_code})
             </span>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
-              Risque parcelle : {RISK_LABELS[satellite.risk_level]}
-            </span>
+            {satellite.risk_level === null ? (
+              // ⚠️ C6d : une parcelle non analysée n'a pas de niveau de risque.
+              //   Afficher celui du pays ferait passer une absence de mesure
+              //   pour un résultat d'analyse.
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-300">
+                Risque parcelle : non établi
+              </span>
+            ) : (
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
+                Risque parcelle : {RISK_LABELS[satellite.risk_level]}
+              </span>
+            )}
             {satellite.confidence_score !== null && (
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
                 Confiance {Math.round(satellite.confidence_score * 100)} %

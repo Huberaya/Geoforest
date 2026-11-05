@@ -98,6 +98,13 @@ jobs:
       - name: Intégrité des frontières pays
         run: npm run check:frontieres-pays
 
+      # ⚠️ Risque PARCELLE contre risque PAYS. Avant C6d, `risk_level` valait
+      #   `country.risk` : une parcelle ghanéenne jamais analysée s'affichait
+      #   « Risque parcelle : Faible », et l'interface présentait cela comme une
+      #   seconde confirmation alors que c'était une recopie.
+      - name: Découplage risque parcelle / risque pays
+        run: npm run check:risque-parcelle
+
       # ⚠️ Banc de régression de la résolution pays : 47 points géographiques
       #   et 5 cas de décision, contre le règlement d'exécution (UE) 2025/1093.
       #   Il est en CI depuis C6c, parce qu'il est VERT. Une barrière rouge en
