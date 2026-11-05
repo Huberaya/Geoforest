@@ -1,10 +1,15 @@
 /**
  * Banc de régression — résolution du pays d'origine et benchmark EUDR.
  *
- * ⚠️ Ce script est VOLONTAIREMENT ROUGE au moment où il est écrit (C6a).
- *    C'est le livrable, pas un défaut : il rend mesurables les écarts entre le
- *    code et le référentiel officiel AVANT qu'on y touche. Sans lui, on ne peut
- *    pas distinguer « corrigé » de « pas encore touché ».
+ * ⚠️ Ce script sort en ÉCHEC au moment où il est écrit (C6a). C'est le
+ *    livrable, pas un défaut : il rend mesurables les écarts entre le code et le
+ *    référentiel officiel AVANT qu'on y touche. Sans lui, on ne peut pas
+ *    distinguer « corrigé » de « pas encore touché ».
+ *
+ * ⚠️ Il n'est PAS branché dans la CI tant qu'il échoue. Une barrière rouge en
+ *    permanence ne protège rien : elle bloque toutes les fusions, ce qui pousse
+ *    à la contourner (`--admin`) et annule le dispositif — exactement ce que
+ *    C1 a appris. Il sera branché dans C6b, quand les écarts seront corrigés.
  *
  * Référentiel de vérité :
  *   Règlement d'exécution (UE) 2025/1093 du 22 mai 2025, annexe — 140 pays
