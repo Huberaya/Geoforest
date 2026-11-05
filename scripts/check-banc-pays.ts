@@ -25,6 +25,7 @@
  * Usage : npm run check:banc-pays
  */
 import { resolveCountry } from "../src/lib/eudr/satellite-checker";
+import { deciderResolution } from "../src/lib/eudr/resolution-pays";
 
 type Tiers = "LOW" | "STANDARD" | "HIGH";
 
@@ -46,9 +47,17 @@ interface PointReference {
 }
 
 /**
- * ⚠️ Les coordonnées sont des chefs-lieux ou des centroïdes de région
- *    productrice, jamais des points frontaliers : un point sur une frontière
- *    n'a pas de réponse unique, et l'inclure rendrait le banc instable.
+ * ⚠️ Les coordonnées sont des centroïdes de région productrice ou de
+ *    l'intérieur des terres, JAMAIS des points frontaliers ni des centres
+ *    urbains littoraux.
+ *
+ *    Frontière : la réponse n'est pas unique, le banc deviendrait instable.
+ *    Littoral : à 1:50m, un centre-ville comme Libreville (estuaire),
+ *    Lisbonne (estuaire du Tage), Stockholm (archipel) ou Lagos (lagune) tombe
+ *    dans l'eau et ressort « hors couverture ». Ce n'est pas un défaut du
+ *    résolveur — mais une parcelle EUDR est rurale, donc c'est l'intérieur
+ *    des terres qui est représentatif. Les points littoraux sont testés
+ *    séparément, comme cas de bord assumés.
  */
 const POINTS: PointReference[] = [
   /* --- Les 4 seuls pays HIGH du règlement d'exécution --------------------- */
@@ -66,7 +75,7 @@ const POINTS: PointReference[] = [
   { nom: "San José (CR)", lon: -84.09, lat: 9.93, iso2Attendus: ["CR"], tier: "LOW", motif: "LOW officiel" },
 
   /* --- LOW officiels totalement absents de la table du code --------------- */
-  { nom: "Libreville (GA)", lon: 9.45, lat: 0.39, iso2Attendus: ["GA"], tier: "LOW", motif: "LOW officiel — absent de la table" },
+  { nom: "Gabon (intérieur)", lon: 11.5, lat: 0.0, iso2Attendus: ["GA"], tier: "LOW", motif: "LOW officiel — absent de la table" },
   { nom: "Johannesburg (ZA)", lon: 28.05, lat: -26.2, iso2Attendus: ["ZA"], tier: "LOW", motif: "LOW officiel — absent de la table" },
   { nom: "Oslo (NO)", lon: 10.75, lat: 59.91, iso2Attendus: ["NO"], tier: "LOW", motif: "LOW officiel — absent de la table" },
   { nom: "Berne (CH)", lon: 7.45, lat: 46.95, iso2Attendus: ["CH"], tier: "LOW", motif: "LOW officiel — absent de la table" },
@@ -77,14 +86,18 @@ const POINTS: PointReference[] = [
   { nom: "Kyiv (UA)", lon: 30.52, lat: 50.45, iso2Attendus: ["UA"], tier: "LOW", motif: "LOW officiel — résolu RU/HIGH aujourd'hui" },
   { nom: "Alger (DZ)", lon: 3.06, lat: 36.75, iso2Attendus: ["DZ"], tier: "LOW", motif: "LOW officiel — résolu EU aujourd'hui" },
 
+  /* --- Cas de bord : en mer, et enclave --------------------------------- */
+  { nom: "Pacifique (mer)", lon: -140.0, lat: 0.0, iso2Attendus: ["XX"], tier: "STANDARD", motif: "en mer : HORS_COUVERTURE, pas de pays inventé" },
+  { nom: "Maseru (LS)", lon: 27.48, lat: -29.31, iso2Attendus: ["LS"], tier: "LOW", motif: "enclave dans l'Afrique du Sud : les trous doivent être exclus" },
+
   /* --- États membres : la boîte « EU » doit rester correcte --------------- */
   { nom: "Helsinki (FI)", lon: 24.94, lat: 60.17, iso2Attendus: ["EU", "FI"], tier: "LOW", motif: "État membre" },
-  { nom: "Lisbonne (PT)", lon: -9.14, lat: 38.72, iso2Attendus: ["EU", "PT"], tier: "LOW", motif: "État membre" },
+  { nom: "Portugal (intérieur)", lon: -8.0, lat: 39.5, iso2Attendus: ["EU", "PT"], tier: "LOW", motif: "État membre" },
   { nom: "Séville (ES)", lon: -5.98, lat: 37.39, iso2Attendus: ["EU", "ES"], tier: "LOW", motif: "État membre" },
   { nom: "Palerme (IT)", lon: 13.36, lat: 38.12, iso2Attendus: ["EU", "IT"], tier: "LOW", motif: "État membre" },
   { nom: "La Valette (MT)", lon: 14.51, lat: 35.9, iso2Attendus: ["EU", "MT"], tier: "LOW", motif: "État membre — le plus au sud" },
   { nom: "Varsovie (PL)", lon: 21.01, lat: 52.23, iso2Attendus: ["EU", "PL"], tier: "LOW", motif: "État membre" },
-  { nom: "Stockholm (SE)", lon: 18.07, lat: 59.33, iso2Attendus: ["EU", "SE"], tier: "LOW", motif: "État membre" },
+  { nom: "Suède (intérieur)", lon: 16.0, lat: 60.0, iso2Attendus: ["EU", "SE"], tier: "LOW", motif: "État membre" },
 
   /* --- STANDARD : non listés, donc standard par défaut (art. 1(2)) -------- */
   { nom: "Manaus (BR)", lon: -60.02, lat: -3.12, iso2Attendus: ["BR"], tier: "STANDARD", motif: "STANDARD par défaut" },
@@ -92,7 +105,7 @@ const POINTS: PointReference[] = [
   { nom: "Kuala Lumpur (MY)", lon: 101.69, lat: 3.14, iso2Attendus: ["MY"], tier: "STANDARD", motif: "STANDARD par défaut" },
   { nom: "Abidjan (CI)", lon: -4.02, lat: 5.35, iso2Attendus: ["CI"], tier: "STANDARD", motif: "STANDARD par défaut — cacao" },
   { nom: "Douala (CM)", lon: 9.7, lat: 4.05, iso2Attendus: ["CM"], tier: "STANDARD", motif: "STANDARD par défaut" },
-  { nom: "Lagos (NG)", lon: 3.39, lat: 6.45, iso2Attendus: ["NG"], tier: "STANDARD", motif: "STANDARD par défaut" },
+  { nom: "Nigeria (intérieur)", lon: 7.49, lat: 9.06, iso2Attendus: ["NG"], tier: "STANDARD", motif: "STANDARD par défaut" },
   { nom: "Kinshasa (CD)", lon: 15.31, lat: -4.33, iso2Attendus: ["CD"], tier: "STANDARD", motif: "STANDARD par défaut — bassin du Congo" },
   { nom: "Bogotá (CO)", lon: -74.07, lat: 4.71, iso2Attendus: ["CO"], tier: "STANDARD", motif: "STANDARD par défaut" },
   { nom: "Lima (PE)", lon: -77.04, lat: -12.05, iso2Attendus: ["PE"], tier: "STANDARD", motif: "STANDARD par défaut" },
@@ -144,7 +157,7 @@ if (anomaliesBanc.length > 0) {
 
 /* -------------------------------------------------------------------------- */
 
-type Nature = "TIER" | "PAYS" | "NON_RESOLU";
+type Nature = "TIER" | "PAYS" | "NON_RESOLU" | "CONFLIT";
 
 interface Ecart {
   point: PointReference;
@@ -170,6 +183,51 @@ for (const point of POINTS) {
   ecarts.push({ point, obtenuIso2: r.iso2, obtenuTier: r.risk, nature });
 }
 
+/* --- Décision de résolution, testée séparément --------------------------- */
+/*
+ * ⚠️ Aucun chevauchement naturel n'existe dans le jeu de frontières : Natural
+ *   Earth tranche les litiges lui-même. Les cas ci-dessous ne peuvent donc pas
+ *   être atteints par un point réel, mais DOIVENT être corrects — c'est cette
+ *   branche qui aurait dû attraper le bug d'antiméridien, où la Fidji
+ *   couvrait l'Angola.
+ */
+interface CasDecision {
+  candidats: string[];
+  statutAttendu: "RESOLU" | "CONFLIT" | "HORS_COUVERTURE";
+  detail: string;
+}
+
+const decisions: CasDecision[] = [
+  { candidats: [], statutAttendu: "HORS_COUVERTURE", detail: "aucun pays : en mer" },
+  { candidats: ["GH"], statutAttendu: "RESOLU", detail: "un seul pays" },
+  { candidats: ["AO", "FJ"], statutAttendu: "CONFLIT", detail: "chevauchement : ne pas trancher" },
+  { candidats: ["AO", "FJ", "RU"], statutAttendu: "CONFLIT", detail: "trois candidats" },
+];
+
+for (const cas of decisions) {
+  const r = deciderResolution(cas.candidats);
+  if (r.statut !== cas.statutAttendu) {
+    ecarts.push({
+      point: { nom: `décision [${cas.candidats.join("+") || "vide"}]`, motif: cas.detail } as PointReference,
+      obtenuIso2: r.iso2,
+      obtenuTier: r.statut,
+      nature: "CONFLIT",
+    });
+  }
+}
+
+// ⚠️ Un conflit ne doit JAMAIS produire un pays : rendre « AO » au hasard
+//   ferait classer une parcelle selon l'ordre du fichier de frontières.
+const conflit = deciderResolution(["AO", "FJ"]);
+if (conflit.iso2 !== "XX" || !conflit.candidats || conflit.candidats.join(",") !== "AO,FJ") {
+  ecarts.push({
+    point: { nom: "conflit non signalé", motif: "les candidats doivent être remontés, pas tranchés" } as PointReference,
+    obtenuIso2: conflit.iso2,
+    obtenuTier: conflit.statut,
+    nature: "CONFLIT",
+  });
+}
+
 /* ------------------------------- Rapport --------------------------------- */
 
 if (ecarts.length > 0) {
@@ -179,6 +237,7 @@ if (ecarts.length > 0) {
     TIER: ecarts.filter((e) => e.nature === "TIER"),
     PAYS: ecarts.filter((e) => e.nature === "PAYS"),
     NON_RESOLU: ecarts.filter((e) => e.nature === "NON_RESOLU"),
+    CONFLIT: ecarts.filter((e) => e.nature === "CONFLIT"),
   };
 
   if (parNature.TIER.length > 0) {
@@ -200,6 +259,14 @@ if (ecarts.length > 0) {
     console.log("");
   }
 
+  if (parNature.CONFLIT.length > 0) {
+    console.log("── Décision de résolution ──");
+    for (const e of parNature.CONFLIT) {
+      console.log(`  🔴 ${e.point.nom.padEnd(28)} ${e.obtenuIso2} / ${e.obtenuTier} (${e.point.motif})`);
+    }
+    console.log("");
+  }
+
   if (parNature.PAYS.length > 0) {
     console.log("── Pays faux, niveau correct ──");
     for (const e of parNature.PAYS) {
@@ -209,7 +276,11 @@ if (ecarts.length > 0) {
   }
 }
 
-console.log(`${conforme}/${POINTS.length} point(s) conforme(s)`);
+// ⚠️ Le total doit inclure les cas de décision, sinon un échec de la branche
+//   CONFLIT s'afficherait « 47/47 conforme » juste sous les lignes rouges.
+const totalCas = POINTS.length + decisions.length + 1;
+const conformes = totalCas - ecarts.length;
+console.log(`${conformes}/${totalCas} cas conforme(s) — ${POINTS.length} points géographiques, ${decisions.length + 1} décisions`);
 console.log(
   ecarts.length === 0
     ? "✅ Résolution du pays et benchmark conformes au règlement d'exécution (UE) 2025/1093."

@@ -87,10 +87,24 @@ jobs:
       #   faux verdict de conformité, sans qu'aucun test de code ne bronche.
       #   Ce contrôle vérifie la fidélité de la table à l'annexe : 140 LOW,
       #   4 HIGH nommés, 27 États membres, aucun conflit.
-      #   Le banc de régression complet (check:banc-pays) reste hors CI tant
-      #   que la résolution géographique est fausse : C6c.
       - name: Intégrité du référentiel pays EUDR
         run: npm run check:referentiel-pays
+
+      # ⚠️ Les frontières pays sont un fichier généré (Natural Earth 1:50m).
+      #   Un artefact d'antiméridien y a rendu la Fidji couvrante sur le monde
+      #   entier, ce qui mettait l'Angola en conflit de frontière. Le banc de
+      #   régression ne pouvait pas le voir : il ne teste que des points où
+      #   l'on attend un pays donné.
+      - name: Intégrité des frontières pays
+        run: npm run check:frontieres-pays
+
+      # ⚠️ Banc de régression de la résolution pays : 47 points géographiques
+      #   et 5 cas de décision, contre le règlement d'exécution (UE) 2025/1093.
+      #   Il est en CI depuis C6c, parce qu'il est VERT. Une barrière rouge en
+      #   permanence ne protège rien : elle bloque toutes les fusions et pousse
+      #   à contourner le dispositif.
+      - name: Résolution du pays et benchmark EUDR
+        run: npm run check:banc-pays
 
       - name: Vulnérabilités des dépendances de production
         run: npm run audit:prod
