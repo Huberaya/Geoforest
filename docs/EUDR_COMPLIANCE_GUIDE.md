@@ -150,6 +150,21 @@ retour le **numéro de référence** et le **numéro de vérification**.
 ⚠️ Le statut `DECLARED` du produit a été conçu pour n'être posé qu'à la saisie
 du véritable numéro TRACES. Il ne doit jamais être déduit d'un export réussi.
 
+**Ce que l'export refuse, et pourquoi.** Un dossier n'est exportable que si
+l'origine du produit est établie. Trois cas de refus, chacun avec une action
+corrective :
+
+| Situation | Refus | Ce qu'il faut faire |
+|---|---|---|
+| Pays non résolu (`XX`) | `ORIGINE_INDETERMINEE` | Corriger la géolocalisation, relancer l'audit |
+| Point hors couverture terrestre | `HORS_COUVERTURE` | Vérifier l'ordre `[longitude, latitude]` |
+| Point dans plusieurs pays | `CONFLIT` | Déplacer le point dans le pays attendu |
+
+Un champ `country_benchmark_risk` vide se lirait, dans un dossier destiné à une
+autorité, comme une omission par négligence — et une origine prise au hasard
+se lirait comme une affirmation. On n'exporte donc pas ce qu'on ne sait pas
+nommer.
+
 ---
 
 ## 4. Les huit confusions à ne pas commettre

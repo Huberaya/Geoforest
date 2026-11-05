@@ -98,6 +98,14 @@ jobs:
       - name: Intégrité des frontières pays
         run: npm run check:frontieres-pays
 
+      # ⚠️ Un dossier dont l'origine n'est pas établie n'est pas exportable.
+      #   `country_code` et `country_benchmark_risk` sont des champs
+      #   réglementaires : une chaîne vide s'y lit « non renseigné par
+      #   négligence », et une origine prise au hasard s'y lit comme une
+      #   affirmation.
+      - name: Exportabilité selon l'origine
+        run: npm run check:origine-export
+
       # ⚠️ Décision D-001 : le parcours de diligence raisonnée ne se raccourcit
       #   pas selon le pays d'origine, alors que l'article 13 le permettrait.
       #   C'est un choix argumenté ; ce contrôle empêche qu'il soit défait par

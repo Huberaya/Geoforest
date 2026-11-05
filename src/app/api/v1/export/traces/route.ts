@@ -3,6 +3,8 @@ import { parcelAudits } from "@/db/schema";
 import { logAction } from "@/lib/api/audit-log";
 import { buildDdsPayload, buildReference, buildTracesXml, producteurDe, type TracesOptions } from "@/lib/eudr/traces-exporter";
 import { buildEudrIsGeoJson } from "@/lib/eudr/eudr-is-geojson";
+import { verifierOrigineExportable } from "@/lib/eudr/origine-exportable";
+import type { StatutResolution } from "@/lib/eudr/resolution-pays";
 import type { ActivityType, OperatorInfo, TracesFormat } from "@/lib/eudr/types";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -50,6 +52,27 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
             : "Export refusé : aucune analyse satellite n'a pu être obtenue pour cette parcelle. Aucune déclaration ne peut être établie sans données réelles.",
         analysis_source: row.analysisSource,
         is_probative: false,
+      },
+      { status: 409 },
+    );
+  }
+
+  // ⚠️ C6f — un dossier dont l'origine n'est pas établie n'est pas exportable.
+  //   `country_benchmark_risk` et `country_code` sont des champs réglementaires :
+  //   une chaîne vide s'y lirait « non renseigné par négligence », et une
+  //   valeur prise au hasard se lirait comme une affirmation. On refuse, en
+  //   disant quoi corriger.
+  const origine = verifierOrigineExportable(
+    (row.countryStatut as StatutResolution) ?? null,
+    row.countryCode,
+  );
+  if (!origine.exportable) {
+    return NextResponse.json(
+      {
+        detail: origine.detail,
+        code: origine.code,
+        country_statut: origine.statut,
+        action_requise: origine.action,
       },
       { status: 409 },
     );
@@ -181,6 +204,8 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
       methode: row.analysisMethod,
       versionAnalyse: row.analysisVersion,
       producteur: producteur?.name ?? null,
+      pays_de_production: row.countryCode,
+      statut_origine: row.countryStatut,
     },
   });
 

@@ -31,7 +31,8 @@
     "check:referentiel-pays": "tsx --conditions=react-server scripts/check-referentiel-pays.ts",
     "check:frontieres-pays": "tsx --conditions=react-server scripts/check-frontieres-pays.ts",
     "check:risque-parcelle": "tsx --conditions=react-server scripts/check-risque-parcelle.ts",
-    "check:parcours-ddr": "tsx --conditions=react-server scripts/check-parcours-ddr.ts"
+    "check:parcours-ddr": "tsx --conditions=react-server scripts/check-parcours-ddr.ts",
+    "check:origine-export": "tsx --conditions=react-server scripts/check-origine-export.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",
