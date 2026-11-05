@@ -290,11 +290,19 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
         date_butoir: EUDR_CUTOFF_DATE,
         scenarios_disponibles: LOSS_HOTSPOTS.length,
         scenario_retenu: hotspotLabel,
-        resolution_pays: "boîte englobante",
+        // ⚠️ Cette valeur a longtemps dit « boîte englobante » alors que la
+        //   résolution se fait par contour depuis C6c. Une provenance qui
+        //   décrit un dispositif disparu est exactement le défaut que C3 a
+        //   corrigé dans la documentation — il ne doit pas survivre dans les
+        //   dossiers déjà enregistrés.
+        resolution_pays: "contour Natural Earth 1:50m",
+        referentiel_pays: country.referentiel,
+        statut_resolution_pays: country.statut,
       },
       limits: [
         "Aucune donnée satellite n'a été consultée : les chiffres sont inventés pour la démonstration.",
-        "Le pays est déterminé par boîte englobante, non par géocodage inverse (cf. P1-09).",
+        "Le pays est déterminé par point-dans-polygone sur les contours Natural Earth 1:50m, " +
+          "non par géocodage inverse ni par registre foncier (cf. P1-09).",
         ...LIMITES_METHODE_COUVERT,
       ],
     },
