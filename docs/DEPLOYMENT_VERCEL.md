@@ -99,7 +99,19 @@ vercel --prod
 ```
 
 ### Déploiement Continu via GitHub Actions :
-Chaque push sur la branche `main` déclenche le pipeline CI/CD validant les tests Python (Pytest 29/29), le typage TypeScript et la compilation Next.js avant le déploiement sur Vercel.
+Chaque **pull request** vers `main` déclenche le pipeline CI, qui doit être vert
+avant toute fusion : typage TypeScript, lint sans erreur tolérée, règles EUDR,
+topologie des géométries, contrôles SQL, backend (`pytest`), bout en bout sur
+une base PostgreSQL réelle, et les contrôles de cohérence documentaire.
+
+⚠️ Le nombre de tests n'est pas figé ici : il vieillit mal et une valeur
+recopiée devient fausse en silence. La valeur exacte est produite par la CI et
+consignée dans `docs/TEST_REPORT.md`, avec la commande qui permet de la
+revérifier.
+
+⚠️ Le **déploiement** n'est pas déclenché par ce pipeline : Vercel construit à
+partir du dépôt. Un pipeline vert ne prouve donc pas que l'application déployée
+fonctionne — c'est un contrôle distinct, décrit dans `docs/TEST_REPORT.md`.
 
 ## 5. Stockage des pièces justificatives
 

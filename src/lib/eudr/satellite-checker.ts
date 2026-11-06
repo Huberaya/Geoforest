@@ -1,65 +1,44 @@
 import { createHash } from "node:crypto";
 import { geodesicAreaHa } from "./gis-validator";
+import { resoudrePays, type StatutResolution } from "./resolution-pays";
+import { niveauRisqueParcelle } from "./risque-parcelle";
+
 import { EUDR_CUTOFF_DATE, EUDR_CUTOFF_YEAR, type AnalysisEvidence, type Position, type RiskLevel, type SatelliteCheckResult, type SupportedGeometry } from "./types";
 import { incrementer, noterJauges } from "@/lib/observability/metriques";
 import { journal } from "@/lib/observability/journal";
 
 // ---------------------------------------------------------------- Benchmark pays (Commission UE, art. 29 EUDR)
-interface CountryBox {
+
+/**
+ * Résolution du pays d'origine d'un point.
+ *
+ * ⚠️ Cette fonction reposait sur des rectangles englobants avec un niveau de
+ *   risque propre à chacun. Deux défauts, tous deux mesurés (C6a) :
+ *     - les rectangles se chevauchaient et le premier match gagnait :
+ *       Bangkok -> MM/HIGH, Oulan-Bator -> RU/HIGH, Kuala Lumpur -> ID,
+ *       Phnom Penh -> VN ;
+ *     - le niveau de risque porté par le rectangle avait dérivé de l'annexe.
+ *   La résolution se fait désormais par contour réel (`resolution-pays.ts`) et
+ *   le niveau vient exclusivement du référentiel (`benchmark-pays.ts`).
+ *
+ * ⚠️ Un point en mer, ou sur une frontière non délimitée, ne reçoit pas de
+ *   pays inventé : il sort en `HORS_COUVERTURE` ou `CONFLIT`. Une parcelle
+ *   n'est pas en eau, mais un centroïde mal saisi peut l'être — et il vaut
+ *   mieux le dire que le classer au hasard.
+ */
+export function resolveCountry(
+  lon: number,
+  lat: number,
+): {
   iso2: string;
   name: string;
-  box: [number, number, number, number]; // lonMin, latMin, lonMax, latMax
   risk: RiskLevel;
-}
-
-const COUNTRY_BOXES: CountryBox[] = [
-  { iso2: "BY", name: "Biélorussie", box: [23.1, 51.2, 32.8, 56.2], risk: "HIGH" },
-  { iso2: "MM", name: "Myanmar", box: [92.1, 9.5, 101.2, 28.6], risk: "HIGH" },
-  { iso2: "KP", name: "Corée du Nord", box: [124.1, 37.6, 130.7, 43.0], risk: "HIGH" },
-  { iso2: "RU", name: "Russie", box: [27.3, 41.1, 180.0, 81.9], risk: "HIGH" },
-  { iso2: "CI", name: "Côte d'Ivoire", box: [-8.6, 4.3, -2.5, 10.8], risk: "STANDARD" },
-  { iso2: "GH", name: "Ghana", box: [-3.3, 4.7, 1.2, 11.2], risk: "STANDARD" },
-  { iso2: "NG", name: "Nigeria", box: [2.6, 4.2, 14.7, 13.9], risk: "STANDARD" },
-  { iso2: "CM", name: "Cameroun", box: [8.4, 1.6, 16.2, 13.1], risk: "STANDARD" },
-  { iso2: "CD", name: "RD Congo", box: [12.2, -13.5, 31.3, 5.4], risk: "STANDARD" },
-  { iso2: "UG", name: "Ouganda", box: [29.5, -1.5, 35.0, 4.2], risk: "STANDARD" },
-  { iso2: "ET", name: "Éthiopie", box: [32.9, 3.4, 48.0, 14.9], risk: "STANDARD" },
-  { iso2: "KE", name: "Kenya", box: [33.9, -4.7, 41.9, 5.5], risk: "STANDARD" },
-  { iso2: "TZ", name: "Tanzanie", box: [29.3, -11.8, 40.5, -0.9], risk: "STANDARD" },
-  { iso2: "LR", name: "Liberia", box: [-11.5, 4.3, -7.4, 8.6], risk: "STANDARD" },
-  { iso2: "ID", name: "Indonésie", box: [95.0, -11.0, 141.0, 6.1], risk: "STANDARD" },
-  { iso2: "MY", name: "Malaisie", box: [99.6, 0.8, 119.3, 7.4], risk: "STANDARD" },
-  { iso2: "VN", name: "Vietnam", box: [102.1, 8.4, 109.5, 23.4], risk: "STANDARD" },
-  { iso2: "TH", name: "Thaïlande", box: [97.3, 5.6, 105.7, 20.5], risk: "STANDARD" },
-  { iso2: "PG", name: "Papouasie-Nouvelle-Guinée", box: [140.8, -11.7, 156.0, -1.3], risk: "STANDARD" },
-  { iso2: "IN", name: "Inde", box: [68.1, 6.7, 97.4, 35.5], risk: "STANDARD" },
-  { iso2: "BR", name: "Brésil", box: [-74.0, -33.8, -34.8, 5.3], risk: "STANDARD" },
-  { iso2: "CO", name: "Colombie", box: [-79.0, -4.2, -66.9, 12.5], risk: "STANDARD" },
-  { iso2: "PE", name: "Pérou", box: [-81.4, -18.4, -68.7, -0.03], risk: "STANDARD" },
-  { iso2: "EC", name: "Équateur", box: [-81.1, -5.0, -75.2, 1.7], risk: "STANDARD" },
-  { iso2: "BO", name: "Bolivie", box: [-69.6, -22.9, -57.5, -9.7], risk: "STANDARD" },
-  { iso2: "PY", name: "Paraguay", box: [-62.7, -27.6, -54.3, -19.3], risk: "STANDARD" },
-  { iso2: "AR", name: "Argentine", box: [-73.6, -55.1, -53.6, -21.8], risk: "STANDARD" },
-  { iso2: "HN", name: "Honduras", box: [-89.4, 12.9, -83.1, 16.5], risk: "STANDARD" },
-  { iso2: "GT", name: "Guatemala", box: [-92.3, 13.7, -88.2, 17.8], risk: "STANDARD" },
-  { iso2: "NI", name: "Nicaragua", box: [-87.7, 10.7, -83.1, 15.0], risk: "STANDARD" },
-  { iso2: "CR", name: "Costa Rica", box: [-85.9, 8.0, -82.6, 11.2], risk: "STANDARD" },
-  { iso2: "MX", name: "Mexique", box: [-118.4, 14.5, -86.7, 32.7], risk: "STANDARD" },
-  { iso2: "US", name: "États-Unis", box: [-125.0, 24.5, -66.9, 49.4], risk: "LOW" },
-  { iso2: "CA", name: "Canada", box: [-141.0, 41.7, -52.6, 83.1], risk: "LOW" },
-  { iso2: "AU", name: "Australie", box: [113.3, -43.6, 153.6, -10.7], risk: "LOW" },
-  { iso2: "NZ", name: "Nouvelle-Zélande", box: [166.5, -47.3, 178.6, -34.4], risk: "LOW" },
-  { iso2: "JP", name: "Japon", box: [129.4, 31.0, 145.8, 45.5], risk: "LOW" },
-  { iso2: "CN", name: "Chine", box: [73.5, 18.2, 134.8, 53.6], risk: "LOW" },
-  { iso2: "EU", name: "Union européenne", box: [-10.5, 35.0, 31.6, 71.2], risk: "LOW" },
-];
-
-export function resolveCountry(lon: number, lat: number): { iso2: string; name: string; risk: RiskLevel } {
-  for (const c of COUNTRY_BOXES) {
-    const [lonMin, latMin, lonMax, latMax] = c.box;
-    if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) return { iso2: c.iso2, name: c.name, risk: c.risk };
-  }
-  return { iso2: "XX", name: "Non déterminé", risk: "STANDARD" };
+  listeALAnnexe: boolean;
+  statut: StatutResolution;
+  candidats?: string[];
+  referentiel: string;
+} {
+  return resoudrePays(lon, lat);
 }
 
 // ---------------------------------------------------------------- Hotspots déterministes (mode hors-ligne)
@@ -291,10 +270,14 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
     compliant: null,
     loss_year: lossYear,
     confidence_score: null,
-    risk_level: country.risk,
+    // ⚠️ Un moteur de démonstration ne rend pas de verdict : pas de niveau de
+    //   risque parcellaire. Le risque pays est conservé comme contexte.
+    risk_level: niveauRisqueParcelle("SIMULATION", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "simulated",
     is_probative: false,
     evidence: null,
@@ -307,11 +290,19 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
         date_butoir: EUDR_CUTOFF_DATE,
         scenarios_disponibles: LOSS_HOTSPOTS.length,
         scenario_retenu: hotspotLabel,
-        resolution_pays: "boîte englobante",
+        // ⚠️ Cette valeur a longtemps dit « boîte englobante » alors que la
+        //   résolution se fait par contour depuis C6c. Une provenance qui
+        //   décrit un dispositif disparu est exactement le défaut que C3 a
+        //   corrigé dans la documentation — il ne doit pas survivre dans les
+        //   dossiers déjà enregistrés.
+        resolution_pays: "contour Natural Earth 1:50m",
+        referentiel_pays: country.referentiel,
+        statut_resolution_pays: country.statut,
       },
       limits: [
         "Aucune donnée satellite n'a été consultée : les chiffres sont inventés pour la démonstration.",
-        "Le pays est déterminé par boîte englobante, non par géocodage inverse (cf. P1-09).",
+        "Le pays est déterminé par point-dans-polygone sur les contours Natural Earth 1:50m, " +
+          "non par géocodage inverse ni par registre foncier (cf. P1-09).",
         ...LIMITES_METHODE_COUVERT,
       ],
     },
@@ -338,10 +329,15 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
     compliant: null,
     loss_year: null,
     confidence_score: null,
-    risk_level: country.risk,
+    // ⚠️ C6d : une analyse indisponible ne produit AUCUN niveau de risque
+    //   parcellaire. Avant, on recopiait `country.risk` — une parcelle
+    //   ghanéenne jamais analysée s'affichait « Risque parcelle : Faible ».
+    risk_level: niveauRisqueParcelle("NON_ANALYSEE", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "unavailable",
     is_probative: false,
     evidence: null,
@@ -487,10 +483,12 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
       compliant: false,
       loss_year: lossYear,
       confidence_score: Number(Math.min(0.99, 0.8 + fraction * 0.5).toFixed(3)),
-      risk_level: "HIGH",
+      risk_level: niveauRisqueParcelle("PERTE_CONSTATEE", country.risk),
       country_code: country.iso2,
       country_name: country.name,
       country_risk: country.risk,
+      country_statut: country.statut,
+      country_liste_annexe: country.listeALAnnexe,
       source: "gfw-live",
       is_probative: true,
       evidence,
@@ -520,10 +518,12 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     compliant: true,
     loss_year: historic,
     confidence_score: 0.95,
-    risk_level: country.risk,
+    risk_level: niveauRisqueParcelle("AUCUNE_PERTE", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "gfw-live",
     is_probative: true,
     evidence,

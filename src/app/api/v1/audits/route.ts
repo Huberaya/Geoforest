@@ -29,7 +29,9 @@ export const GET = guard("dds:read")(async (request: Request, _ctx, { tx, organi
     status: r.status as AuditStatus,
     compliant: r.compliant,
     loss_year: r.lossYear,
-    risk_level: r.riskLevel as RiskLevel,
+    // ⚠️ C6d : nullable. Un audit sans analyse n'a pas de niveau de risque,
+    //   et le forcer en "STANDARD" inventerait une classification.
+    risk_level: (r.riskLevel as RiskLevel | null) ?? null,
     country_code: r.countryCode,
   }));
 

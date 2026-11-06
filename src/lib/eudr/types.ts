@@ -134,6 +134,16 @@ export interface ParcelAuditRequest {
   declared_area_ha?: number | null;
   parcel_reference?: string | null;
   /**
+   * C7 — parcelle enregistrée sur laquelle porte l'analyse.
+   *
+   * ⚠️ Distinct de `parcel_reference`, qui est du texte libre saisi par
+   *   l'utilisateur. Sans identifiant, une analyse ne peut pas être rattachée à
+   *   une parcelle de façon vérifiable : le dossier de diligence ne sait donc
+   *   pas ce qui a été analysé, et un validateur ne peut examiner ce lien.
+   *   Absent (et non vide) quand aucun nœud parcelle n'existe.
+   */
+  plot_id?: string | null;
+  /**
    * P1-16 — identité du producteur, distincte de l'opérateur.
    * `null` (ou absent) signifie « non déclaré » : un état valide, que rien ne
    * doit combler en copiant l'opérateur.
@@ -162,6 +172,7 @@ export interface GeometryValidationResult {
 }
 
 import type { AnalyseProvenance } from "./satellite-checker";
+import type { StatutResolution } from "./resolution-pays";
 
 export interface SatelliteCheckResult {
   /**
@@ -173,10 +184,27 @@ export interface SatelliteCheckResult {
   loss_year: number | null;
   /** Score de confiance. `null` quand l'analyse n'est pas probante. */
   confidence_score: number | null;
-  risk_level: RiskLevel;
+  /**
+   * Risque de LA PARCELLE, résultant de l'analyse.
+   *
+   * ⚠️ `null` quand aucune analyse n'a été menée. Ce n'est PAS le risque du
+   *    pays : une parcelle non analysée dans un pays à faible risque n'est pas
+   *    une parcelle à faible risque, c'est une parcelle dont on ne sait rien.
+   *    Confondre les deux faisait afficher « Risque parcelle : Faible » sur un
+   *    dossier ghanéen jamais analysé (C6d).
+   */
+  risk_level: RiskLevel | null;
   country_code: string;
   country_name: string;
+  /**
+   * Risque du pays de production, au titre du règlement d'exécution
+   * (UE) 2025/1093. Entrée du raisonnement, jamais son résultat.
+   */
   country_risk: RiskLevel;
+  /** Statut de la résolution pays : RESOLU, CONFLIT ou HORS_COUVERTURE. */
+  country_statut: StatutResolution;
+  /** Vrai si le pays figure explicitement à l'annexe (LOW ou HIGH). */
+  country_liste_annexe: boolean;
   /** Provenance de l'analyse — jamais libre, toujours l'une des trois valeurs. */
   source: AnalysisSource;
   /** Vrai uniquement si le verdict repose sur des données réellement mesurées. */
@@ -218,7 +246,8 @@ export interface AuditSummary {
   /** Null quand l'analyse n'était pas probante (P0-04). */
   compliant: boolean | null;
   loss_year: number | null;
-  risk_level: RiskLevel;
+  /** ⚠️ `null` quand aucune analyse n'a établi de niveau (C6d). */
+  risk_level: RiskLevel | null;
   country_code: string;
 }
 

@@ -18,13 +18,45 @@ export default function PlotsPage() {
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  // ⚠️ C7 — le fournisseur est OBLIGATOIRE dans ce formulaire.
+  //
+  //   `POST /api/v1/plots` acceptait déjà `supplierId`, mais l'écran ne
+  //   l'envoyait pas : toute parcelle créée depuis l'interface avait donc
+  //   `supplier_id = NULL`. Or une parcelle orpheline est invisible pour un
+  //   dossier de diligence, qui ne relie les parcelles que par leur
+  //   fournisseur. Le validateur de dossier examinait alors un dossier vide
+  //   sans que rien ne signale que l'utilisateur avait bien saisi ses parcelles.
+  const [fournisseurs, setFournisseurs] = useState<Array<{ id: string; name: string }>>([]);
   const [form, setForm] = useState({
     name: "",
     reference: "",
     commodity: "cocoa" as Commodity,
     countryCode: "CI",
+    supplierId: "",
     geometryText: "",
   });
+
+  // ⚠️ La liste des fournisseurs est chargée une fois. Sans elle, le champ
+  //   resterait un identifiant à recopier — et un identifiant recopié à la main
+  //   est un identifiant faux une fois sur deux.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/suppliers");
+        if (!res.ok) return;
+        const data = (await res.json()) as Array<{ id?: string; name?: string }> | { suppliers?: Array<{ id: string; name: string }> };
+        const liste = Array.isArray(data) ? data : (data.suppliers ?? []);
+        setFournisseurs(
+          liste
+            .filter((x): x is { id: string; name: string } => typeof x.id === "string" && typeof x.name === "string")
+            .map((x) => ({ id: x.id, name: x.name })),
+        );
+      } catch {
+        // Pas de liste : le champ retombe sur une saisie libre. L'écran ne doit
+        // pas devenir inutilisable parce qu'une requête auxiliaire a échoué.
+      }
+    })();
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -41,7 +73,6 @@ export default function PlotsPage() {
   useEffect(() => {
     const t = setTimeout(() => void load(), 200);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
   const submit = async (e: React.FormEvent) => {
@@ -49,16 +80,24 @@ export default function PlotsPage() {
     setSaving(true);
     setError(null);
     try {
+      if (!form.supplierId) {
+        // Refusé côté écran ET côté serveur : une parcelle sans fournisseur
+        // n'est rattachable à aucun dossier, donc inutilisable pour une
+        // déclaration. Laisser passer produirait un dossier inexplicablement vide.
+        setError("Le fournisseur est requis : sans lui, la parcelle ne peut être rattachée à aucun dossier de diligence.");
+        return;
+      }
       await createPlot({
         name: form.name,
         reference: form.reference || undefined,
         commodity: form.commodity,
         countryCode: form.countryCode,
+        supplierId: form.supplierId,
         // Le texte saisi est transmis tel quel : le serveur en mesure la
         // précision réelle. Le re-sérialiser détruirait les décimales.
         geometry_text: form.geometryText,
       });
-      setForm({ name: "", reference: "", commodity: form.commodity, countryCode: form.countryCode, geometryText: "" });
+      setForm({ name: "", reference: "", commodity: form.commodity, countryCode: form.countryCode, supplierId: form.supplierId, geometryText: "" });
       setShowForm(false);
       await load();
     } catch (err) {
@@ -143,6 +182,35 @@ export default function PlotsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Fournisseur *</label>
+                {fournisseurs.length > 0 ? (
+                  <select
+                    required
+                    value={form.supplierId}
+                    onChange={(e) => setForm({ ...form, supplierId: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                  >
+                    <option value="">— Choisir un fournisseur —</option>
+                    {fournisseurs.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    required
+                    value={form.supplierId}
+                    onChange={(e) => setForm({ ...form, supplierId: e.target.value })}
+                    placeholder="identifiant du fournisseur"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                  />
+                )}
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Requis : une parcelle sans fournisseur n&apos;est rattachable à aucun dossier de diligence.
+                </p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-700">Pays (ISO 2) *</label>

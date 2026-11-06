@@ -21,6 +21,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
+# ⚠️ C5 — la documentation interactive expose la totalité des schémas, des
+#   paramètres et des exemples. Ouverte par défaut, elle décrivait au passant
+#   comment interroger un backend qui n'authentifiait personne.
 app = FastAPI(
     lifespan=lifespan,
     title=settings.app_name,
@@ -29,8 +32,9 @@ app = FastAPI(
         "Micro-SaaS de conformité au Règlement (UE) 2023/1115 (EUDR) : validation GIS des parcelles, "
         "détection de déforestation post-2020 (Hansen / Global Forest Watch) et export TRACES-NT."
     ),
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.backend_docs_enabled else None,
+    redoc_url="/redoc" if settings.backend_docs_enabled else None,
+    openapi_url="/openapi.json" if settings.backend_docs_enabled else None,
 )
 
 @app.middleware("http")
@@ -46,12 +50,15 @@ async def keep_raw_body(request: Request, call_next):
     return await call_next(request)
 
 
+# ⚠️ C5 — `allow_origins=["*"]` avec `allow_credentials=True` autorisait
+#   n'importe quelle origine à lire les réponses. Le joker est écarté par
+#   `settings.cors_valides`, et il n'est plus possible d'en configurer un.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_valides,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
     expose_headers=["Content-Disposition"],
 )
 

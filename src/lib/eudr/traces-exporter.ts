@@ -150,7 +150,14 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       deforestation_detected_post_cutoff: !row.compliant,
       loss_year: row.lossYear,
       confidence_score: row.confidenceScore,
-      risk_level: row.riskLevel,
+      // ⚠️ C6d : vide quand aucune analyse n'a établi de niveau. Écrire une
+      //   valeur par défaut ici ferait entrer dans le dossier TRACES une
+      //   classification qui n'a jamais été prononcée.
+      risk_level: row.riskLevel ?? "",
+      // ⚠️ C6f : plus de chaîne vide. L'export refuse en amont les dossiers
+      //   dont l'origine est indéterminée (voir `origine-exportable.ts`), donc
+      //   ce champ est toujours renseigné ici. S'il ne l'était pas, ce serait
+      //   un défaut de la barrière, pas une donnée manquante tolérable.
       country_benchmark_risk: row.countryRisk,
       satellite_source: satellite.source ?? "",
       centroid: { lon: row.centroidLon, lat: row.centroidLat },
