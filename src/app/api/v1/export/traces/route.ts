@@ -12,6 +12,32 @@ import { guard } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * ⚠️ C7 — pourquoi cet export raisonne par PARCELLE et non par DOSSIER.
+ *
+ *   Les deux objets n'ont pas le même grain, et c'est une propriété du
+ *   règlement, pas un oubli :
+ *
+ *   · une **analyse** porte sur une parcelle — une géométrie, une date de
+ *     production, une mesure de couvert forestier. C'est l'unité de preuve ;
+ *   · un **dossier de diligence** porte sur un produit — un lot, un poids net,
+ *     une quantité mise sur le marché. C'est l'unité de déclaration.
+ *
+ *   Un produit peut agréger plusieurs parcelles ; rattacher l'export à un
+ *   dossier unique obligerait à choisir laquelle des parcelles agrégeées est
+ *   « la » preuve, et ce choix serait arbitraire. L'export reste donc attaché à
+ *   une analyse, et le dossier rassemble les analyses.
+ *
+ *   ⚠️ Ce que cela implique, et qui n'était écrit nulle part avant C7 : un
+ *     dossier « prêt à déclarer » et un export réussi sont deux constats
+ *     INDÉPENDANTS. Le premier dit que le dossier est assez étayé ; le second
+ *     dit qu'une analyse précise est exportable. Aucun des deux ne vaut preuve
+ *     que l'autre a eu lieu. La déclaration, elle, exige les deux — et c'est à
+ *     l'opérateur de les rapprocher, aucun composant du produit ne le faisant.
+ *
+ *   La limite est consignée en D-005.
+ */
+
 const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIVITIES: ActivityType[] = ["IMPORT", "EXPORT", "DOMESTIC"];

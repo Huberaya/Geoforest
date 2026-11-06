@@ -32,6 +32,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { niveauRisqueParcelle, constatDepuisAnalyse } from "../src/lib/eudr/risque-parcelle";
+import { examinerDossier, type DossierAExaminer } from "../src/lib/eudr/validateur-dossier";
 import { verifierOrigineExportable } from "../src/lib/eudr/origine-exportable";
 import type { RiskLevel } from "../src/lib/eudr/types";
 
@@ -88,13 +89,23 @@ ecart(
  *   Formulation retenue : entre l'entrée dans `if (body.status !== undefined)`
  *   et `patch.status = next`, aucune fonction de contrôle n'est appelée.
  */
-const blocStatut = /if \(body\.status !== undefined\) \{[\s\S]*?patch\.status = next;/.exec(routeDossier);
+// ⚠️ Deuxième correction de ce contrôle, et la raison.
+//
+//   Chercher `examiner(` entre `if (body.status …` et `patch.status = next`
+//   restait VERT après avoir remplacé la condition par `if (false)` : le texte
+//   de l'appel était toujours là, simplement inatteignable. C'est le même piège
+//   que la branche `if False:` du backend, rencontré une seconde fois.
+//
+//   On exige donc la condition EXACTE, sans rien de plus — `if (next ===
+//   "READY_FOR_DECLARATION") {` et pas `… && false) {` — et, à l'intérieur, un
+//   refus en 409. Une condition élargie ou désactivée fait donc rougir.
+const blocStatut = /if \(next === "READY_FOR_DECLARATION"\) \{([\s\S]*?)\n    \}/.exec(routeDossier);
 const controleAvantStatut =
-  blocStatut !== null && /(valid\w*|verifi\w*|examin\w*|controle\w*)\s*\(/i.test(blocStatut[0]);
+  blocStatut !== null && /examiner\s*\(/.test(blocStatut[1]) && /status:\s*409/.test(blocStatut[1]);
 ecart(
   "READY_FOR_DECLARATION n'est pas atteignable sans examen du dossier",
   blocStatut === null
-    ? "le bloc de transition est introuvable : le contrôle doit être mis à jour, pas contourné"
+    ? "aucune condition littérale `if (next === \"READY_FOR_DECLARATION\")` : la transition est soit absente, soit élargie"
     : !controleAvantStatut
       ? "`TRANSITIONS` est le seul filtre : un dossier vide passe « prêt à déclarer »"
       : null,
@@ -111,12 +122,22 @@ ecart(
  *   chacun des deux écrans laisse croire que l'autre a validé.
  */
 const routeExport = readFileSync(join("src", "app", "api", "v1", "export", "traces", "route.ts"), "utf-8");
+//
+// ⚠️ Ce que ce contrôle exigeait, et qui était la mauvaise exigence.
+//
+//   Première version : « l'export doit citer le dossier, ou expliquer ».
+//   Or rattacher l'export à un dossier n'est pas correct — un produit agrège
+//   plusieurs parcelles, et choisir « la » parcelle preuve serait arbitraire.
+//   Le bon critère n'est pas l'existence d'un lien, c'est que la limite soit
+//   ÉCRITE : deux constats indépendants qui n'en disent rien laissent croire
+//   que l'un vaut preuve de l'autre.
 ecart(
-  "l'export ne se réclame pas d'un dossier de diligence",
-  /dueDiligenceStatements|diligenceId|ddsId/.test(routeExport)
+  "la différence de grain entre export et dossier est écrite",
+  /dueDiligenceStatements|diligenceId|ddsId/.test(routeExport) ||
+    /unit[ée] de d[ée]claration/i.test(routeExport)
     ? null
-    : "l'export valide une parcelle auditée et ignore le dossier : un dossier « prêt » peut coexister avec un export impossible, et l'inverse",
-  "soit l'export rattache son résultat au dossier, soit il est écrit que leurs grains diffèrent — et pourquoi c'est acceptable",
+    : "l'export valide une parcelle auditée et ne dit rien du dossier : un dossier « prêt » peut coexister avec un export impossible sans que rien ne le signale",
+  "l'export doit énoncer que le dossier et l'export sont deux constats INDÉPENDANTS, et pourquoi le grain diffère (D-005)",
 );
 
 /* ------------------------------------------------------------------------- *
@@ -134,7 +155,7 @@ const sourcesProduit = [
 ].join("\n");
 ecart(
   "le nombre de parcelles et la surface du dossier sont calculés, pas hérités de zéro",
-  /plotsCount\s*:\s*sql|plotsCount\s*:\s*[a-zA-Z]+\s*\?|set\(\{[^}]*plotsCount/.test(sourcesProduit)
+  /plotsCount\s*:\s*sql|patch\.plotsCount\s*=|set\(\{[^}]*plotsCount/.test(sourcesProduit)
     ? null
     : "`plotsCount` et `totalAreaHa` ne sont écrits nulle part : ils valent 0 pour tout dossier, quel que soit son contenu",
   "les deux champs doivent être dérivés des parcelles rattachées, jamais laissés à leur valeur par défaut",
@@ -149,13 +170,28 @@ ecart(
  *   Sans elle, la date butoir du 31/12/2020 ne peut pas être vérifiée — or
  *   c'est la condition qui décide de la conformité d'une parcelle.
  */
+// ⚠️ Première version de ce contrôle : elle cherchait un champ *nommé* comme une
+//   période de production. C'était une fausse exigence — le SCHÉMA la portait
+//   déjà sous un autre nom, et le validateur la lisait.
+//
+//   `parcel_audits.harvest_date` EST la date de production : l'audit exige un
+//   format ISO et refuse le futur (`audit/parcel/route.ts:120-123`), et c'est
+//   elle qui entre dans l'analyse satellite. Ce qui manquait n'était ni la
+//   donnée ni le champ, mais son EXPLOITATION par le dossier : le validateur ne
+//   la lisait pas.
+//
+//   Le contrôle porte donc désormais sur ce qui compte — la donnée est-elle
+//   transportée jusqu'à l'examen — et non sur le nom d'une colonne.
 const schema = readFileSync(join("src", "db", "schema.ts"), "utf-8");
+const validateur = readFileSync(join("src", "lib", "eudr", "validateur-dossier.ts"), "utf-8");
 ecart(
-  "la période de production est représentable",
-  /production_(date|period)|date_production|periode_production/i.test(schema)
-    ? null
-    : "aucun champ de date ni de période de production dans `src/db/schema.ts` : la condition du 31/12/2020 n'est pas vérifiable",
-  "un champ de période de production doit exister sur la parcelle ou sur le dossier (art. 9(1)(f)) — migration à décider",
+  "la période de production est représentable et examinée",
+  /harvest_date/i.test(schema)
+    ? /PERIODE_PRODUCTION_ABSENTE/.test(validateur) && /harvestDate/.test(validateur)
+      ? null
+      : "`harvest_date` existe en base mais le validateur ne la lit pas : la condition du 31/12/2020 n'est pas vérifiable"
+    : "aucune date de production dans `src/db/schema.ts` : la condition du 31/12/2020 n'est pas vérifiable",
+  "le validateur doit refuser un dossier dont une parcelle n'a pas de date de production (art. 9(1)(f))",
 );
 
 /* ------------------------------------------------------------------------- *
@@ -195,12 +231,153 @@ ecart(
  *   simplement branchée sur rien. Le contrôle le dit, pour que la correction
  *   ne consiste pas à la réécrire.
  */
+//
+// ⚠️ Le premier jet cherchait ces appels dans la ROUTE. C'était l'endroit où le
+//   défaut se manifestait, pas l'endroit où il se corrige : le validateur est un
+//   module pur, et c'est lui qui doit réutiliser les verdicts existants plutôt
+//   que les réimplémenter. On cherche donc l'appel là où il doit être.
 ecart(
-  "les briques de verdict sont utilisables depuis le chemin du dossier",
-  /niveauRisqueParcelle|verifierOrigineExportable/.test(sourcesProduit)
+  "le validateur réutilise les briques de verdict existantes",
+  /verifierOrigineExportable\s*\(/.test(validateur) && /examinerDossier/.test(sourcesProduit)
     ? null
-    : "`niveauRisqueParcelle`, `verifierOrigineExportable` et le validateur géométrique existent, mais aucun n'est appelé par la route du dossier",
-  "le validateur à écrire doit réutiliser ces fonctions, pas les réimplémenter",
+    : "`verifierOrigineExportable` n'est pas appelé par le validateur, ou le validateur n'est pas appelé par la route",
+  "le même verdict réglementaire ne doit pas exister en deux exemplaires : les deux finiraient par diverger",
+);
+
+/* ------------------------------------------------------------------------- *
+ * 6. Le validateur REFUSE un dossier vide — exécuté, pas lu
+ * ------------------------------------------------------------------------- *
+ *
+ *   ⚠️ Les contrôles ci-dessus lisent du code. Ceux-ci EXÉCUTENT le validateur
+ *   sur des dossiers construits pour être refusés. Un contrôle qui n'exécute
+ *   rien finit par vérifier que le code ressemble à une correction.
+ */
+
+const AUJOURDHUI = "2026-11-06";
+
+function dossierMinimal(surcharge: Partial<DossierAExaminer> = {}): DossierAExaminer {
+  return {
+    id: "00000000-0000-0000-0000-000000000001",
+    status: "UNDER_REVIEW",
+    supplierId: "00000000-0000-0000-0000-000000000002",
+    productId: null,
+    commodity: "cocoa",
+    parcelles: [],
+    taches: [],
+    ...surcharge,
+  };
+}
+
+/** Une parcelle complète et conforme, pour isoler le manque qu'on veut prouver. */
+function parcelleValide() {
+  return {
+    id: "00000000-0000-0000-0000-000000000003",
+    name: "Parcelle A",
+    status: "COMPLIANT",
+    countryCode: "CI",
+    countryStatut: "RESOLU",
+    areaHa: 2.5,
+    derniereAnalyse: {
+      analysisSource: "gfw-live",
+      analysisProbative: true,
+      status: "COMPLIANT",
+      harvestDate: "2026-03-15",
+    },
+    documents: [
+      { id: "d1", category: "LAND_TENURE", status: "VALID", expiryDate: null },
+      { id: "d2", category: "HARVEST_PERMIT", status: "VALID", expiryDate: "2027-01-01" },
+    ],
+  };
+}
+
+// 1. Le dossier vide est refusé, et le refus nomme la cause.
+const vide = examinerDossier(dossierMinimal(), AUJOURDHUI);
+ecart(
+  "un dossier vide n'est pas déclaré complet",
+  vide.complet === false && vide.manques.some((m) => m.code === "SANS_PARCELLE")
+    ? null
+    : `le dossier vide est déclaré complet=${vide.complet} avec ${vide.manques.length} manque(s)`,
+  "aucune parcelle ⇒ jamais « prêt à déclarer »",
+);
+ecart(
+  "le score d'un dossier vide reste bas",
+  vide.score < 50 ? null : `score ${vide.score} sur un dossier sans aucune parcelle`,
+  "un dossier non validable ne peut pas afficher une complétude élevée",
+);
+
+// 2. Une simulation de démonstration bloque le dossier.
+const simule = examinerDossier(
+  dossierMinimal({
+    parcelles: [
+      {
+        ...parcelleValide(),
+        derniereAnalyse: { ...parcelleValide().derniereAnalyse, analysisSource: "simulated", analysisProbative: false },
+      },
+    ],
+  }),
+  AUJOURDHUI,
+);
+ecart(
+  "une analyse simulée empêche la déclaration",
+  simule.complet === false && simule.manques.some((m) => m.code === "ANALYSE_NON_PROBANTE")
+    ? null
+    : "un dossier fondé sur une simulation a été déclaré complet",
+  "P0-04 : une démonstration ne peut pas alimenter une déclaration",
+);
+
+// 3. Une date de production absente bloque le dossier.
+const sansDate = examinerDossier(
+  dossierMinimal({
+    parcelles: [{ ...parcelleValide(), derniereAnalyse: { ...parcelleValide().derniereAnalyse, harvestDate: null } }],
+  }),
+  AUJOURDHUI,
+);
+ecart(
+  "une date de production absente empêche la déclaration",
+  sansDate.complet === false && sansDate.manques.some((m) => m.code === "PERIODE_PRODUCTION_ABSENTE")
+    ? null
+    : "un dossier sans date de production a été déclaré complet",
+  "art. 9(1)(f) : sans date de production, la condition du 31/12/2020 n'est pas vérifiable",
+);
+
+// 4. Une mesure d'atténuation ouverte bloque le dossier.
+const tacheOuverte = examinerDossier(
+  dossierMinimal({ parcelles: [parcelleValide()], taches: [{ id: "t1", status: "TO_HANDLE", severity: "HIGH" }] }),
+  AUJOURDHUI,
+);
+ecart(
+  "une mesure d'atténuation ouverte empêche la déclaration",
+  tacheOuverte.complet === false && tacheOuverte.manques.some((m) => m.code === "ATTENUATION_INCOMPLETE")
+    ? null
+    : "un dossier avec une mesure ouverte a été déclaré complet",
+  "une déclaration ne couvre pas un risque identifié et non traité",
+);
+
+// 5. Une origine non résolue bloque le dossier.
+const origineInconnue = examinerDossier(
+  dossierMinimal({ parcelles: [{ ...parcelleValide(), countryCode: "XX", countryStatut: "HORS_COUVERTURE" }] }),
+  AUJOURDHUI,
+);
+ecart(
+  "une origine non établie empêche la déclaration",
+  origineInconnue.complet === false && origineInconnue.manques.some((m) => m.code === "ORIGINE_NON_ETABLIE")
+    ? null
+    : "un dossier d'origine inconnue a été déclaré complet",
+  "on ne déclare pas ce qu'on ne sait pas nommer",
+);
+
+// 6. ET, symétriquement : un dossier complet EST accepté.
+//
+// ⚠️ Sans ce cas, le validateur pourrait refuser TOUT et passer les cinq
+//   précédents. Un validateur qui refuse toujours n'est pas un validateur :
+//   c'est un mur — exactement ce que D-004 reproche aux barrières rouges.
+const complet = examinerDossier(dossierMinimal({ parcelles: [parcelleValide()] }), AUJOURDHUI);
+ecart(
+  "un dossier complet est accepté (le validateur n'est pas un mur)",
+  complet.complet === true
+    ? null
+    : `un dossier conforme est refusé : ${complet.manques.map((m) => m.code).join(", ")}`,
+  "un dossier étayé doit pouvoir être déclaré prêt, sinon le dispositif est inutilisable",
 );
 
 /* --------------------------------- Rapport ------------------------------- */

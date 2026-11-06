@@ -32,7 +32,38 @@ export default function DueDiligencePage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", commodity: "cocoa" as Commodity });
+  // ⚠️ C7 — le fournisseur est requis à la création.
+  //
+  //   Un dossier n'est relié à ses parcelles QUE par son fournisseur : c'est le
+  //   seul chemin que le schéma permette (cf. D-005). Un dossier créé sans
+  //   fournisseur ne peut donc examiner aucune parcelle, et son validation
+  //   échouerait toujours — avec un message que l'utilisateur ne pourrait pas
+  //   relier à l'écran où le lien manque.
+  const [fournisseurs, setFournisseurs] = useState<Array<{ id: string; name: string }>>([]);
+  const [form, setForm] = useState({ title: "", commodity: "cocoa" as Commodity, supplierId: "" });
+
+  // Même approche que l'écran des parcelles : une liste quand elle est
+  // disponible, une saisie libre sinon. L'écran ne doit pas devenir inutilisable
+  // parce qu'une requête auxiliaire a échoué.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/suppliers");
+        if (!res.ok) return;
+        const data = (await res.json()) as
+          | Array<{ id?: string; name?: string }>
+          | { suppliers?: Array<{ id: string; name: string }> };
+        const liste = Array.isArray(data) ? data : (data.suppliers ?? []);
+        setFournisseurs(
+          liste
+            .filter((x): x is { id: string; name: string } => typeof x.id === "string" && typeof x.name === "string")
+            .map((x) => ({ id: x.id, name: x.name })),
+        );
+      } catch {
+        // voir commentaire ci-dessus
+      }
+    })();
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -56,7 +87,6 @@ export default function DueDiligencePage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -64,8 +94,14 @@ export default function DueDiligencePage() {
     setSaving(true);
     setError(null);
     try {
-      await createStatement({ title: form.title, commodity: form.commodity });
-      setForm({ title: "", commodity: form.commodity });
+      if (!form.supplierId) {
+        setError(
+          "Le fournisseur est requis : sans lui, le dossier ne peut examiner aucune parcelle, et ne pourra jamais être déclaré prêt.",
+        );
+        return;
+      }
+      await createStatement({ title: form.title, commodity: form.commodity, supplierId: form.supplierId });
+      setForm({ title: "", commodity: form.commodity, supplierId: form.supplierId });
       setShowForm(false);
       await load();
     } catch (err) {
@@ -124,6 +160,32 @@ export default function DueDiligencePage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-700">Fournisseur *</label>
+              {fournisseurs.length > 0 ? (
+                <select
+                  required
+                  value={form.supplierId}
+                  onChange={(e) => setForm({ ...form, supplierId: e.target.value })}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                >
+                  <option value="">— Choisir un fournisseur —</option>
+                  {fournisseurs.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  required
+                  value={form.supplierId}
+                  onChange={(e) => setForm({ ...form, supplierId: e.target.value })}
+                  placeholder="identifiant du fournisseur"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-emerald-500"
+                />
+              )}
             </div>
             <div className="sm:col-span-3">
               <button

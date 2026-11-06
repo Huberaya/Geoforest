@@ -1,5 +1,6 @@
 import { lireCorpsJson } from "@/lib/api/body";
-import { parcelAudits } from "@/db/schema";
+import { parcelAudits, plots } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { logAction } from "@/lib/api/audit-log";
 import { validateGeometry } from "@/lib/eudr/gis-validator";
 import { checkDeforestationRisk } from "@/lib/eudr/satellite-checker";
@@ -20,6 +21,8 @@ import { guard } from "@/lib/auth/guard";
 export const dynamic = "force-dynamic";
 
 const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
+/** Même motif que les autres routes : un UUID mal formé est un 422, pas un 500. */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ANONYMOUS_OPERATOR: OperatorInfo = { name: "Opérateur non renseigné", eori: "XX0000000000000", country: "XX" };
 
 function badRequest(detail: string, status = 422): NextResponse {
@@ -138,6 +141,30 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       : parsedProducer.producer;
   const parcelReference = typeof body.parcel_reference === "string" ? body.parcel_reference.slice(0, 100) : null;
 
+  // ⚠️ C7 — la parcelle sur laquelle porte l'analyse.
+  //
+  //   Avant la migration 0008, seul `parcel_reference` existait : du texte
+  //   libre. Rien ne rattachait une analyse à une parcelle enregistrée, donc
+  //   rien ne permettait à un dossier de diligence de savoir ce qui avait été
+  //   analysé — et un validateur de dossier ne pouvait examiner un lien
+  //   inexistant.
+  //
+  //   La parcelle est vérifiée comme appartenant à l'organisation de la
+  //   session. La clé étrangère composite le garantit déjà en base ; le
+  //   contrôle ici évite un 500 là où un 422 explique ce qui ne va pas.
+  const plotId = typeof body.plot_id === "string" ? body.plot_id.trim() : "";
+  if (plotId !== "") {
+    if (!UUID_PATTERN.test(plotId)) return badRequest("plot_id invalide (UUID attendu)");
+    const [parcelle] = await tx
+      .select({ id: plots.id })
+      .from(plots)
+      .where(and(eq(plots.id, plotId), eq(plots.organizationId, organizationId)))
+      .limit(1);
+    // 404 et non 403 : répondre « interdit » confirmerait l'existence de la
+    // parcelle d'une autre organisation.
+    if (!parcelle) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
+  }
+
   const validation = validateGeometry(geojson as GeoJsonInput, {
     declaredAreaHa: declaredArea,
     rawText,
@@ -182,6 +209,7 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         hsCode,
         harvestDate,
         parcelReference,
+        plotId: plotId === "" ? null : plotId,
         geometry: validation.normalized_geometry ?? geojson,
         geometryType: validation.geometry_type ?? "Unknown",
         areaHa: validation.area_ha,

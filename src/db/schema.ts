@@ -555,6 +555,21 @@ export const parcelAudits = pgTable(
      */
     producerName: text("producer_name"),
     producerCountry: text("producer_country"),
+    /**
+     * C7 — parcelle sur laquelle porte l'analyse.
+     *
+     * ⚠️ Le défaut corrigé ici. Jusqu'au 06/11/2026, `parcel_audits` ne
+     *   portait que `parcel_reference`, du **texte libre** saisi par
+     *   l'utilisateur. Rien, ni en base ni dans le code, ne reliait une analyse
+     *   à une parcelle : le dossier de diligence ne pouvait donc pas savoir ce
+     *   qui avait été analysé, et le validateur qui examine un dossier ne
+     *   pouvait examiner un lien inexistant.
+     *
+     * Nullable, et c'est essentiel : un audit mené sur un tracé importé sans
+     * parcelle enregistrée reste un état représentable. Le remplir d'un UUID
+     * pris au hasard serait exactement le défaut que cette colonne corrige.
+     */
+    plotId: uuid("plot_id"),
     commodity: text("commodity").notNull(),
     hsCode: text("hs_code").notNull(),
     harvestDate: text("harvest_date").notNull(),
@@ -629,6 +644,18 @@ export const parcelAudits = pgTable(
   (table) => [
     index("idx_parcel_audits_created_at").on(table.createdAt),
     index("idx_parcel_audits_org_created").on(table.organizationId, table.createdAt),
+    // ⚠️ La clé étrangère est COMPOSITE (parcelle + organisation), comme pour
+    //   les documents et les parcelles. Une clé simple sur `plot_id` suffirait
+    //   à garantir que la parcelle existe, pas qu'elle appartient à la même
+    //   organisation : une analyse d'une organisation pourrait viser la
+    //   parcelle d'une autre, et la RLS ne le verrait pas — elle filtre les
+    //   lignes lues, pas les références écrites.
+    foreignKey({
+      columns: [table.plotId, table.organizationId],
+      foreignColumns: [plots.id, plots.organizationId],
+      name: "fk_parcel_audits_plot_tenant",
+    }).onDelete("set null"),
+    index("idx_parcel_audits_plot").on(table.plotId),
   ],
 );
 

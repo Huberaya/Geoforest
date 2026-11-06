@@ -134,6 +134,16 @@ export interface ParcelAuditRequest {
   declared_area_ha?: number | null;
   parcel_reference?: string | null;
   /**
+   * C7 — parcelle enregistrée sur laquelle porte l'analyse.
+   *
+   * ⚠️ Distinct de `parcel_reference`, qui est du texte libre saisi par
+   *   l'utilisateur. Sans identifiant, une analyse ne peut pas être rattachée à
+   *   une parcelle de façon vérifiable : le dossier de diligence ne sait donc
+   *   pas ce qui a été analysé, et un validateur ne peut examiner ce lien.
+   *   Absent (et non vide) quand aucun nœud parcelle n'existe.
+   */
+  plot_id?: string | null;
+  /**
    * P1-16 — identité du producteur, distincte de l'opérateur.
    * `null` (ou absent) signifie « non déclaré » : un état valide, que rien ne
    * doit combler en copiant l'opérateur.
