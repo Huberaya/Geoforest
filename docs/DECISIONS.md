@@ -89,3 +89,37 @@ analyse passée inexplicable.
 `risk_level` d'une parcelle vaut `null` quand aucune analyse n'a été menée, y
 compris dans un pays low-risk. Le niveau du pays est une entrée du
 raisonnement, jamais son résultat. Voir `src/lib/eudr/risque-parcelle.ts`.
+
+---
+
+## D-004 — Le contrôle du dossier DDR est écrit avant sa correction, et n'entre pas en CI
+
+**Date :** 06/11/2026 · **Contexte :** C7 · **Statut :** appliqué
+
+**Décision.** `scripts/check-validateur-ddr.ts` est livré **rouge** (3/9 au
+06/11/2026) et **n'est pas branché** dans `.github/workflows/ci.yml`.
+
+**Pourquoi dans cet ordre.** Écrire la correction d'abord, puis un contrôle qui
+l'épouse, produit un contrôle vert par construction — il n'a jamais rien
+prouvé, il constate ce qu'on vient d'écrire. Ici le contrôle est écrit contre le
+défaut : il échoue précisément sur les neuf conditions qu'un dossier devrait
+satisfaire, et il passera quand elles seront tenues.
+
+**Pourquoi pas en CI.** Une barrière rouge en permanence ne protège rien : elle
+bloque toutes les fusions et pousse à désactiver le dispositif — c'est
+exactement ce qui a été reproché au banc pays avant C6c. Le contrôle
+`check:parcours-ddr` est en CI **parce qu'il est vert** ; celui-ci attend.
+
+**Falsifiabilité.** Simuler la correction (score retiré du corps, validateur
+appelé avant la transition) le fait passer de 3/9 à 5/9. Simuler le retrait du
+contrôle aval le fait revenir à 3/9. Il mesure donc bien quelque chose.
+
+**Ce qui le fera changer.** Le jour où la correction est livrée et verte, ce
+contrôle rejoint la CI — et cette décision est mise à jour en même temps, pas
+contournée.
+
+**Ce que le diagnostic a établi, et qui reste vrai tant que ce contrôle est
+rouge.** Un dossier créé par `POST` — `plotsCount: 0`, `completenessScore: 0`,
+aucune tâche, aucun fournisseur — peut passer `READY_FOR_DECLARATION` en un
+clic, et recevoir `completenessScore: 100` dans la même requête. Le produit
+enregistre une affirmation de l'utilisateur ; il ne constate rien.

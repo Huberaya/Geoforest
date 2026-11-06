@@ -33,7 +33,8 @@
     "check:risque-parcelle": "tsx --conditions=react-server scripts/check-risque-parcelle.ts",
     "check:parcours-ddr": "tsx --conditions=react-server scripts/check-parcours-ddr.ts",
     "check:origine-export": "tsx --conditions=react-server scripts/check-origine-export.ts",
-    "check:rotation-secrets": "tsx --conditions=react-server scripts/check-rotation-secrets.ts"
+    "check:rotation-secrets": "tsx --conditions=react-server scripts/check-rotation-secrets.ts",
+    "check:validateur-ddr": "tsx --conditions=react-server scripts/check-validateur-ddr.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",
