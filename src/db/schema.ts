@@ -290,6 +290,25 @@ export const plots = pgTable(
     vertexCount: integer("vertex_count").notNull().default(0),
     centroidLon: doublePrecision("centroid_lon").notNull().default(0),
     centroidLat: doublePrecision("centroid_lat").notNull().default(0),
+    /**
+     * C8 — cadre englobant, stocké pour que la détection de chevauchement
+     * puisse écarter en O(1) les paires qui ne peuvent pas se recouvrir.
+     *
+     * ⚠️ Ces quatre colonnes ne portent AUCUNE information nouvelle : la borne
+     *   est déjà calculée à l'ingestion (`gis-validator.ts`, `result.bbox`)
+     *   puis, jusqu'ici, jetée. Les stocker évite de relire et reparcourir
+     *   toutes les géométries de l'organisation à chaque saisie — avec
+     *   `SOMMETS_MAX = 10 000`, ce parcours ne tiendrait pas.
+     *
+     * Nullables : les parcelles créées avant C8 n'en ont pas. Une borne nulle
+     * signifie « à calculer », pas « centrée à l'origine » — une valeur par
+     * défaut à 0 ferait croire que toutes les parcelles sont au large du
+     * Golfe de Guinée, et le pré-filtre écarterait alors tout.
+     */
+    bboxMinLon: doublePrecision("bbox_min_lon"),
+    bboxMinLat: doublePrecision("bbox_min_lat"),
+    bboxMaxLon: doublePrecision("bbox_max_lon"),
+    bboxMaxLat: doublePrecision("bbox_max_lat"),
     status: text("status").notNull().default("PENDING"), // COMPLIANT, NON_COMPLIANT, INVALID_GEOMETRY, PENDING
     riskLevel: text("risk_level").notNull().default("STANDARD"),
     lossYear: integer("loss_year"),

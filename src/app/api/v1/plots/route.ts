@@ -1,11 +1,12 @@
 import { lireCorpsJson } from "@/lib/api/body";
 import { plots, suppliers } from "@/db/schema";
 import type { Commodity, Plot, RiskLevel } from "@/lib/eudr/types";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { logAction } from "@/lib/api/audit-log";
 import { validateGeometry } from "@/lib/eudr/gis-validator";
+import { bboxDeGeometrie, comparerParcelles, type Bbox } from "@/lib/eudr/chevauchement";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +144,52 @@ export const POST = guard("plot:write")(async (request: Request, _ctx, { tx, org
     return NextResponse.json({ detail: "Géométrie non exploitable", errors: validation.errors }, { status: 422 });
   }
 
+  // ------------------------------------------------------------------- C8
+  //
+  // ⚠️ Le chevauchement est détecté AVANT l'insertion, mais n'empêche pas
+  //   l'insertion. Décision assumée : deux parcelles voisines partagent une
+  //   clôture, et refuser en 422 sur un simple contact bloquerait un découpage
+  //   parfaitement légitime. Ce que le produit doit faire, c'est CONSTATER et
+  //   RENDRE VISIBLE — pas trancher à la place de l'exploitant.
+  //
+  //   Le contrôle porte sur toute l'organisation, pas sur le seul fournisseur :
+  //   un doublon entre deux fournisseurs est exactement le cas qu'on veut
+  //   attraper, et la RLS borne déjà la lecture à l'organisation.
+  //
+  //   Limite écrite (docs/EUDR_COMPLIANCE_GUIDE.md) : deux organisations
+  //   clientes différentes ne se voient pas. Deux exploitations voisines
+  //   peuvent donc se recouvrir sans que le produit le sache.
+  const bbox: Bbox | null = bboxDeGeometrie(normalized);
+  const recoupements: Array<{ id: string; name: string; verdict: string }> = [];
+  if (bbox) {
+    // Pré-filtre en SQL sur le cadre englobant : une parcelle dont le cadre ne
+    // recoupe pas le nôtre ne peut pas le chevaucher, et les exclure ici évite
+    // de charger des géométries inutiles.
+    const candidates = await tx
+      .select({ id: plots.id, name: plots.name, geometry: plots.geometry, bboxMinLon: plots.bboxMinLon, bboxMinLat: plots.bboxMinLat, bboxMaxLon: plots.bboxMaxLon, bboxMaxLat: plots.bboxMaxLat })
+      .from(plots)
+      .where(
+        and(
+          eq(plots.organizationId, organizationId),
+          isNull(plots.deletedAt),
+          sql`${plots.bboxMaxLon} is not null`,
+          sql`${plots.bboxMinLon} <= ${bbox[2]}`,
+          sql`${plots.bboxMaxLon} >= ${bbox[0]}`,
+          sql`${plots.bboxMinLat} <= ${bbox[3]}`,
+          sql`${plots.bboxMaxLat} >= ${bbox[1]}`,
+        ),
+      )
+      .limit(200);
+
+    for (const c of candidates) {
+      const verdict = comparerParcelles(normalized, c.geometry);
+      // Le CONTACT est écarté : c'est le cas normal d'une limite partagée. Ne
+      // remonter que le recouvrement est ce qui rend l'alerte crédible — un
+      // signal qui se déclenche sur les cas normaux n'est plus lu.
+      if (verdict === "RECOUVREMENT") recoupements.push({ id: c.id, name: c.name, verdict });
+    }
+  }
+
   const [row] = await tx
     .insert(plots)
     .values({
@@ -158,6 +205,10 @@ export const POST = guard("plot:write")(async (request: Request, _ctx, { tx, org
       vertexCount: validation.vertex_count,
       centroidLon: validation.centroid?.[0] ?? 0,
       centroidLat: validation.centroid?.[1] ?? 0,
+      bboxMinLon: bbox?.[0] ?? null,
+      bboxMinLat: bbox?.[1] ?? null,
+      bboxMaxLon: bbox?.[2] ?? null,
+      bboxMaxLat: bbox?.[3] ?? null,
       status: "PENDING",
     })
     .returning();
@@ -180,8 +231,18 @@ export const POST = guard("plot:write")(async (request: Request, _ctx, { tx, org
     entityType: "PLOT",
     entityId: row.id,
     apres: row as unknown as Record<string, unknown>,
-    details: { name, areaHa: validation.area_ha, geometryType: normalized.type },
+    details: {
+      name,
+      areaHa: validation.area_ha,
+      geometryType: normalized.type,
+      // ⚠️ Le recoupement est JOURNALISÉ, pas seulement renvoyé dans la
+      //   réponse. Un avertissement qui n'existe que dans un corps HTTP est
+      //   perdu dès que l'écran ne l'affiche pas — c'est le défaut du
+      //   `completenessScore` reçu du client, corrigé en C7. Le journal, lui,
+      //   reste relisible après coup.
+      recoupements: recoupements.map((r) => ({ id: r.id, name: r.name })),
+    },
   });
 
-  return NextResponse.json(toPlot(row, null), { status: 201 });
+  return NextResponse.json({ ...toPlot(row, null), recoupements }, { status: 201 });
 });

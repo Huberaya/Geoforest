@@ -128,6 +128,14 @@ jobs:
       - name: Résolution du pays et benchmark EUDR
         run: npm run check:banc-pays
 
+      # ⚠️ C8 — deux parcelles saisies avec le même tracé étaient acceptées sans
+      #   un mot : la surface était comptée deux fois, sans aucun symptôme
+      #   visible. Ce contrôle EXÉCUTE la détection sur des tracés construits,
+      #   et exige qu'un contact de limite NE SOIT PAS un recouvrement : un
+      #   contrôle qui signale chaque parcelle voisine n'est plus lu.
+      - name: Chevauchement de parcelles
+        run: npm run check:chevauchement
+
       # ⚠️ C7 — un dossier de diligence « prêt à déclarer » doit être un CONSTAT
       #   du produit, pas une affirmation de l'utilisateur. Ce contrôle exécute
       #   le validateur sur un dossier vide (refusé), une simulation (refusée),

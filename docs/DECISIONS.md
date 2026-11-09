@@ -208,3 +208,52 @@ export réussi sont **indépendants** : aucun ne vaut preuve que l'autre a eu
 lieu. La déclaration exige les deux, et c'est à l'opérateur de les rapprocher —
 aucun composant du produit ne le fait, et le produit ne doit pas laisser croire
 le contraire.
+
+---
+
+## D-007 — Un contact de limite n'est pas un recouvrement
+
+**Date :** 06/11/2026 · **Contexte :** C8 · **Statut :** appliqué
+
+**Décision.** La détection de chevauchement rend **trois** états — `AUCUN`,
+`CONTACT`, `RECOUVREMENT` — et seul `RECOUVREMENT` est remonté à l'utilisateur.
+
+**Pourquoi trois et pas un booléen.** Deux exploitations voisines partagent une
+clôture : leurs polygones se touchent sur un segment, parfois sur une arête
+entière, et c'est le cas **normal**. Un booléen « se chevauchent » classerait ce
+cas en positif, produirait une alerte sur chaque parcelle voisine, et au bout de
+trois alertes plus personne ne lirait rien — y compris le vrai doublon.
+
+**Ce qui a été mesuré.** En promouvant le contact en recouvrement,
+`check:chevauchement` passe de 21/21 à 19/21. Le contrôle refuse ce
+comportement, ce qui est sa raison d'être.
+
+**Le sens de l'erreur.** Un recouvrement signalé est réel. Une absence de
+signal ne prouve rien : ni hors organisation (la RLS interdit de voir), ni pour
+les parcelles-points (pas de surface), ni si les cadres englobants n'ont pas été
+remplis (`npm run db:backfill-bbox`). Ces trois limites sont écrites dans
+`docs/EUDR_COMPLIANCE_GUIDE.md` §3 bis.
+
+---
+
+## D-008 — Le chevauchement est constaté et journalisé, jamais bloquant
+
+**Date :** 06/11/2026 · **Contexte :** C8 · **Statut :** appliqué
+
+**Décision.** Un recouvrement n'empêche pas la création de la parcelle. Il est
+renvoyé dans la réponse (`recoupements`) **et** écrit dans le journal d'audit.
+
+**Pourquoi pas de refus en 422.** Refuser bloquerait des découpages légitimes,
+et le produit n'a pas à trancher à la place de l'exploitant.
+
+**Pourquoi le journal, et pas seulement la réponse.** Un avertissement qui
+n'existe que dans un corps HTTP est perdu dès que l'écran ne l'affiche pas.
+C'est le défaut du `completenessScore` reçu du client, corrigé en C7 : un signal
+qui ne survit pas à sa requête n'est pas un signal. Le journal, lui, reste
+relisible — et c'est ce qui permettra de constater après coup qu'un dossier
+s'appuyait sur des parcelles qui se recouvraient.
+
+**Ce qui ferait changer la décision.** Une exigence d'autorité ou d'acheteur
+qui demande le blocage. La correction est alors un refus conditionné à un
+recouvrement **au-delà d'un seuil de surface** — ce qui suppose d'abord de
+savoir calculer cette surface, donc de traiter le point laissé ouvert ci-dessus.

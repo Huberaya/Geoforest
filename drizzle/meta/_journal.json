@@ -64,6 +64,13 @@
       "when": 1793959791106,
       "tag": "0008_c7_audit_plot_link",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794266571117,
+      "tag": "0009_c8_plot_bbox",
+      "breakpoints": true
     }
   ],
   "prevId": "0004_document_mime_mismatch"

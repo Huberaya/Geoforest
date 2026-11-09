@@ -167,6 +167,46 @@ nommer.
 
 ---
 
+## 3 bis — Chevauchement de parcelles : ce que la détection ne voit pas
+
+Depuis C8, la création d'une parcelle compare son tracé aux parcelles de la
+**même organisation** et signale les recouvrements (`src/lib/eudr/chevauchement.ts`,
+`npm run check:chevauchement`).
+
+**Ce qui est détecté.** Deux parcelles dont les surfaces se chevauchent, y
+compris lorsqu'une est entièrement contenue dans l'autre — cas où aucune arête
+ne se croise et qu'un test limité aux intersections de segments manquerait.
+
+**Ce qui n'est PAS un recouvrement, et ne doit pas être signalé comme tel.**
+Deux parcelles voisines qui partagent une clôture se **touchent** sans se
+recouvrir. Le module distingue les deux (`CONTACT` contre `RECOUVREMENT`) et
+n'expose que le second. Un contrôle qui signalerait le contact produirait une
+alerte sur chaque parcelle voisine — et une alerte permanente n'est plus lue.
+
+**Les trois limites, à connaître avant de s'appuyer dessus.**
+
+1. **La visibilité s'arrête à l'organisation.** Une parcelle d'une autre
+   organisation cliente n'est jamais lue : la RLS l'interdit, et c'est voulu.
+   Deux exploitations clientes différentes peuvent donc se recouvrir sans que
+   le produit le sache. Personne, dans l'application, ne peut le constater — il
+   faut un rapprochement entre opérateurs ou une autorité pour le révéler.
+2. **Aucune surface d'intersection n'est calculée.** Le produit dit « ces deux
+   parcelles se recouvrent », avec leurs noms. Il ne dit pas « sur 0,8 ha ».
+   Calculer cette surface demande un algorithme de découpage de polygones dont
+   les cas dégénérés produisent des résultats faux ; un chiffre faux en
+   hectares entrerait dans une déclaration, ce qui serait pire que son absence.
+3. **Les parcelles sans surface (points) n'y participent pas.** Un point n'a
+   pas de surface à recouvrir. En dessous de 4 ha, l'EUDR admet un point
+   (`art. 9(1)(d)`) : ces parcelles échappent donc structurellement à la
+   détection, et deux points identiques ne sont pas signalés.
+
+**Ce que la détection garantit, et ce qu'elle ne garantit pas.** Un recoupement
+signalé est réel. L'absence de signal **ne prouve pas** l'absence de
+recouvrement — ni hors organisation, ni pour les points, ni si les cadres
+englobants n'ont pas été remplis (`npm run db:backfill-bbox`).
+
+---
+
 ## 4. Les huit confusions à ne pas commettre
 
 Celles-ci ont toutes été observées dans la documentation du dépôt ou dans les
