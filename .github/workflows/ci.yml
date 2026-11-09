@@ -49,7 +49,10 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          pytest -q
+          # `--strict-markers` (repris de main, 04/11/2026) : un test qui se
+          # saute doit le déclarer par un marqueur connu ; les 3 tests
+          # geospatial sont `skipped` et affichés, jamais comptés verts.
+          pytest -q --strict-markers
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -86,10 +89,36 @@ jobs:
       - name: EUDR rules tests
         run: npm run test:eudr
 
+      # Contrôles repris de `main` (04–05/11/2026, chantiers C1–C3) : cohérence
+      # de la version annoncée par la sonde, garde-fous de l'amorçage, et
+      # cohérence entre les chiffres de la documentation et le code.
+      - name: Cohérence de la version et du moteur Node
+        run: npm run check:version
+
+      - name: Garde-fous de l'amorçage de démonstration
+        run: npm run check:seed
+
+      - name: Cohérence entre la documentation et le code
+        run: npm run check:docs
+
       # Le build s'exécute sans base : c'est la propriété que le pool
       # d'administration différé garantit.
       - name: Build
         run: npm run build
+
+      # Repris de `main` : un build qui écrit dans un fichier du produit finit
+      # commité par accident. `next-env.d.ts` est exclu (généré par Next).
+      - name: Le build n'a modifié aucun fichier du produit
+        run: |
+          set -euo pipefail
+          modifications="$(git status --porcelain -- . ':(exclude)next-env.d.ts')"
+          if [ -n "$modifications" ]; then
+            echo "🔴 Le build a modifié des fichiers versionnés :"
+            echo "$modifications"
+            git diff -- . ':(exclude)next-env.d.ts'
+            exit 1
+          fi
+          echo "✅ Aucun fichier du produit modifié par le build."
 
       # Contrôle des dépendances de production. Les avis portant sur des
       # outils de développement sont suivis séparément (`npm run audit:dev`).
@@ -123,6 +152,140 @@ jobs:
 
       - name: Tests HTTP (isolation, authentification, limites, schéma incomplet)
         run: npm run test:http
+
+  # ---------------------------------------------------------------------------
+  # Contrôles exigeant une vraie base PostgreSQL (repris de `main`, 04/11/2026) :
+  # délais du pool, migrations sur base vierge, dérive schéma/migrations,
+  # idempotence, retour arrière puis remontée. Service jetable du runner.
+  # ---------------------------------------------------------------------------
+  base:
+    name: Contrôles SQL (PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Délais du pool réellement appliqués par PostgreSQL
+        run: npx tsx scripts/check-sql-limits.ts
+
+      - name: Migrations sur base vierge
+        run: npm run db:migrate
+
+      # Une dérive entre `src/db/schema.ts` et `drizzle/` signifie qu'une
+      # migration a été oubliée : en production, erreur 500 à la première requête.
+      - name: Aucune dérive entre le schéma et les migrations
+        run: npm run check:schema
+
+      - name: Migrations idempotentes (rejeu sans effet)
+        run: npm run db:migrate
+
+      - name: Retour arrière puis remontée
+        run: |
+          set -euo pipefail
+          npm run db:rollback
+          npm run db:migrate
+
+  # ---------------------------------------------------------------------------
+  # Bout en bout sur PostgreSQL du runner (repris de `main`, 04/11/2026) :
+  # l'application **démarrée** — sondes, contrôle de rôle au démarrage, 2FA,
+  # parcours métier, isolation entre deux organisations. Mesuré le 04/11 : un
+  # build vert et des migrations vertes n'empêchaient pas un serveur qui
+  # refusait toutes ses requêtes (500).
+  # ---------------------------------------------------------------------------
+  bout-en-bout:
+    name: Bout en bout (application démarrée, PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+      AUTH_SECRET: ci-secret-de-build-uniquement-non-utilise-en-production
+      # Mot de passe des comptes de démonstration : il n'a de valeur que sur la
+      # base jetable de ce job, détruite avec le runner.
+      SEED_DEMO_PASSWORD: ci-mot-de-passe-de-demonstration-jetable
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Migrations
+        run: npm run db:migrate
+
+      # Le rôle applicatif est créé sans mot de passe par la migration : le
+      # script versionné lui en attribue un, et refuse toute base non jetable.
+      - name: Attribuer un mot de passe au rôle applicatif (base jetable)
+        run: npx tsx scripts/ci-mot-de-passe-role.ts
+        env:
+          GF_BASE_JETABLE: "oui"
+          GF_MOT_DE_PASSE_APP: mot-de-passe-jetable-de-ci-pour-le-role
+
+      - name: Build de production
+        run: npm run build
+
+      - name: Bout en bout (démarrage, sondes, auth, parcours, isolation)
+        run: bash scripts/ci/annoter.sh "bout-en-bout" npm run check:e2e:complet
+        env:
+          DATABASE_URL: postgresql://geoforest_app:mot-de-passe-jetable-de-ci-pour-le-role@127.0.0.1:5432/ci
+          DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          SEED_AUTORISE_HOTE_DISTANT: "oui"
+          GF_STORAGE_DIR: /tmp/gf-stockage
+          GF_E2E_PORT: "3110"
+          GF_E2E_MOT_DE_PASSE: ci-mot-de-passe-de-demonstration-jetable
+
+      - name: Journaux du serveur en cas d'échec
+        if: failure()
+        run: |
+          echo "— journaux éventuels —"
+          ls -la /tmp/gf-stockage 2>/dev/null || true
 
   # ---------------------------------------------------------------------------
   # Contrôles HTTP et base sur une branche Neon éphémère : ils modifient et

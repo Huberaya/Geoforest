@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { verifierRoleApplication } from "@/db/controle-role";
 import { sonderTout, type EtatComposant } from "@/lib/alerting/regles";
 import { journal } from "@/lib/observability/journal";
+import { VERSION_APPLICATION } from "@/lib/version";
 import { disponibiliteSecondes, noterJauges } from "@/lib/observability/metriques";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +100,11 @@ export async function GET() {
       // cessé d'être rendu par une autre instance. Le dire évite de prendre
       // une mesure locale pour une disponibilité globale.
       uptime_seconds: disponibiliteSecondes(),
-      version: process.env.GF_VERSION ?? process.env.npm_package_version ?? "inconnue",
+      // ⚠️ Ni `npm_package_version` (absent sous `next start`) ni une variable
+      //   `env` de next.config.ts (mesurée sans effet sur ce build) : une
+      //   constante versionnée, que la CI compare à package.json. Détail et
+      //   mesure dans src/lib/version.ts.
+      version: VERSION_APPLICATION,
       environnement: process.env.NODE_ENV ?? "development",
       dureeMs: Date.now() - debut,
       composants: composants.map((c) => ({
