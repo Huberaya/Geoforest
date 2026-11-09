@@ -252,7 +252,46 @@ verifier(
   "remonter aussi le contact produirait une alerte sur chaque parcelle voisine",
 );
 
-/* --------------------------------------- 9. la limite est écrite quelque part */
+/* ------------------ 9. le signalement atteint-il l'utilisateur ? ---------- */
+
+// ⚠️ Un recoupement constaté, journalisé et renvoyé par l'API ne sert à RIEN si
+//   l'écran le jette. C'est exactement le défaut corrigé en C7 avec le
+//   `completenessScore` : le serveur disait vrai, le client n'en montrait rien.
+//   Le vérifier ici n'est pas de la cosmétique — c'est la seule étape où le
+//   signal rencontre un être humain.
+const apiClient = readFileSync(join("src", "lib", "api.ts"), "utf-8");
+const ecranParcelles = readFileSync(join("src", "app", "(app)", "plots", "page.tsx"), "utf-8");
+
+// ⚠️ Ma première version cherchait `recoupements?:` n'importe où dans le
+//   fichier, et restait VERTE quand je remettais `as Plot` sur le `return` :
+//   la déclaration de type subsistait, le cast la vidait. Un contrôle qui
+//   cherche un mot dans un fichier vérifie que le mot est écrit, pas que la
+//   valeur survit. Il exige donc maintenant le cast lui-même.
+verifier(
+  "le client d'API conserve le recoupement au lieu de le réduire à une parcelle",
+  /return\s*\(await response\.json\(\)\)\s*as Plot & \{ recoupements\?: Recoupement\[\] \}/.test(apiClient),
+  "typer la réponse en `Plot` suffit à faire disparaître le signalement à la compilation",
+);
+
+verifier(
+  "l'écran des parcelles affiche le recoupement",
+  /recoupements\.length\s*>\s*0/.test(ecranParcelles),
+  "le serveur aurait constaté, journalisé, renvoyé — et l'écran n'en montrerait rien",
+);
+
+verifier(
+  "l'avertissement n'est pas rangé parmi les erreurs",
+  /setRecoupements\(/.test(ecranParcelles) && !/setError\([^)]*recoupement/i.test(ecranParcelles),
+  "la parcelle est créée : l'afficher en erreur ferait ressaisir, donc produirait le doublon qu'on signale",
+);
+
+verifier(
+  "l'avertissement survit à la fermeture du formulaire",
+  /setRecoupements\(creee\.recoupements/.test(ecranParcelles),
+  "un message qui disparaît avec le formulaire ne laisse aucune trace visible",
+);
+
+/* --------------------------------------- 10. la limite est écrite quelque part */
 
 verifier(
   "la limite de visibilité inter-organisations est documentée",

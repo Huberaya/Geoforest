@@ -2,7 +2,7 @@
 
 import { Badge, Card, EmptyState, ErrorState, LoadingState, Metric, PageHeader } from "@/components/PageShell";
 import RiskBadge from "@/components/RiskBadge";
-import { ApiError, createPlot, deletePlot, listPlots } from "@/lib/api";
+import { ApiError, createPlot, deletePlot, listPlots, type Recoupement } from "@/lib/api";
 import { COMMODITIES, COMMODITY_LABELS, type Commodity, type Plot } from "@/lib/eudr/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -18,6 +18,11 @@ export default function PlotsPage() {
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  // ⚠️ Distinct de `error`, et délibérément PAS une erreur : la parcelle a bien
+  //   été créée. La ranger dans `error` laisserait croire à un échec et
+  //   pousserait à ressaisir — exactement ce qui produit les doublons qu'on
+  //   cherche à signaler.
+  const [recoupements, setRecoupements] = useState<Recoupement[]>([]);
   // ⚠️ C7 — le fournisseur est OBLIGATOIRE dans ce formulaire.
   //
   //   `POST /api/v1/plots` acceptait déjà `supplierId`, mais l'écran ne
@@ -87,7 +92,7 @@ export default function PlotsPage() {
         setError("Le fournisseur est requis : sans lui, la parcelle ne peut être rattachée à aucun dossier de diligence.");
         return;
       }
-      await createPlot({
+      const creee = await createPlot({
         name: form.name,
         reference: form.reference || undefined,
         commodity: form.commodity,
@@ -97,6 +102,10 @@ export default function PlotsPage() {
         // précision réelle. Le re-sérialiser détruirait les décimales.
         geometry_text: form.geometryText,
       });
+      // Le signalement est CONSERVÉ après la fermeture du formulaire : sinon
+      // l'avertissement disparaît avec lui, et la parcelle reste enregistrée
+      // sans que personne n'ait vu qu'elle recouvre une autre.
+      setRecoupements(creee.recoupements ?? []);
       setForm({ name: "", reference: "", commodity: form.commodity, countryCode: form.countryCode, supplierId: form.supplierId, geometryText: "" });
       setShowForm(false);
       await load();
@@ -253,6 +262,36 @@ export default function PlotsPage() {
       {error && (
         <div className="mb-4">
           <ErrorState message={error} />
+        </div>
+      )}
+
+      {recoupements.length > 0 && (
+        <div className="mb-4">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+            <div className="mb-1 font-semibold">
+              ⚠ Parcelle enregistrée, mais sa surface recouvre {recoupements.length === 1 ? "une autre parcelle" : `${recoupements.length} autres parcelles`}
+            </div>
+            <p className="mb-2">
+              La même surface serait alors comptée deux fois. Vérifiez s&apos;il s&apos;agit d&apos;un
+              découpage volontaire ou d&apos;une saisie en double.
+            </p>
+            <ul className="mb-2 list-inside list-disc">
+              {recoupements.map((r) => (
+                <li key={r.id}>{r.name}</li>
+              ))}
+            </ul>
+            <p className="text-amber-800">
+              Le produit ne calcule pas la surface de recouvrement : il signale le fait, il
+              ne chiffre pas.
+            </p>
+            <button
+              type="button"
+              onClick={() => setRecoupements([])}
+              className="mt-2 rounded border border-amber-300 bg-white px-2 py-1 font-semibold hover:bg-amber-100"
+            >
+              J&apos;ai vérifié
+            </button>
+          </div>
         </div>
       )}
 
