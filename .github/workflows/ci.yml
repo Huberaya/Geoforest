@@ -128,6 +128,12 @@ jobs:
       - name: Résolution du pays et benchmark EUDR
         run: npm run check:banc-pays
 
+      # ⚠️ C9 — une réponse vide du fournisseur satellite devenait
+      #   `compliant: true`. Le contrôle lance un faux fournisseur en local :
+      #   aucune clé, aucune requête sortante, et pourtant le défaut est prouvé.
+      - name: Analyse satellite (C9)
+        run: npm run check:satellite
+
       # ⚠️ C8 — deux parcelles saisies avec le même tracé étaient acceptées sans
       #   un mot : la surface était comptée deux fois, sans aucun symptôme
       #   visible. Ce contrôle EXÉCUTE la détection sur des tracés construits,

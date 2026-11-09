@@ -36,7 +36,8 @@
     "check:rotation-secrets": "tsx --conditions=react-server scripts/check-rotation-secrets.ts",
     "check:validateur-ddr": "tsx --conditions=react-server scripts/check-validateur-ddr.ts",
     "db:backfill-bbox": "tsx --conditions=react-server scripts/backfill-bbox.ts",
-    "check:chevauchement": "tsx --conditions=react-server scripts/check-chevauchement.ts"
+    "check:chevauchement": "tsx --conditions=react-server scripts/check-chevauchement.ts",
+    "check:satellite": "tsx --conditions=react-server scripts/check-satellite.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",

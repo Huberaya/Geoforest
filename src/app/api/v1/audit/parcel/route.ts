@@ -304,6 +304,13 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       methode: satellite?.provenance.method ?? "aucune",
       version: satellite?.provenance.version ?? null,
       limites: satellite?.provenance.limits?.length ?? 0,
+      // ⚠️ C9 — deux analyses peuvent porter la même `source` (« gfw-live ») et
+      //   ne pas dire la même chose : l'une a observé une perte, l'autre n'a
+      //   rien observé du tout. Sans ce champ, la piste d'audit ne permet pas
+      //   de les distinguer — et c'est précisément la distinction qu'un contrôle
+      //   a posteriori viendra chercher.
+      observation: satellite?.evidence === null || satellite?.evidence === undefined ? "aucune" : "fournisseur_interroge",
+      surface_perte_ha: satellite?.loss_area_ha ?? null,
       parcelReference,
       areaHa: validation.area_ha,
     },

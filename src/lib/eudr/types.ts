@@ -215,7 +215,16 @@ export interface SatelliteCheckResult {
   evidence: AnalysisEvidence | null;
   /** Mention à afficher à l'utilisateur ; `null` si l'analyse est probante. */
   disclaimer: string | null;
-  loss_area_ha: number;
+  /**
+   * Surface de perte observée, en hectares.
+   *
+   * ⚠️ `null` quand rien n'a été observé sur l'emprise. Ce n'est pas la même
+   *   chose que `0` : `0` affirme « aucune perte mesurée », `null` dit « aucune
+   *   observation ». Le type portait `number`, ce qui obligeait le code à
+   *   inventer un zéro — un chiffre faux, dans un champ qui alimente un dossier
+   *   destiné à une autorité.
+   */
+  loss_area_ha: number | null;
   tree_cover_2000_pct: number | null;
   details: string;
 }

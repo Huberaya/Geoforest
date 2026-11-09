@@ -167,6 +167,43 @@ nommer.
 
 ---
 
+## 2 quinquies — Analyse satellite : trois issues, pas deux
+
+Depuis C9, une analyse de parcelle rend exactement l'un de ces trois états, et le
+produit refuse de les confondre.
+
+| État | Ce que le produit sait | Déclarable ? |
+|---|---|---|
+| Perte observée après le 31/12/2020 | Oui — un fait mesuré | Non : la parcelle est non conforme |
+| Aucune perte observée, données présentes | Oui — un fait mesuré | **Oui** |
+| Aucune observation | Rien | **Non — et ce n'est pas une conformité** |
+
+**La troisième ligne est la correction de C9.** Le fournisseur Hansen/UMD ne
+couvre que ce qui a été observé. Une parcelle sous nuage permanent, sous une
+couverture non observée, ou hors de l'emprise du produit renvoie le même tableau
+vide qu'une parcelle intacte. Le produit répondait `compliant: true` dans les deux
+cas, ce qui transformait un silence en certificat.
+
+**Ce qu'il faut retenir, et qui vaut au-delà du produit** : une absence de perte
+**détectée** n'est pas une absence de déforestation. Un dossier EUDR peut être
+refusé pour ce motif aussi longtemps qu'une analyse n'a rien observé — c'est un
+refus honnête, pas un défaut de l'outil.
+
+**Ce que la source certifie, et ce qu'elle ne certifie pas.** Le verdict repose
+sur `umd_tree_cover_loss` à un seuil de densité de couvert de 30 % en l'an 2000.
+Hors de cette définition — une parcelle boisée à moins de 30 % en 2000, une
+dégradation sans perte de couvert, une déforestation avant 2000 — le produit ne
+dit rien. `docs/DECISIONS.md` (D-009, D-010) porte les décisions.
+
+**Ce qui n'est toujours pas vérifié.** Le chemin réel vers Global Forest Watch n'a
+jamais été exécuté avec une clé de production : personne n'a encore vu, dans ce
+projet, une réponse authentique du service. `npm run check:satellite` prouve le
+comportement du produit contre un faux fournisseur local, ce qui est une autre
+chose. Tant que la clé n'est pas fournie, aucun dossier ne peut atteindre
+`READY_FOR_DECLARATION` — et c'est conforme au produit, pas un défaut.
+
+---
+
 ## 3 bis — Chevauchement de parcelles : ce que la détection ne voit pas
 
 Depuis C8, la création d'une parcelle compare son tracé aux parcelles de la

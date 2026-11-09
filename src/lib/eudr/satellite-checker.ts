@@ -358,6 +358,87 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
   };
 }
 
+/**
+ * L'analyse a bien tourné, mais le fournisseur n'a renvoyé **aucune observation**.
+ *
+ * ⚠️ Ce n'est pas la même chose que « aucune déforestation ».
+ *
+ *   Le jeu de données Hansen/UMD ne couvre que ce qui a été observé : une
+ *   parcelle sous nuage permanent, sous une couverture non observée à une date
+ *   donnée, ou hors de l'emprise du produit, renvoie exactement le même tableau
+ *   vide qu'une parcelle intacte. Rendre `compliant: true` dans ce cas, c'était
+ *   transformer un silence en certificat — et ce certificat entrait ensuite dans
+ *   un dossier DDR sans que rien ne le distingue d'un vrai constat.
+ *
+ *   La distinction n'est pas de la prudence de façade : elle sépare une
+ *   observation d'une absence d'observation, et seule la première peut être
+ *   déclarée à une autorité. Le produit n'a donc pas le droit de combler ce
+ *   vide — mais il a le devoir de le nommer.
+ *
+ * ⚠️ `loss_area_ha` est `null`, pas `0`. Zéro serait un chiffre, et un chiffre
+ *   faux qui plus est : on ne sait pas qu'il n'y a pas eu de perte, on sait
+ *   qu'on ne l'a pas observée.
+ */
+function resultatSansObservation(
+  geometry: SupportedGeometry,
+  evidence: AnalysisEvidence,
+  reason: string,
+): SatelliteCheckResult {
+  const [lon, lat] = centroidOf(geometry);
+  const country = resolveCountry(lon, lat);
+  return {
+    compliant: null,
+    loss_year: null,
+    confidence_score: null,
+    risk_level: niveauRisqueParcelle("NON_ANALYSEE", country.risk),
+    country_code: country.iso2,
+    country_name: country.name,
+    country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
+    source: "gfw-live",
+    // L'appel a eu lieu et a abouti : la provenance est réelle. Ce qui manque
+    // est l'observation, pas la source.
+    is_probative: false,
+    evidence,
+    provenance: {
+      method: "gfw-live",
+      version: evidence.dataset_version,
+      params: {
+        jeu_de_donnees: evidence.dataset_version,
+        fournisseur: evidence.provider,
+        date_butoir: EUDR_CUTOFF_DATE,
+      },
+      limits: [reason, "Aucun verdict de conformité n'a été établi.", ...LIMITES_METHODE_COUVERT],
+    },
+    disclaimer:
+      "Le fournisseur n'a renvoyé aucune observation sur cette parcelle — aucun verdict de conformité " +
+      "n'a été établi. Une absence de perte détectée n'est pas une absence de déforestation.",
+    loss_area_ha: null,
+    tree_cover_2000_pct: null,
+    details: `Aucune observation renvoyée par ${evidence.provider.split(" (")[0]} (${evidence.dataset_version}) : ${reason}. ` +
+      `Pays : ${country.name} (${country.iso2}).`,
+  };
+}
+
+/**
+ * Le fournisseur appelé est-il celui dont la trace peut porter le nom ?
+ *
+ * ⚠️ Avant correction, `nommerFournisseur` calculait déjà l'officialité de
+ *   l'hôte — et `is_probative` ne la consultait jamais. Un cache, un
+ *   intermédiaire ou un banc d'essai produisait donc une analyse marquée
+ *   PROBANTE, que le dossier DDR acceptait, et dont la trace ne permettait à
+ *   personne de rattacher le verdict à Global Forest Watch.
+ *
+ *   `GFW_EXIGER_HOTE_OFFICIEL=false` existe pour les installations qui passent
+ *   délibérément par un miroir interne. Le défaut est l'exigence : une
+ *   installation doit choisir explicitement de relâcher la provenance, et ce
+ *   choix apparaît alors dans la trace (`is_official_source: false`).
+ */
+function hoteOfficielExige(): boolean {
+  return (process.env.GFW_EXIGER_HOTE_OFFICIEL ?? "true").toLowerCase() !== "false";
+}
+
 // ---------------------------------------------------------------- Moteur live Global Forest Watch
 interface GfwRow {
   umd_tree_cover_loss__year?: number | string | null;
@@ -472,6 +553,27 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
   const parsed = rows
     .map((r) => ({ year: Number(r.umd_tree_cover_loss__year ?? 0), area: Number(r.area__ha ?? 0) }))
     .filter((r) => r.year > 0);
+  // ⚠️ Aucune ligne : rien n'a été observé. On ne conclut pas.
+  if (parsed.length === 0) {
+    return resultatSansObservation(
+      geometry,
+      evidence,
+      "aucune ligne de perte de couvert renvoyée pour cette emprise (nuage, couverture non observée, ou hors emprise du produit)",
+    );
+  }
+
+  // ⚠️ Le fournisseur n'est pas celui que la déclaration invoquera. L'appel a
+  //   réussi, les données sont peut-être bonnes — mais le produit ne peut pas
+  //   les présenter comme un constat de Global Forest Watch. Il ne tranche donc
+  //   pas : il rend le fait, sans verdict.
+  if (hoteOfficielExige() && !evidence.is_official_source) {
+    return resultatSansObservation(
+      geometry,
+      evidence,
+      `le service interrogé n'est pas Global Forest Watch (${evidence.provider}) et GFW_EXIGER_HOTE_OFFICIEL n'est pas désactivé`,
+    );
+  }
+
   const post = parsed.filter((r) => r.year > EUDR_CUTOFF_YEAR);
   const lossArea = Number(post.reduce((acc, r) => acc + r.area, 0).toFixed(4));
   const significant = lossArea >= Math.max(0.01, areaHa * 0.005);
@@ -542,8 +644,9 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     loss_area_ha: lossArea,
     tree_cover_2000_pct: null,
     details:
-      `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : aucune perte significative ` +
-      `post-2020 (${lossArea} ha). Pays : ${country.name}, benchmark UE : ${country.risk}.`,
+      `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : perte observée (${parsed.length} année(s) ` +
+      `de données), aucune perte significative post-2020 (${lossArea} ha). ` +
+      `Pays : ${country.name}, benchmark UE : ${country.risk}.`,
   };
 }
 

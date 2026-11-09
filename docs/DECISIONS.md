@@ -257,3 +257,62 @@ s'appuyait sur des parcelles qui se recouvraient.
 qui demande le blocage. La correction est alors un refus conditionné à un
 recouvrement **au-delà d'un seuil de surface** — ce qui suppose d'abord de
 savoir calculer cette surface, donc de traiter le point laissé ouvert ci-dessus.
+
+---
+
+## D-009 — Une absence d'observation n'est pas une absence de déforestation
+
+**Date :** 06/11/2026 · **Contexte :** C9 · **Statut :** appliqué
+
+**Décision.** Quand le fournisseur satellite répond sans renvoyer aucune ligne
+pour l'emprise de la parcelle, le produit n'émet **aucun verdict** :
+`compliant: null`, `is_probative: false`, `loss_area_ha: null`, et le motif est
+écrit en clair.
+
+**Pourquoi.** Le jeu de données Hansen/UMD ne couvre que ce qui a été **observé**.
+Une parcelle sous nuage permanent, sous une couverture non observée, ou hors de
+l'emprise du produit renvoie exactement le même tableau vide qu'une parcelle
+intacte. Rendre `compliant: true` dans ce cas, c'était convertir un silence en
+certificat — et ce certificat traversait ensuite tout le produit sans que rien ne
+le distingue d'un vrai constat.
+
+**Ce qui a été mesuré avant correction.** `check:satellite` montrait un dossier
+DDR renseigné par ailleurs — pièces de légalité valides, période de production
+présente — ressortir **complet**, `bloquants = aucun`, alors qu'il reposait sur
+une analyse n'ayant rien observé.
+
+**Ce qui n'est PAS changé.** Une perte réellement observée après la date butoir
+reste une non-conformité probante. Une parcelle dont des lignes existent mais
+dont aucune ne dépasse la date butoir reste conforme : là, quelque chose a été
+observé, et l'absence de perte post-2020 est un fait.
+
+**Ce que cela coûte.** Des parcelles que le produit déclarait conformes sortent
+désormais « aucune observation », donc non déclarables. C'est le prix d'un
+constat honnête : il vaut mieux refuser de déclarer que déclarer sur un silence.
+
+---
+
+## D-010 — Le nom d'un fournisseur ne s'écrit pas sans son accord
+
+**Date :** 06/11/2026 · **Contexte :** C9 · **Statut :** appliqué
+
+**Décision.** Une analyse n'est probante que si l'hôte interrogé est celui de
+Global Forest Watch (`data-api.globalforestwatch.org`). L'exigence est le
+comportement **par défaut** ; `GFW_EXIGER_HOTE_OFFICIEL=false` la relâche
+explicitement, pour les installations qui passent délibérément par un miroir
+interne — et le relâchement reste inscrit dans la trace
+(`is_official_source: false`, fournisseur nommé).
+
+**Pourquoi.** `nommerFournisseur` calculait déjà l'officialité de l'hôte depuis
+P1-16 ; `is_probative` ne la consultait jamais. Un cache, un intermédiaire ou un
+banc d'essai produisait donc une analyse marquée **probante**, que le dossier
+acceptait, et dont la trace ne permettait à personne de rattacher le verdict à
+Global Forest Watch. Le produit affirmait une provenance sans en avoir le droit.
+
+**Pourquoi une variable et pas un refus sec.** Un miroir interne relève d'un
+choix d'exploitation, pas d'une erreur. Ce qui n'est pas tolérable est de le
+**faire passer** pour la source officielle — pas de s'en servir.
+
+**Limite.** Ce contrôle porte sur l'hôte, pas sur l'identité du service : un DNS
+détourné passerait. Il rend la fraude délibérée visible dans la trace ; il ne
+l'empêche pas.
