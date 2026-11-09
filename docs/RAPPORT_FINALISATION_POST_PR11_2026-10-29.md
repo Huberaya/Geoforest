@@ -1,0 +1,147 @@
+# Finalisation contrôlée après PR #11 — rapport du 29/10/2026
+
+Branche `arena/ba2f9eba-geoforest` · PR #11 (ouverte, non fusionnée) ·
+périmètre : chantiers A (base/isolation), B (GFW réelle), C (CI), D (réconciliation
+PR #7/#8/#10), E (livraison). Aucune fusion, aucun déploiement, aucune migration
+sur base hébergée, aucun secret/rôle/droit de production modifié, **aucun push**
+dans le cadre de ce rapport.
+
+Convention : « **local** » = base PostgreSQL 16.2 jetable (`scripts/recette/serveur-local.sh`,
+port 55433) et serveur Next 16.4.3 dans l'environnement d'analyse ; « **distant** » =
+GitHub Actions / branche Neon éphémère / Vercel Preview. Rien de local ne vaut preuve
+sur l'hébergé.
+
+## 1. État initial
+
+| Élément | Valeur |
+|---|---|
+| `main` | `1c95f4c585ed8303f887089ae7450c9235523fd0` |
+| Tête distante de la branche au début de la mission | `3650c43` (code validé `94c5f14`) — CI **verte** (runs 40868384501 push, 40868455445 PR : Verify / PGlite / Neon success) ; Vercel **Preview** auto, pas de production |
+| Commit poussé ensuite par le propriétaire | `5dcb235` « Run RLS, DDS state and evidence HTTP suites in ephemeral Neon CI » (`ci.yml` +19) |
+| CI distante sur `5dcb235` | **rouge** : runs 40930475126 (push) et 40930485093 (PR). Seul le job « Database & HTTP contracts (Neon branch) » échoue, à l'étape « Cross-tenant database RLS controls » (job 123647241299, étape exécutée 86 s, donc jusqu'au bout) ; Verify et PGlite verts ; e2e et cross-tenant HTTP verts sur Neon juste avant |
+| Journal de l'étape en échec | **non récupérable** depuis l'environnement d'analyse (`gh run view --log` → EOF ; `…/jobs/123647241299/logs` → redirection vers un stockage hors liste d'accès ; annotations API = « Process completed with exit code 1 » seulement ; 0 artefact) |
+
+## 2. Actions exécutées et résultat
+
+### Chantier C — CI (cause de l'échec distant non lisible → reproduction + diagnosticabilité)
+
+1. **Reproduction locale @5dcb235 dans l'ordre exact de la CI** : e2e 49/49 → cross-tenant
+   262/262 → `test:cross-tenant:rls` **99/99** (journaux `/home/user/logs/serveur-local/journaux/*repro-ci*.log`,
+   `/home/user/logs/cross-tenant-rls-5dcb235…-ordre-ci.log`). L'échec distant **n'est pas reproductible**
+   sur base vierge : la cause n'est ni l'ordre des suites ni le code des contrôles.
+2. **Piste la plus probable (non démontrée faute de journal)** : la branche Neon éphémère est une
+   copie de `NEON_PARENT_BRANCH_ID`, **schéma et données compris**. `check-cross-tenant-rls.ts`
+   contrôle *toute* table de `public` portant `organization_id` (RLS activée+forcée, politiques
+   `current_org()`, 0 ligne sans contexte, intégrité des comptages). Une table héritée de la parente
+   (hors migrations du dépôt) ou des lignes héritées font échouer la preuve — c'est le comportement
+   voulu, le contrôle **n'a pas été affaibli**. Autre piste : `DATABASE_URL` CI via pooler.
+3. **Correctif de diagnosticabilité (commit local `84211e9`, non poussé)** :
+   - `scripts/ci/annoter.sh` : enveloppe des suites ; relaie chaque ligne « 🔴 » en `::error::` et la
+     synthèse en `::notice::` (lisibles via `check-runs/{id}/annotations` même sans journal) ; code de
+     sortie conservé ; inactif hors `GITHUB_ACTIONS=true` (testé : codes 7/0/2 conservés).
+   - `.github/workflows/ci.yml` : `test:cross-tenant:rls` déplacé **après** `evidence:http` (il lit les
+     lignes de tous les parcours ; non vacueux par construction) ; les 7 suites enveloppées.
+   - `scripts/ci/check-workflow.test.cjs` : nouveau test (ordre des suites, un reset avant chaque
+     parcours HTTP, enveloppe, RLS avant l'arrêt du serveur) → `npm run test:ci` **5/5**.
+   - `scripts/check-cross-tenant-rls.ts` : le contrôle « tables tenant identifiées » imprime
+     l'inventaire des tables/vues `organization_id` (pour voir les tables héritées en CI).
+   - `docs/CI_NEON.md` mis à jour (ordre, annotations, effet du schéma hérité).
+4. **Chaîne complète locale @84211e9, dans le nouvel ordre CI** (`/home/user/logs/chaine-ordre-ci-v2-5dcb235.log`) :
+   e2e 49/49 · cross-tenant 262/262 · export-identite 33/33 · fournisseur 57/57 · dds-etats 39/39 ·
+   evidence 45/45 · cross-tenant:rls 99/99 (via `annoter.sh`, `::notice … 99 contrôles réussis`).
+   Portes statiques : typecheck, lint, db:check exit 0 ; unit 52/52 ; test:ci 5/5.
+
+### Chantier A — base, rôles, isolation (local uniquement, PG 16.2)
+
+Journal : `/home/user/logs/roles-effectifs-5dcb235….log`.
+
+| Contrôle | Résultat local |
+|---|---|
+| Identité `DATABASE_URL_ADMIN` | `geoforest_owner` : super=false, **bypassrls=true**, createrole=true (nécessaire à `seed:auth --reset`) |
+| Identité `DATABASE_URL` | `geoforest_app` : super=false, **bypassrls=false**, login=true |
+| `SET ROLE geoforest_app` depuis l'owner | autorisé (membre avec `set=true`, `inherit=false`) ; `current_user` devient `geoforest_app` |
+| Droits `DELETE` du rôle applicatif | **0** table |
+| Tables RLS forcée / politiques | 13 / 34 ; `parcel_audits` sans contexte → 0 ligne |
+| Fonctions `auth_user_by_*` exécutables par l'app | 0 (révoquées par `023`) |
+| Migrations enregistrées | 11 (0000→0010), post-migrate 010→025 appliqués |
+| Migrations 0007–0010 | 0007 liens plot/DDS (FK composites tenant, 2 index) ; 0008 invitation fournisseur (FK, index, CHECK rôle↔fournisseur, down gardé) ; 0009 identité opérateur facultative (down **refuse** s'il existe un dossier sans pays/EORI/nom, garde avant tout DDL) ; 0010 pays d'origine produit facultatif (down gardé) |
+| « 25 dossiers démo sans pays » | **origine établie** : les harnais HTTP (`e2e`, `cross-tenant`, `dds-etats`, `evidence`) créent des dossiers avec `operator: {name, eori}` sans `country` ; la route stocke `null` (comportement voulu, aucun pays inventé). Après la chaîne complète : 10 dossiers, 10 sans pays, 0 sans EORI, 0 sans nom. Le seed n'en crée aucun. Conséquence : sur une base ayant servi aux suites, `0009.down` refuse — par conception. **Sur l'hébergé : nombre inconnu**, à mesurer en lecture seule (`select count(*) from parcel_audits where operator_country is null`) avant toute décision de rollback |
+
+Ce qui **n'est pas démontré** (F3, inchangé) : identité effective des rôles, `BYPASSRLS`, appartenance
+`SET ROLE`, chemin pooler/direct et ordre `migrate → deploy` **sur la base hébergée**. Aucune
+connexion à l'hébergé n'a été tentée.
+
+### Chantier B — validation GFW réelle
+
+Journal : `/home/user/logs/gfw-tentative-5dcb235.log`. Scénarios du jeu de référence
+(`scripts/satellite/reference-cases.json`) : **A** parcelle conforme (attendu `COMPLIANT`), **B** perte
+après le 31/12/2020 (attendu `NON_COMPLIANT`), **E** réponse GFW vide (attendu `NO_VERDICT`) ; C et D sont
+fictifs et passent hors réseau (`REJECTED`, `UNAVAILABLE`).
+
+Prérequis pour A/B/E, **tous absents** ici : (1) `GFW_API_KEY` (non défini) ; (2) accès réseau à
+`data-api.globalforestwatch.org` (curl → HTTP 000, `SSL_connect` échoue : hôte hors liste d'accès) ;
+(3) **géométries réelles fournies par l'expert** (`geometry: null` dans le fichier pour A, B et E — le
+script les déclare « NON EXÉCUTÉ — géométrie non fournie » même avec clé et réseau). Résultat :
+`validate-reference` → exécutés 2/5, échecs 0, non exécutés 3, **exit 2**. Statut : **impossible dans
+cet environnement**, rien de simulé n'est présenté comme réel. Le blocage (3) est un livrable humain
+indépendant de l'infrastructure.
+
+### Chantier D — réconciliation PR #11 vs #7 / #8 / #10
+
+Base commune de toutes ces branches : `main` = `1c95f4c`. Matrice fichier par fichier :
+`/home/user/logs/matrice-pr7-vs-head.txt`.
+
+| PR | Tête | Relation avec HEAD | Statut |
+|---|---|---|---|
+| #8 `arena/569eff1a-geoforest` | `47fa862` | ancêtre de HEAD (`merge-base --is-ancestor`) | **repris intégralement / redondante** |
+| #10 `integration/geoforest-p0-final-2026-10-21` | `b492d1d` | ancêtre de HEAD | **repris intégralement / redondante** |
+| #7 `arena/837c5c36-geoforest` | `ca15ccb` | non contenue ; 52 fichiers : 7 identiques, 29 divergents (modifiés des deux côtés), 16 absents de HEAD | **remplacée en partie / 6 contrôles absents / collision de migration** |
+
+Détail PR #7 :
+- **Collision de migration** : #7 crée `0007_operateur_non_renseigne` ; HEAD a `0007_parcel_audit_liens` et porte le même changement en **`0009_operateur_non_renseigne`**. Le `down` de HEAD est plus strict (garde **avant** `DROP VIEW`, alors que #7 supprime la vue avant la garde). #7 **ne doit pas être fusionnée telle quelle** (deux `0007` dans le journal Drizzle).
+- **Scripts de #7 absents de HEAD** (6) : `check-audit-dependances` (E2), `check-demarrage-sans-config` (P2-14), `check-eudr-geo-edge-cases`, `check-limitation-memoire` (E4.1), `check-migration-identite` (P3-02), `check-seed-securite` (P3-04) ; scripts npm `test:demarrage`, `test:gis`, `test:migration` absents. Équivalents partiels dans HEAD : `audit:sec`/`audit:dev`, `seed-gardes.ts` (refus d'amorçage), `check-gis-topology`/`check-frontieres`, `test:controles`. **À porter par contenu** (pas par fusion), à décider par le propriétaire.
+- 6 documents de #7 (`docs/VALIDATION_GEOFOREST_2026-10-19.md`, `SECURITE_RISQUES_RESIDUELS…`, etc.) et 2 tests Python (`test_gfw_degraded.py`, `test_gis_edge_cases.py`) absents.
+- Aucune PR n'a été fermée. Autres PR ouvertes non analysées : #6, #5, #4, #3, #1.
+
+## 3. Fichiers modifiés et SHA
+
+| SHA | Contenu | Statut |
+|---|---|---|
+| `5dcb235` | commit du propriétaire (ci.yml) | tête distante ; CI rouge |
+| `84211e9` | `scripts/ci/annoter.sh` (nouveau), `.github/workflows/ci.yml`, `scripts/ci/check-workflow.test.cjs`, `scripts/check-cross-tenant-rls.ts`, `docs/CI_NEON.md` | **local, non poussé** |
+| (ce rapport) | `docs/RAPPORT_FINALISATION_POST_PR11_2026-10-29.md` | local, non poussé |
+
+## 4. Tableau des réserves
+
+| Réf. | Réserve | État | Preuve |
+|---|---|---|---|
+| R4/CI | Échec distant `test:cross-tenant:rls` sur Neon @5dcb235 | **ouvert** — non reproductible localement ; cause probable : schéma/données hérités de la branche parente ; correctif de diagnosticabilité prêt, non poussé | runs 40930475126/40930485093 ; logs locaux ordre CI |
+| F2 | GFW réelle A/B/E | **BLOCKED** (clé, réseau, géométries expertes) | `gfw-tentative-5dcb235.log`, exit 2 |
+| F3 | Qualification base hébergée (rôles, BYPASSRLS, SET ROLE, chemin, migrate→deploy) | **ouvert** — rien tenté sur l'hébergé | — |
+| R1 | PR #7 : 6 contrôles + collision 0007 | **documenté**, portage à décider | matrice |
+| D0009 | Dossiers sans pays : artefacts des harnais ; nombre hébergé inconnu | **documenté** | `roles-effectifs…log` |
+| F5 | Rotation mot de passe démo / comptes démo à supprimer avant prod | inchangé | `seed-auth.ts` |
+| — | `/api/health` degraded hors Vercel ; limitation de débit en mémoire | inchangé | rapport précédent |
+| Parent Neon | `NEON_PARENT_BRANCH_ID` : si = production, données personnelles copiées à chaque run (`docs/CI_NEON.md` § « Point à trancher ») | **décision exploitant** | — |
+
+## 5. Blocages nécessitant une intervention humaine
+
+1. **Journal de l'étape « Cross-tenant database RLS controls »** du run 40930475126 (ou autorisation de
+   pousser `84211e9` pour obtenir les annotations au prochain run). Sans l'un des deux, la cause
+   exacte reste une hypothèse.
+2. **Push de `84211e9` + rapport** sur `arena/ba2f9eba-geoforest` (déclenche CI + Vercel Preview
+   automatiquement — pas de production).
+3. Choix de la **branche parente Neon** (sans données réelles) et confirmation qu'elle ne porte pas
+   de tables `organization_id` hors migrations.
+4. GFW : clé, accès réseau, géométries A/B/E.
+5. Hébergé (F3) : exécution par un opérateur habilité des requêtes de qualification (lecture seule).
+6. PR #7 : décision de portage des 6 contrôles.
+
+## 6. Recommandation
+
+- **Fusion de PR #11 : non prête** tant que la CI distante est rouge sur la tête de branche. Elle
+  redevient « prête sous conditions » (F2, F3, R1 ouvertes et acceptées) si le prochain run distant
+  est vert — ou si l'échec est attribué à la branche parente Neon et traité côté exploitant.
+- **Migration de la base hébergée : non autorisée / non recommandée** sans F3 et sans mesure
+  préalable des dossiers sans identité.
+- **Déploiement de production : non** ; seul le Preview automatique existe.

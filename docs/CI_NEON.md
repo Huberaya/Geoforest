@@ -12,9 +12,20 @@ production. Le job `database` de `.github/workflows/ci.yml` :
 2. applique les migrations sur cette branche ;
 3. fixe un mot de passe **aléatoire** au rôle `geoforest_app`, sur cette branche seulement ;
 4. lance les contrôles (`test:db`, `test:e2e`, `test:cross-tenant`,
-   `test:export-identite:http`, `test:fournisseur:http`), avec un réamorçage des
-   comptes de démonstration avant chaque parcours, puis le serveur de production ;
+   `test:export-identite:http`, `test:fournisseur:http`, `test:dds-etats:http`,
+   `test:evidence:http`), avec un réamorçage des comptes de démonstration avant
+   chaque parcours, puis la preuve RLS en base (`test:cross-tenant:rls`) **en
+   dernier** : elle lit les lignes créées par tous les parcours précédents et
+   échoue volontairement si elle est vacueuse ;
 5. supprime la branche dans une étape `always()`.
+
+Chaque suite est lancée via `scripts/ci/annoter.sh "<titre>" npm run test:…` :
+le journal est inchangé, mais chaque ligne d'échec (« 🔴 ») est relayée en
+annotation GitHub (`::error::`) et la synthèse finale en `::notice::`. Les
+annotations sont lisibles par l'API (`check-runs/{id}/annotations`) même quand
+le journal brut n'est pas téléchargeable (run 40930475126 du 29/10/2026 : échec
+de la preuve RLS sans journal exploitable). Le code de sortie est conservé.
+L'ordre et l'enveloppe sont vérifiés par `scripts/ci/check-workflow.test.cjs`.
 
 ## Secrets GitHub à configurer (Settings → Secrets and variables → Actions)
 
@@ -37,6 +48,14 @@ Sans ces secrets, le job **échoue** dès la création de la branche : aucune ba
 - Les secrets de test (`AUTH_SECRET`, `GF_STORAGE_SIGNING_SECRET`, mot de passe de démonstration) sont tirés au hasard à chaque run et masqués.
 
 ## Point à trancher : données copiées
+
+Une branche Neon est une copie de sa parente, **données comprises** — schéma
+hérité inclus. `test:cross-tenant:rls` contrôle **toute** table de `public`
+portant `organization_id` (RLS activée et forcée, politiques `current_org()`,
+0 ligne sans contexte) : une table héritée de la parente, étrangère aux
+migrations du dépôt, est contrôlée comme les nôtres et fait échouer la preuve.
+C'est voulu (ne pas affaiblir le contrôle) ; l'inventaire des tables trouvées
+est imprimé par le contrôle « tables tenant identifiées ».
 
 Une branche Neon est une copie de sa parente, **données comprises**. Si `NEON_PARENT_BRANCH_ID` désigne la branche de
 production, les données personnelles de production (courriels, noms) sont copiées dans la branche de test pendant la

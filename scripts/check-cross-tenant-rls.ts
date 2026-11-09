@@ -115,7 +115,14 @@ async function main(): Promise<void> {
       .filter((r) => r.table_type === "VIEW")
       .map((r) => r.table_name as string);
     const tablesOrgAvecOrgs = [...tablesOrg, "gf_organizations"];
-    check("tables tenant identifiées", tablesOrg.length >= 10, `${tablesOrg.length} tables`);
+    // L'inventaire est affiché en clair : sur une branche Neon dérivée d'une
+    // parente, des tables héritées (hors migrations du dépôt) peuvent porter
+    // `organization_id` et seraient contrôlées comme les nôtres.
+    check(
+      "tables tenant identifiées",
+      tablesOrg.length >= 10,
+      `${tablesOrg.length} tables : ${tablesOrg.join(", ")}${vuesOrg.length ? ` · vues : ${vuesOrg.join(", ")}` : ""}`,
+    );
 
     section("Vues portant organization_id : exécutées avec les droits de l'appelant");
     if (vuesOrg.length > 0) {

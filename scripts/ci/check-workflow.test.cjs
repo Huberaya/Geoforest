@@ -40,3 +40,28 @@ test('verification keeps install, regression tests, lint, types and build gates'
     assert.ok(commands.includes(command), command);
   }
 });
+
+test('Neon job runs every HTTP suite on the test branch, then the RLS proof last', () => {
+  const runs = workflow.jobs.database.steps.map(s => s.run || '');
+  const index = (suite) => runs.findIndex(r => r.endsWith(`npm run ${suite}`));
+  const ordre = ['test:e2e', 'test:cross-tenant', 'test:export-identite:http', 'test:fournisseur:http',
+    'test:dds-etats:http', 'test:evidence:http', 'test:cross-tenant:rls'];
+  const positions = ordre.map(index);
+  for (const [i, suite] of ordre.entries()) {
+    assert.ok(positions[i] >= 0, suite);
+    // Chaque suite HTTP est précédée d'une remise à zéro des comptes de démonstration,
+    // postérieure à la suite précédente (le parcours e2e suit le démarrage du serveur).
+    if (suite !== 'test:cross-tenant:rls') {
+      const depuis = i === 0 ? runs.indexOf('npm run db:migrate') : positions[i - 1];
+      const resets = runs.slice(depuis + 1, positions[i]).filter(r => r === 'npm run seed:auth -- --reset');
+      assert.equal(resets.length, 1, `reset avant ${suite}`);
+    }
+    // Les échecs (« 🔴 ») sont relayés en annotations lisibles sans le journal brut.
+    assert.ok(runs[positions[i]].startsWith('bash scripts/ci/annoter.sh "'), `annoter ${suite}`);
+  }
+  // La preuve RLS, non vacueuse par construction, vient après toutes les suites HTTP
+  // et avant l'arrêt du serveur / la suppression de la branche.
+  assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+  const stop = workflow.jobs.database.steps.findIndex(s => s.name === 'Stop production server');
+  assert.ok(stop > 0 && positions.at(-1) < stop);
+});

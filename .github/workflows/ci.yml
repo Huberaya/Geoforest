@@ -182,18 +182,13 @@ jobs:
           exit 1
 
       - name: End-to-end journey
-        run: npm run test:e2e
+        run: bash scripts/ci/annoter.sh "e2e" npm run test:e2e
 
       - name: Reset demo accounts before HTTP controls (test branch only)
         run: npm run seed:auth -- --reset
 
       - name: Cross-tenant HTTP controls
-        run: npm run test:cross-tenant
-
-      # La preuve RLS en base doit suivre le parcours HTTP qui crée des lignes
-      # dans les deux organisations ; elle échoue volontairement si elle est vacueuse.
-      - name: Cross-tenant database RLS controls
-        run: npm run test:cross-tenant:rls
+        run: bash scripts/ci/annoter.sh "cross-tenant" npm run test:cross-tenant
 
       - name: Reset demo accounts before HTTP controls (test branch only)
         run: npm run seed:auth -- --reset
@@ -201,13 +196,13 @@ jobs:
       # Lot A : la route d'export réelle répond-elle 422 sans identité ?
       # Un test de la fonction pure ne le prouve pas (garde, statut, format).
       - name: Export identity HTTP controls
-        run: npm run test:export-identite:http
+        run: bash scripts/ci/annoter.sh "export-identite:http" npm run test:export-identite:http
 
       - name: Reset demo accounts before HTTP controls (test branch only)
         run: npm run seed:auth -- --reset
 
       - name: Supplier journey HTTP controls
-        run: npm run test:fournisseur:http
+        run: bash scripts/ci/annoter.sh "fournisseur:http" npm run test:fournisseur:http
 
       # Suites HTTP historiques maintenues hors CI jusqu'ici : elles tournent
       # uniquement sur la branche Neon éphémère, avec comptes réinitialisés.
@@ -215,13 +210,21 @@ jobs:
         run: npm run seed:auth -- --reset
 
       - name: DDS state-machine HTTP controls
-        run: npm run test:dds-etats:http
+        run: bash scripts/ci/annoter.sh "dds-etats:http" npm run test:dds-etats:http
 
       - name: Reset demo accounts before evidence-pack controls (test branch only)
         run: npm run seed:auth -- --reset
 
       - name: Evidence-pack HTTP controls
-        run: npm run test:evidence:http
+        run: bash scripts/ci/annoter.sh "evidence:http" npm run test:evidence:http
+
+      # La preuve RLS en base lit les lignes créées par TOUS les parcours HTTP
+      # précédents (plots, fournisseurs, DDS, documents, journal) et échoue
+      # volontairement si elle est vacueuse : elle vient donc en dernier.
+      # Run 40930475126 (29/10/2026) : cette étape a échoué sans journal
+      # exploitable ; ses échecs sont désormais relayés en annotations.
+      - name: Cross-tenant database RLS controls
+        run: bash scripts/ci/annoter.sh "cross-tenant:rls" npm run test:cross-tenant:rls
 
       - name: Stop production server
         if: always()
