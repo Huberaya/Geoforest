@@ -145,3 +145,71 @@ Détail PR #7 :
 - **Migration de la base hébergée : non autorisée / non recommandée** sans F3 et sans mesure
   préalable des dossiers sans identité.
 - **Déploiement de production : non** ; seul le Preview automatique existe.
+
+## 7. Mise à jour après le push de `c35411c` (autorisé par le propriétaire)
+
+Les deux commits locaux ont été recréés en **un seul** commit `c35411c7e255615174d991e148a76d8eb46933b8`
+(l'environnement d'analyse a été reconstruit entre-temps ; contenu identique : 6 fichiers, +260/−14),
+poussé en avance rapide `5dcb235..c35411c`.
+
+### CI distante sur `c35411c` — run 42717343596 (push)
+
+| Job | Résultat |
+|---|---|
+| Verify Frontend & Backend | success |
+| Base de données et contrats HTTP (PGlite) | success |
+| Database & HTTP contracts (Neon branch) | **failure**, étape « Cross-tenant database RLS controls » (job 129502186355) |
+
+Les annotations ont fonctionné : e2e 49/49, cross-tenant 262/262, export-identite 33/33,
+fournisseur 57/57, dds-etats 39/39, evidence 45/45 → verts sur Neon ; puis
+`cross-tenant:rls` : **261 réussis, 62 échecs**. Les 10 premières annotations d'erreur :
+
+```
+documents, document_versions, document_reviews, diligence_revisions, diligence_dossiers,
+diligence_decisions, country_checks, compliance_tasks, collection_revisions, audit_events :
+« RLS activée et forcée, politiques toutes conditionnées par current_org() — 0/N politique(s) »
+```
+
+**Diagnostic établi** : aucune de ces tables n'existe dans les migrations du dépôt (ni dans aucune
+branche de son historique). Le propriétaire a confirmé que `NEON_PARENT_BRANCH_ID` est **la branche
+de production** : la branche éphémère hérite donc du schéma de production, qui contient des tables
+`public.*` portant `organization_id` **étrangères à GeoForest** (autre application ou ancien schéma
+partageant la même base), avec des politiques RLS qui ne reposent pas sur `current_org()`. La preuve
+RLS les contrôle comme les nôtres et échoue — comportement voulu, **non affaibli**.
+
+Conséquences :
+1. **F3 renforcée** : la base de production héberge des objets hors périmètre du dépôt. Leur
+   protection effective vis-à-vis de `geoforest_app` (droits, politiques) est **inconnue** et doit
+   être qualifiée par un opérateur habilité (lecture seule : `pg_tables`, `pg_policies`,
+   `information_schema.table_privileges` pour `geoforest_app`).
+2. **Données personnelles** : chaque run CI copie la production dans une branche temporaire
+   (`docs/CI_NEON.md` § « Point à trancher ») — décision exploitant.
+3. **Pour une CI verte sans affaiblir le contrôle** : désigner comme parente une branche Neon
+   contenant uniquement le schéma issu des migrations du dépôt (option recommandée). Restreindre la
+   preuve aux seules tables du dépôt serait un affaiblissement et n'est **pas** proposé.
+4. Limite constatée : GitHub n'expose que 10 annotations d'erreur par étape (62 échecs ici) ; la
+   liste complète nécessite le journal ou un résumé d'étape (`GITHUB_STEP_SUMMARY`) — amélioration
+   possible, non réalisée.
+
+### Vercel
+
+Déploiement GitHub `Preview` 7668521487 pour `c35411c` : état `inactive`, « Canceled from the
+Vercel Dashboard » (annulé côté Vercel, pas un échec de build). Aucun déploiement n'a été créé ni
+demandé par cette mission ; l'accès API Vercel du connecteur est refusé (lecture impossible).
+
+### `main` a avancé — PR #11 désormais en conflit
+
+`origin/main` = `b7ac7aa` (14 commits du 04–05/11 après `1c95f4c` : protection de `main`,
+`check-bout-en-bout`, `check-seed-securite`, `ci-mot-de-passe-role`, Next 16.4.5, ci.yml +251 l.).
+`gh pr view 11` → `CONFLICTING` / `DIRTY`. `git merge-tree HEAD origin/main` : conflits sur
+`.github/workflows/ci.yml`, `backend/tests/test_geospatial.py`, `docs/TEST_REPORT.md`,
+`package.json`, `package-lock.json`. La réconciliation (fusion de `main` dans la branche, rejeu
+complet des suites) est un travail distinct, **non commencé**, soumis à autorisation de push.
+
+### Recommandation mise à jour
+
+- **Fusion PR #11 : non prête** — (a) conflit avec `main`, (b) CI Neon rouge tant que la branche
+  parente est la production, (c) F2/F3 ouvertes.
+- **Migration base hébergée : non** — F3 renforcée par la découverte de tables hors périmètre.
+- **Déploiement production : non.**
+
