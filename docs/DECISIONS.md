@@ -316,3 +316,36 @@ choix d'exploitation, pas d'une erreur. Ce qui n'est pas tolérable est de le
 **Limite.** Ce contrôle porte sur l'hôte, pas sur l'identité du service : un DNS
 détourné passerait. Il rend la fraude délibérée visible dans la trace ; il ne
 l'empêche pas.
+
+---
+
+## D-011 — Le parcours DDR est éprouvé dans l'état où il est, pas dans celui qu'on voudrait
+
+**Date :** 06/11/2026 · **Contexte :** C10 · **Statut :** appliqué
+
+**Décision.** Le contrôle de bout en bout traverse le parcours DDR **complet**
+jusqu'aux refus, sur l'application démarrée et une vraie base — mais il exige le
+refus, pas le succès : sans clé GFW, aucune analyse n'est probante, donc aucun
+dossier ne peut atteindre `READY_FOR_DECLARATION`.
+
+**Pourquoi ne pas simuler une clé.** Ce serait éprouver un produit qui n'existe
+pas. Ce qui doit être vérifié aujourd'hui est justement que le produit
+**refuse** — avec un motif exact, un score calculé et un dossier qui reste
+lisible pour être corrigé. Le chemin « dossier complet → prêt à déclarer » est
+donc marqué non couvert, explicitement, plutôt que faussement vert.
+
+**Ce que ce contrôle a coûté à écrire.** Deux erreurs de ma part, toutes deux
+trouvées à l'exécution : j'attendais `200` là où `POST /audit/parcel` rend
+`201` (elle crée une ligne), et je lisais `analysis_probative` à la racine d'une
+réponse qui le porte dans `satellite`. La seconde est la plus instructive : mal
+écrite (`!== true` au lieu de `=== false`), elle serait passée en ne vérifiant
+rien.
+
+**Falsifications.** Validateur débranché : le dossier vide passe
+`READY_FOR_DECLARATION` avec un score de 0, le contrôle vire au rouge. Verrou
+d'export débranché : un XML est produit sur une analyse non probante, le
+contrôle vire au rouge.
+
+**Limite.** Le contrôle écrit et ne nettoie pas ; il suppose une base jetable.
+Il ne remplace ni une revue de code ni les contrôles unitaires : il répond à une
+autre question — « les pièces sont-elles branchées entre elles ? ».

@@ -244,6 +244,33 @@ englobants n'ont pas été remplis (`npm run db:backfill-bbox`).
 
 ---
 
+## 3 ter — Ce que le parcours de bout en bout prouve, et ce qu'il ne prouve pas
+
+Depuis C10, `npm run check:e2e:complet` traverse le parcours DDR sur
+l'application **démarrée** et une vraie base : fournisseur, parcelle rattachée,
+analyse, dossier de diligence, transitions d'état, refus motivé du passage en
+« prêt à déclarer », refus d'export (57 contrôles).
+
+**Ce qu'il prouve.** Que les pièces sont branchées entre elles : que la route de
+dossier consulte réellement le validateur, que la base rend les parcelles
+rattachées par le fournisseur, que le statut `DECLARED` est inatteignable, que
+l'export refuse une analyse non probante **côté serveur** — l'écran n'étant pas
+une barrière.
+
+**Ce qu'il ne prouve pas, et pourquoi c'est écrit.** Il s'exécute sans clé GFW.
+Aucune analyse n'y est donc probante, et **le chemin « dossier complet → prêt à
+déclarer » n'est couvert par aucun contrôle**. Le faire passer demanderait une
+clé de production et un accès réseau ; le simuler reviendrait à éprouver un
+produit qui n'existe pas. Ce qui est vérifié aujourd'hui est le refus — avec le
+motif, le score calculé, et un dossier qui reste lisible pour être corrigé.
+
+**Conséquence pratique pour un opérateur.** Tant qu'aucune clé GFW n'est
+configurée, un dossier de ce produit ne peut pas être déclaré. Ce n'est pas une
+panne : c'est le produit qui refuse de certifier ce qu'il n'a pas observé
+(D-009). Le contrôle de bout en bout le vérifie à chaque exécution.
+
+---
+
 ## 4. Les huit confusions à ne pas commettre
 
 Celles-ci ont toutes été observées dans la documentation du dépôt ou dans les
