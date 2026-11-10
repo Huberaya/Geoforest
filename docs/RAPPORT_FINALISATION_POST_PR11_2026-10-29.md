@@ -213,3 +213,28 @@ complet des suites) est un travail distinct, **non commencé**, soumis à autori
 - **Migration base hébergée : non** — F3 renforcée par la découverte de tables hors périmètre.
 - **Déploiement production : non.**
 
+## 8. Réconciliation avec `main` (autorisée par le propriétaire) — commit de fusion `b09bfd9`
+
+`origin/main` = `b7ac7aa` fusionné dans la branche (`git merge --no-ff`), **aucun contrôle retiré d'aucun côté**.
+
+| Fichier en conflit | Résolution |
+|---|---|
+| `.github/workflows/ci.yml` | **Union** : structure de la branche (déclencheurs `arena/**`, `permissions: contents: read`, jobs Verify / PGlite / Neon avec annotations) + apports de `main` : `pytest --strict-markers`, `check:version`, `check:seed`, `check:docs`, contrôle « le build n'a modifié aucun fichier du produit », et les deux jobs sur service PostgreSQL 16 du runner (« Contrôles SQL » et « Bout en bout »). Pas d'`env` `DATABASE_URL` factice au niveau du workflow (le build de la branche n'en a pas besoin ; un faux `DATABASE_URL` global pourrait masquer une dépendance). Node 22 conservé (`engines ≥ 20.9`, `.nvmrc` 20 de `main` inchangé). |
+| `package.json` | Scripts des deux côtés ; overrides de `main` (`zod`, `source-map-js`) ; Next et `eslint-config-next` 16.4.5 ; `js-yaml` conservé (test du workflow). |
+| `package-lock.json` | Régénéré **depuis le lock de la branche** avec le `package.json` fusionné : seul changement Next 16.4.3 → 16.4.5. ⚠️ Le lock de `main` aurait fait passer PGlite 0.5.10 → 0.5.16, qui **casse** `tests/sql/isolation.test.ts` n° 29 (« Transaction was rolled back instead of committed » après un `42501` attendu) — fragilité du test à traiter avant toute montée de PGlite (réserve nouvelle). |
+| `backend/tests/test_geospatial.py` | Version de `main` (skip documenté, corps des tests identiques). |
+| `docs/TEST_REPORT.md` | Version de `main`, chiffres **remesurés sur le code fusionné** (exigé par `check:docs`) : 45 API + 21 pages, pytest 168 réussis / 3 ignorés / 2 xfail, 170 contrôles de règles, suites HTTP. |
+
+Mesuré en local sur `b09bfd9` (PG 16.2 jetable, Next 16.4.5, Node 22 ; journaux `/home/user/logs/merge-*.log`, `/home/user/logs/serveur-local/journaux/*fusion-main*.log`) :
+
+| Porte | Résultat |
+|---|---|
+| `test:ci` / typecheck / lint / `db:check` | 5/5 · 0 erreur · 0 erreur 0 avertissement · OK |
+| `check:version` / `check:seed` / `check:docs` | 5/5 · 10/10 · 10/10 |
+| pytest `--strict-markers` | 168 passed, 3 skipped, 2 xfailed |
+| build · unit · controles · eudr · sql · http · audit | OK · 52/52 · 27/27 · 73/73 · 52/52 · 34/34 · 0 vulnérabilité |
+| Job « Contrôles SQL » (équivalent) | check-sql-limits OK · migrate · `check:schema` sans dérive · migrate idempotent · rollback 0010 + remontée OK |
+| Job « Bout en bout » (équivalent) | `ci-mot-de-passe-role` OK · `check:e2e:complet` **38/38** |
+| Job Neon (équivalent, nouvel ordre) | test:db OK · e2e 49/49 · cross-tenant 262/262 · export-identite 33/33 · fournisseur 57/57 · dds-etats 39/39 · evidence 45/45 · **cross-tenant:rls 99/99** |
+
+`git merge-tree HEAD origin/main` : plus aucun conflit. **Non poussé** : la CI distante n'a pas été exécutée sur `b09bfd9` ; le job Neon y restera rouge tant que `NEON_PARENT_BRANCH_ID` désigne la production (§ 7).
