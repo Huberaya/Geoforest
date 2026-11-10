@@ -257,3 +257,85 @@ PR #11 : `MERGEABLE` (plus de conflit), état `BLOCKED` (protection de `main` : 
 État des décisions :
 - **Fusion PR #11** : non prête tant que le job Neon est rouge. La cause est externe au code (schéma de production hérité par la branche Neon, § 7) ; elle se lève côté exploitant en désignant une branche parente Neon dédiée (schéma = migrations du dépôt, sans données réelles). F2/F3 restent des réserves acceptées ou non par le propriétaire.
 - **Migration base hébergée** : non. **Déploiement production** : non.
+
+## 10. Levée du `BLOCKED` et requalification du contrôle RLS — `0ce3a61` (push `fb34da2..0ce3a61`)
+
+### Cause réelle du `BLOCKED` (mesurée, pas supposée)
+
+`gh api repos/Huberaya/Geoforest/rules/branches/main` : le ruleset exige **quatre contextes de statut nommés**
+« Qualité (types, lint, règles EUDR, dépendances) », « Backend (pytest) », « Contrôles SQL (PostgreSQL) »,
+« Bout en bout (application démarrée, PostgreSQL) », branche à jour (`strict`), fils de revue résolus,
+**0 approbation requise**. Le job Neon n'est pas requis. Le job « Verify Frontend & Backend » de la branche
+regroupait les deux premiers contextes sous un nom que la protection ne reconnaissait pas → `BLOCKED` malgré 4/5 jobs verts.
+
+### Commits
+
+| SHA | Contenu |
+|---|---|
+| `ea76062` | rapport § 9 |
+| **`0ce3a61`** | `ci.yml` : job Verify scindé en `qualite` et `backend` portant exactement les noms requis (**aucune étape retirée**, mêmes commandes) ; étape `Archive suite logs` (`upload-artifact`, `if: always()`) dans le job Neon ; `scripts/ci/check-workflow.test.cjs` verrouille les 4 noms (6/6) ; `scripts/check-cross-tenant-rls.ts` scindé en deux invariants ; `scripts/ci/annoter.sh` écrit la liste complète des 🔴 dans le résumé d'étape (l'API n'affiche que 10 annotations) ; `docs/CI_NEON.md` mis à jour. |
+
+### `check-cross-tenant-rls.ts` : deux invariants au lieu d'un
+
+Le contrôle appliquait l'invariant GeoForest (politiques `current_org`, `FORCE ROW LEVEL SECURITY`,
+sonde inter-tenant) à **toute** table portant `organization_id`, y compris celles d'autres applications
+présentes dans la base hébergée — ce qui produisait 62 échecs non imputables au dépôt (§ 7, § 9) tout en
+laissant passer la vraie question : *le rôle applicatif GeoForest peut-il atteindre ces tables ?*
+
+| Tables | Source | Invariant |
+|---|---|---|
+| du dépôt (15 : 14 `gf_*` + `parcel_audits`) | schéma Drizzle `src/db/schema.ts` (`getTableName`) | inchangé : RLS activée + forcée, politiques `current_org`, sonde inter-tenant 0 ligne |
+| étrangères (`organization_id` hors schéma) | inventaire par l'admin sur `pg_attribute`/`pg_class` | `has_table_privilege(geoforest_app, …)` = aucun privilège **et** `SELECT` en `SET ROLE` → `42501` (sonde en transaction annulée) |
+| contrôle transverse | — | toute table `gf_*` portant `organization_id` est connue du schéma Drizzle |
+
+Leçon mesurée : l'inventaire par le rôle applicatif via `information_schema` **ne voit pas** les tables sur lesquelles il n'a aucun droit → l'inventaire se fait par l'admin.
+
+Preuve locale sur base jetable PG 16 (`/home/user/logs/rls-etrangeres*.log`) :
+
+| Cas | Résultat |
+|---|---|
+| aucune table étrangère | 100/100 ✅ |
+| table étrangère `documents` créée par `geoforest_owner`, sans REVOKE | **2 🔴** — `pg_default_acl` du dépôt accorde `geoforest_app=arw` sur toute table créée par `geoforest_owner` |
+| même table après `REVOKE ALL … FROM geoforest_app` | 102/102 ✅ |
+| `GRANT SELECT` au rôle applicatif · `GRANT` à `PUBLIC` | 2 🔴 · 2 🔴 |
+| base nettoyée | 100/100 ✅ |
+
+Portes locales avant push : tsc 0, eslint 0, `check:docs` 10/10, `test:ci` 6/6, e2e 49/49, cross-tenant 262/262.
+
+### CI distante sur `0ce3a61`
+
+Run push [42728329240](https://github.com/Huberaya/Geoforest/actions/runs/42728329240) (et run PR 42728336929) :
+
+| Job | Résultat |
+|---|---|
+| Qualité (types, lint, règles EUDR, dépendances) | ✅ |
+| Backend (pytest) | ✅ |
+| Base de données et contrats HTTP (PGlite) | ✅ |
+| Contrôles SQL (PostgreSQL) | ✅ |
+| Bout en bout (application démarrée, PostgreSQL) | ✅ |
+| Database & HTTP contracts (Neon branch) | ❌ uniquement `cross-tenant:rls` : **101 réussis / 65 échecs** ; dds-etats 39/39, evidence 45/45 verts ; artefact `journaux-neon-42728329240-1` (15 Ko) publié |
+
+**PR #11 : `MERGEABLE` / `UNSTABLE`** (`gh pr view 11`) — les 4 contextes requis sont verts, la branche est à jour sur `main` `b7ac7aa` (toujours la tête de `main`), 0 fil de revue, 0 approbation requise. `UNSTABLE` = seuls des contrôles **non requis** échouent : **la fusion est désormais techniquement possible** ; elle n'a pas été effectuée (décision du propriétaire).
+
+Vercel : statut `failure` sur `0ce3a61` avec le message « Deployment rate limited — retry in 24 hours » (limite de builds du plan Vercel, sans rapport avec le code ; dernier Preview construit = `fb34da2`, success).
+
+### Ce que le job Neon dit maintenant de la base hébergée (trouvaille F3, à ne pas assouplir)
+
+Les 10 annotations visibles (sur 65) montrent deux faits sur la branche Neon héritée de la production :
+
+1. **Le rôle applicatif GeoForest détient des privilèges sur des tables d'autres applications** et peut les lire :
+   `audit_events`, `collection_revisions`, `compliance_tasks`, `country_checks`, `diligence_decisions`, … —
+   « accordés : SELECT, INSERT » (UPDATE sur `compliance_tasks`), « lecture possible ». Cohérent avec le cas 2 local :
+   ces tables ont vraisemblablement été créées par `geoforest_owner` et ont hérité des privilèges par défaut
+   `geoforest_app=arw` (`drizzle/0010`). ~32 tables × 2 contrôles = 64 échecs.
+2. **Deux tables préfixées `gf_` existent en base sans exister dans le dépôt** : `gf_legalite_evaluations`,
+   `gf_risk_assessments` (65ᵉ échec). `git log --all -S` sur les 33 branches distantes : **aucune trace** — elles ont
+   été créées hors du dépôt. Le dépôt ne peut ni les migrer, ni les descendre, ni garantir leur RLS.
+
+Conséquences : le job Neon restera rouge tant que (a) `geoforest_app` conserve des droits sur des tables qui ne sont pas les siennes (correctif côté exploitant : `REVOKE ALL ON <tables étrangères> FROM geoforest_app`, et séparation des propriétaires par application), et (b) les deux tables `gf_*` orphelines ne sont pas soit rapatriées dans le dépôt (migration + RLS), soit renommées/supprimées par leur véritable propriétaire. Ces deux opérations touchent la base de production : **aucune n'a été exécutée**, elles relèvent d'une autorisation distincte.
+
+### Décisions (inchangées dans leur séparation)
+
+- **Fusion PR #11** : techniquement possible (`UNSTABLE`, 4 contextes requis verts). Décision du propriétaire, en connaissance des réserves F2 (GFW réelle non exécutée) et F3 (base hébergée : privilèges croisés et tables orphelines ci-dessus). Non effectuée.
+- **Migration base hébergée** : non — les écarts constatés entre la base et le dépôt doivent être traités avant.
+- **Déploiement production** : non.
