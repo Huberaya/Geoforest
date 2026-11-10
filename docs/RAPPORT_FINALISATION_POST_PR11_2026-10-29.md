@@ -238,3 +238,22 @@ Mesuré en local sur `b09bfd9` (PG 16.2 jetable, Next 16.4.5, Node 22 ; journaux
 | Job Neon (équivalent, nouvel ordre) | test:db OK · e2e 49/49 · cross-tenant 262/262 · export-identite 33/33 · fournisseur 57/57 · dds-etats 39/39 · evidence 45/45 · **cross-tenant:rls 99/99** |
 
 `git merge-tree HEAD origin/main` : plus aucun conflit. **Non poussé** : la CI distante n'a pas été exécutée sur `b09bfd9` ; le job Neon y restera rouge tant que `NEON_PARENT_BRANCH_ID` désigne la production (§ 7).
+
+## 9. CI distante sur la fusion — `fb34da2` (push autorisé `c35411c..fb34da2`)
+
+Commits poussés : `7869fab` (rapport § 7), **`b09bfd9`** (fusion de `main` `b7ac7aa`, deux parents), `fb34da2` (rapport § 8).
+Runs : [42724931100](https://github.com/Huberaya/Geoforest/actions/runs/42724931100) (push) et 42724938461 (PR) — **5 jobs**, résultats identiques :
+
+| Job | Résultat distant |
+|---|---|
+| Verify Frontend & Backend (pytest strict, test:ci, typecheck, db:check, lint, unit, contrôles, eudr, check:version/seed/docs, build, propreté du build, audit) | ✅ success |
+| Base de données et contrats HTTP (PGlite) | ✅ success |
+| Contrôles SQL (PostgreSQL 16 du runner) — repris de `main` | ✅ success |
+| Bout en bout (application démarrée, PostgreSQL 16) — repris de `main`, 38 contrôles | ✅ success |
+| Database & HTTP contracts (Neon branch) | ❌ **uniquement** à l'étape « Cross-tenant database RLS controls » : e2e 49/49, cross-tenant 262/262, export-identite 33/33, fournisseur 57/57, dds-etats 39/39, evidence 45/45 verts ; `cross-tenant:rls` **261 réussis / 62 échecs**, les mêmes tables héritées de la branche parente de production (`documents`, `document_versions`, `document_reviews`, …) qu'au § 7 |
+
+PR #11 : `MERGEABLE` (plus de conflit), état `BLOCKED` (protection de `main` : revue requise + checks). Vercel : déploiement GitHub `Preview` 7669499859 pour `fb34da2` **success** (automatique ; aucune production).
+
+État des décisions :
+- **Fusion PR #11** : non prête tant que le job Neon est rouge. La cause est externe au code (schéma de production hérité par la branche Neon, § 7) ; elle se lève côté exploitant en désignant une branche parente Neon dédiée (schéma = migrations du dépôt, sans données réelles). F2/F3 restent des réserves acceptées ou non par le propriétaire.
+- **Migration base hébergée** : non. **Déploiement production** : non.
