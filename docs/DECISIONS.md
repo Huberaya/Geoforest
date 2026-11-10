@@ -349,3 +349,124 @@ contrôle vire au rouge.
 **Limite.** Le contrôle écrit et ne nettoie pas ; il suppose une base jetable.
 Il ne remplace ni une revue de code ni les contrôles unitaires : il répond à une
 autre question — « les pièces sont-elles branchées entre elles ? ».
+
+---
+
+## D-012 — Le journal d'audit consigne l'action, pas les données des tiers
+
+**Date :** 06/11/2026 · **Contexte :** C11 · **Statut :** appliqué
+
+**Décision.** `gf_audit_logs.avant/apres` conserve la trace de l'action et de son
+auteur ; les données personnelles de **tiers** y sont remplacées par une mention
+de retrait.
+
+**Le défaut mesuré.** Ces colonnes contiennent la ligne entière. Supprimer
+l'e-mail de contact d'un fournisseur effaçait bien la colonne, mais la même
+adresse restait en clair dans le `avant` du journal — dans une table
+**append-only**, chaînée, sans droit de suppression pour le rôle applicatif. Un
+effacement qui laisse la donnée dans une copie n'est pas un effacement, c'est un
+déplacement. Et comme on ne peut plus nettoyer après coup, ce qui n'est pas
+assaini à l'écriture ne le sera jamais.
+
+**Ce qui reste.** `userEmail` et `acteurId` de l'auteur de l'action. Sans eux, le
+journal ne dit plus **qui** — il perd sa raison d'être, et l'EUDR exige cette
+traçabilité. L'arbitrage est donc : on retire les données des personnes qui ne
+sont pas l'auteur de l'action, on conserve l'identité de l'auteur.
+
+**Pourquoi l'assainissement est dans `audit-log.ts` et non dans un module
+appelé par les routes.** Un filtre qu'il faut penser à appeler finira par être
+oublié sur une route. Le filtre est dans le seul point d'écriture du journal, et
+`check:rgpd` vérifie que c'est bien ce fichier qui l'applique.
+
+---
+
+## D-013 — L'export des données est borné par la session, jamais par la requête
+
+**Date :** 06/11/2026 · **Contexte :** C11 · **Statut :** appliqué
+
+**Décision.** `GET /api/v1/rgpd/export` prend l'organisation dans la session
+(`guard`), jamais dans un paramètre. Réservé au droit `org:manage`.
+
+**Pourquoi.** C'est l'export lui-même qui, mal borné, deviendrait l'instrument de
+la fuite qu'il est censé permettre de constater. Un `?organizationId=` accepté
+ici rendrait toutes les données de tous les clients en une requête — et la
+requête serait authentifiée, donc invisible dans les journaux d'accès.
+
+**Pourquoi `org:manage`.** L'export contient les données personnelles de tous les
+membres et de tous les fournisseurs. Un lecteur ne les reçoit pas en bloc. Le
+contrôle de bout en bout le vérifie avec une session `viewer` réelle : 403.
+
+**Ce qui fuit, mesuré puis corrigé.** La première version exportait
+`password_hash` — `select()` ramène toutes les colonnes. Trouvé à l'exécution sur
+une vraie base, **pas** par le contrôle statique, qui cherchait le mot
+`passwordHash` et ne le trouvait pas dans le fichier. Un contrôle lexical prouve
+qu'un mot n'est pas écrit ; il ne prouve pas qu'une valeur n'est pas lue.
+
+---
+
+## D-014 — Le quota de stockage n'est pas une limite commerciale
+
+**Date :** 06/11/2026 · **Contexte :** C11 · **Statut :** appliqué
+
+**Décision.** `ORGANIZATION_STORAGE_QUOTA` (défaut 20 Go) borne les dépôts par
+organisation, et le dépassement est refusé **avant** l'écriture, en 413.
+
+**Pourquoi.** Le stockage est un répertoire disque unique, cloisonné par préfixe
+d'organisation. Sans quota, une organisation — par erreur, par script ou par
+malveillance — remplit le disque et rend le service indisponible pour **toutes**
+les autres. Ce n'est pas un client qui dépasse son forfait : c'est une panne
+provoquée par un seul tenant.
+
+**Pourquoi avant, et pas après.** Vérifier le quota une fois le fichier écrit ne
+protège de rien. `check:rgpd` vérifie la position du contrôle **relativement à
+l'écriture** — et non sa seule présence, ce qui a été pris en défaut.
+
+**Limite assumée.** Le quota compte l'usage déclaré en base (somme des tailles de
+versions), pas les octets réellement sur le disque. Les deux diffèrent pour les
+fichiers orphelins. Compter le disque à chaque dépôt demanderait un parcours de
+répertoire par requête — précisément ce qu'un quota doit éviter. L'écart est
+rattrapé par la purge des pièces détachées.
+
+---
+
+## D-015 — Pas de bandeau de consentement, parce qu'il n'y a rien à consentir
+
+**Date :** 06/11/2026 · **Contexte :** C11 · **Statut :** appliqué
+
+**Décision.** Le produit n'affiche aucun bandeau de cookies.
+
+**Pourquoi.** Il ne pose aucun traceur publicitaire ou analytique, et son seul
+cookie est celui de session, nécessaire au service — donc exempté. Une bannière
+qui ne recueille rien est du théâtre, et elle habitue l'utilisateur à cliquer
+sans lire, ce qui dégradera le jour où un vrai consentement sera nécessaire.
+
+**Ce qui maintient la décision.** `check:rgpd` échoue si `gtag`, Google Tag
+Manager, Plausible, Hotjar, Matomo ou un pixel de réseau social apparaît dans le
+code ou les dépendances. **Le jour où un traceur entre, la commande passe au
+rouge et réclame un consentement** : on ne peut pas en introduire un par
+inadvertance.
+
+---
+
+## D-016 — Ce que C11 a refusé de faire, et pourquoi
+
+**Date :** 06/11/2026 · **Contexte :** C11 · **Statut :** assumé
+
+**Décision.** Trois points du périmètre C11 **ne sont pas livrés** par ce
+dépôt, et sont écrits comme tels dans `docs/RGPD.md` §8 plutôt que maquillés.
+
+| Point | Pourquoi ce n'est pas un chantier de code |
+|---|---|
+| **Facturation** | Suppose un compte prestataire, un prix et un régime de TVA : une décision commerciale. Écrire un module de facturation sans prestataire produirait du code mort et une fausse impression d'avancement. |
+| **Conditions générales** | Un texte juridique engageant, relu par un juriste. Un fichier `CGU.md` de plus ne vaudrait pas CGU et donnerait l'illusion du contraire. |
+| **AIPD et transferts hors UE** | Dépendent de l'hébergeur et du fournisseur satellite réellement retenus. Non tranchables depuis le code : les inventer serait pire que les nommer. |
+
+**Ce qui est livré à la place, et qui sert vraiment** : la carte des données
+confrontée au schéma, l'export cloisonné, la purge outillée avec ses
+garde-fous, l'assainissement du journal, le quota, et la procédure de violation
+en 72 h avec ses exécutants nommés.
+
+**La règle appliquée.** Un manque nommé est un manque qu'on peut traiter. Un
+manque absent d'un document se lit comme un manque inexistant — c'est la leçon
+que ce dépôt a déjà payée une fois, avec `TEST_REPORT.md` affirmant « 29/29
+tests » alors que trois étaient ignorés.

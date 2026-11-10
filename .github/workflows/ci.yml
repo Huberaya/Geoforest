@@ -128,6 +128,13 @@ jobs:
       - name: Résolution du pays et benchmark EUDR
         run: npm run check:banc-pays
 
+      # ⚠️ C11 — les données personnelles n'étaient ni cartographiées, ni
+      #   exportables, ni purgées, et le journal d'audit recopiait les
+      #   coordonnées de tiers dans une table immuable. Ce contrôle EXÉCUTE
+      #   l'assainissement et le quota, il ne se contente pas de lire le code.
+      - name: Données personnelles (C11)
+        run: npm run check:rgpd
+
       # ⚠️ C9 — une réponse vide du fournisseur satellite devenait
       #   `compliant: true`. Le contrôle lance un faux fournisseur en local :
       #   aucune clé, aucune requête sortante, et pourtant le défaut est prouvé.

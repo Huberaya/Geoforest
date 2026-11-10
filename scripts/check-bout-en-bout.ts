@@ -206,6 +206,8 @@ const MOT_DE_PASSE = process.env.GF_E2E_MOT_DE_PASSE ?? "MotDePasseDeTestCI123";
 const COMPTES = {
   a: "admin@geoforest.eu",
   b: "admin@tenant-b.test",
+  /** Rôle « lecteur » : lecture seule, sans droit d'administration. */
+  lecteur: "lecteur@geoforest.eu",
 } as const;
 
 function champ<T = unknown>(corps: unknown, cle: string): T | undefined {
@@ -677,6 +679,75 @@ async function controlerParcoursDdr(a: Session, parcelleId: string | null): Prom
   );
 }
 
+/**
+ * C11 — l'export des données personnelles, exercé par l'API réelle.
+ *
+ * ⚠️ Ce que ce contrôle prouve, et que `check:rgpd` ne peut pas prouver.
+ *
+ *   `check:rgpd` vérifie le module d'export et sa projection. Il ne dit rien de
+ *   la ROUTE : qu'elle soit atteignable, qu'elle prenne l'organisation dans la
+ *   session plutôt que dans la requête, et qu'elle rende à A les données de A
+ *   sans y mêler celles de B. C'est exactement la différence, mesurée en C10,
+ *   entre « le module fait ce qu'il dit » et « le produit s'en sert ».
+ */
+async function controlerExportRgpd(a: Session, b: Session): Promise<void> {
+  console.log("\n— Export RGPD —");
+
+  const exportA = await a.appel("GET", "/api/v1/rgpd/export");
+  exiger("export des données de l'organisation (200)", exportA.statut === 200, `HTTP ${exportA.statut} : ${exportA.texte.slice(0, 200)}`);
+
+  const texte = exportA.texte;
+  const donnees = champ<{ organisation?: { id?: string }; non_exporte?: unknown[] }>(exportA.corps, "donnees");
+  verifier(
+    "l'export contient les données de l'organisation",
+    Boolean(donnees),
+    "aucune rubrique `donnees` : l'export ne rend rien",
+  );
+
+  // ⚠️ Aucun secret d'authentification ne doit figurer dans un export destiné à
+  //   la personne concernée. C'est le défaut constaté à l'exécution pendant
+  //   C11 : `select()` ramenait les empreintes de mot de passe.
+  verifier(
+    "l'export ne contient aucun secret d'authentification",
+    !/passwordHash|password_hash|refreshTokenHash|refresh_token_hash|mfaSecret|mfa_secret/i.test(texte),
+    "un export qui contient les empreintes de mot de passe crée un risque en croyant satisfaire un droit",
+  );
+
+  const rubriques = champ<unknown[]>(exportA.corps, "non_exporte");
+  verifier(
+    "l'export dit ce qu'il ne contient pas",
+    Array.isArray(rubriques) && rubriques.length > 0,
+    "un export qui ne liste pas ses manques se lira comme complet",
+  );
+
+  // Cloisonnement : l'export de B ne doit pas contenir les données de A.
+  const exportB = await b.appel("GET", "/api/v1/rgpd/export");
+  exiger("export de la seconde organisation (200)", exportB.statut === 200, `HTTP ${exportB.statut}`);
+  verifier(
+    "l'export de B ne contient aucune donnée de A",
+    !exportB.texte.includes("admin@geoforest.eu"),
+    "un export qui franchit le tenant rendrait les données d'un client à un autre — c'est une violation, pas un service",
+  );
+  verifier(
+    "l'export de A ne contient aucune donnée de B",
+    !texte.includes("admin@tenant-b.test"),
+    "même contrôle dans l'autre sens : l'ordre des appels ne doit rien changer",
+  );
+
+  // ⚠️ Un lecteur n'a pas à recevoir en bloc les données personnelles de tous
+  //   les membres et de tous les fournisseurs. L'export est réservé à
+  //   `org:manage` : sans ce contrôle, un élargissement de droits passerait
+  //   inaperçu, et l'export deviendrait un moyen d'accès latéral aux données
+  //   d'autrui — l'inverse de ce qu'il sert.
+  const lecteur = await connecter(COMPTES.lecteur);
+  const refus = await lecteur.appel("GET", "/api/v1/rgpd/export");
+  verifier(
+    "un lecteur n'obtient pas l'export des données personnelles",
+    refus.statut === 403 || refus.statut === 401,
+    `HTTP ${refus.statut} — attendu 403 : l'export contient les données de tous les membres`,
+  );
+}
+
 async function controlerIsolation(a: Session, b: Session, parcelleId: string): Promise<void> {
   console.log("\n— Isolation multi-tenant —");
 
@@ -910,6 +981,7 @@ async function main(): Promise<number> {
     const b = await connecter(COMPTES.b);
     const parcelleId = await controlerParcoursMetier(a);
     await controlerParcoursDdr(a, parcelleId);
+    await controlerExportRgpd(a, b);
     if (parcelleId) await controlerIsolation(a, b, parcelleId);
     else verifier("isolation multi-tenant", false, "aucune parcelle créée");
   } catch (erreur) {
