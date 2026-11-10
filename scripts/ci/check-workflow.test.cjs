@@ -30,14 +30,28 @@ test('database mutation follows ephemeral creation and cleanup is unconditional'
   const cleanup = steps.find(s => s.run === 'npx tsx scripts/ci/neon-branche.ts supprimer');
   assert.ok(create >= 0 && migrate > create && reset > migrate);
   assert.equal(cleanup.if, 'always()');
-  assert.ok(!Object.hasOwn(workflow.jobs.verify, 'env'));
+  assert.ok(!Object.hasOwn(workflow.jobs.qualite, 'env'));
 });
 
-test('verification keeps install, regression tests, lint, types and build gates', () => {
-  const commands = workflow.jobs.verify.steps.map(s => s.run || '').join('\n');
-  for (const command of ['npm ci', 'pytest -q', 'npm run test:ci', 'npm run typecheck',
-    'npm run db:check', 'npm run lint', 'npm run test:unit', 'npm run test:eudr', 'npm run build']) {
+test('quality and backend jobs keep install, regression tests, lint, types, build and pytest gates', () => {
+  const commands = workflow.jobs.qualite.steps.map(s => s.run || '').join('\n');
+  for (const command of ['npm ci', 'npm run test:ci', 'npm run typecheck', 'npm run db:check',
+    'npm run lint', 'npm run test:unit', 'npm run test:controles', 'npm run test:eudr',
+    'npm run check:version', 'npm run check:seed', 'npm run check:docs', 'npm run build',
+    'npm run audit:sec']) {
     assert.ok(commands.includes(command), command);
+  }
+  const backend = workflow.jobs.backend.steps.map(s => s.run || '').join('\n');
+  assert.ok(backend.includes('pytest -q --strict-markers'));
+});
+
+// Les contextes exigés par la protection de `main` (ruleset 26568220) : un job
+// renommé ne remonte plus et la fusion reste bloquée sans message explicite.
+test('the four status checks required by the main branch ruleset exist by exact name', () => {
+  const noms = Object.values(workflow.jobs).map(j => j.name);
+  for (const requis of ['Qualité (types, lint, règles EUDR, dépendances)', 'Backend (pytest)',
+    'Contrôles SQL (PostgreSQL)', 'Bout en bout (application démarrée, PostgreSQL)']) {
+    assert.ok(noms.includes(requis), requis);
   }
 });
 

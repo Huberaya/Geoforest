@@ -14,6 +14,23 @@
  * Prérequis : le contrôle HTTP a été exécuté au préalable (données dans les deux
  * organisations). Sans données, le contrôle échoue : il ne peut pas être vacueux.
  *
+ * Périmètre (09/11/2026, runs 42717343596 et 42724931100) :
+ *   La branche Neon de CI est une copie de sa parente — la production — et en
+ *   hérite des tables **étrangères au dépôt** (`documents`, `diligence_dossiers`,
+ *   `audit_events`, …) qui portent `organization_id` sans politique
+ *   `current_org()`. Exiger d'elles la RLS de GeoForest n'a pas de sens :
+ *   `current_org()` est une fonction de GeoForest. L'invariant juste pour une
+ *   table qu'on ne possède pas est plus dur : le rôle applicatif ne doit y
+ *   avoir **aucun droit**, et une lecture doit être refusée (42501). Les deux
+ *   familles sont donc contrôlées, chacune selon son invariant, et aucune
+ *   n'est ignorée :
+ *   · tables du dépôt (schéma Drizzle `src/db/schema.ts`) : RLS activée et
+ *     forcée, politiques toutes conditionnées par `current_org()`, fail-closed,
+ *     cloisonnement A/B, intégrité ;
+ *   · toute autre table `organization_id` de `public` : inaccessible au rôle
+ *     applicatif (privilèges nuls mesurés par l'administrateur, lecture refusée
+ *     mesurée par le rôle lui-même).
+ *
  * Exécution : npm run test:cross-tenant:rls
  */
 import { config } from "dotenv";
@@ -21,7 +38,18 @@ import { config } from "dotenv";
 if (!process.env.DATABASE_URL) config({ path: ".env.local" });
 
 import { randomUUID } from "node:crypto";
+import { getTableName, is } from "drizzle-orm";
+import { PgTable } from "drizzle-orm/pg-core";
 import { Pool, type PoolClient } from "pg";
+
+import * as schema from "../src/db/schema";
+
+/** Tables définies par le dépôt : la seule source de vérité du périmètre. */
+const TABLES_DU_DEPOT = new Set(
+  Object.values(schema)
+    .filter((v) => is(v, PgTable))
+    .map((t) => getTableName(t as PgTable)),
+);
 
 const SLUG_A = "geoforest-agro";
 const SLUG_B = "demo-tenant-b";
@@ -101,28 +129,86 @@ async function main(): Promise<void> {
     //   appliquer la RLS des tables sous-jacentes au rôle appelant. Sans elle,
     //   la vue s'exécuterait avec les droits de son propriétaire et
     //   contournerait la RLS — c'est précisément ce qui est vérifié plus bas.
-    const cols = await app.query(
-      `select c.table_name, t.table_type from information_schema.columns c
-         join information_schema.tables t
-           on t.table_schema = c.table_schema and t.table_name = c.table_name
-        where c.table_schema = 'public' and c.column_name = 'organization_id'
+    // ⚠️ L'inventaire est fait par l'**administrateur**, sur les catalogues :
+    //   `information_schema` ne montre au rôle applicatif que les tables sur
+    //   lesquelles il a un privilège. Une table étrangère sur laquelle il n'a
+    //   aucun droit en serait absente — précisément celle qu'il faut compter
+    //   pour prouver qu'elle est inaccessible (mesuré le 09/11/2026 : la table
+    //   disparaissait de l'inventaire après `revoke all`).
+    const cols = await admin.query(
+      `select c.relname as table_name,
+              case c.relkind when 'v' then 'VIEW' else 'BASE TABLE' end as table_type
+         from pg_attribute a
+         join pg_class c on c.oid = a.attrelid
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and a.attname = 'organization_id' and not a.attisdropped
+          and c.relkind in ('r', 'p', 'v')
         order by 1`,
     );
-    const tablesOrg = cols.rows
+    const toutesTablesOrg = cols.rows
       .filter((r) => r.table_type === "BASE TABLE")
       .map((r) => r.table_name as string);
+    const tablesOrg = toutesTablesOrg.filter((t) => TABLES_DU_DEPOT.has(t));
+    const tablesEtrangeres = toutesTablesOrg.filter((t) => !TABLES_DU_DEPOT.has(t));
     const vuesOrg = cols.rows
       .filter((r) => r.table_type === "VIEW")
       .map((r) => r.table_name as string);
     const tablesOrgAvecOrgs = [...tablesOrg, "gf_organizations"];
     // L'inventaire est affiché en clair : sur une branche Neon dérivée d'une
-    // parente, des tables héritées (hors migrations du dépôt) peuvent porter
-    // `organization_id` et seraient contrôlées comme les nôtres.
+    // parente, des tables héritées (hors migrations du dépôt) portent
+    // `organization_id` ; elles sont contrôlées plus bas selon leur invariant.
     check(
-      "tables tenant identifiées",
+      "tables tenant du dépôt identifiées",
       tablesOrg.length >= 10,
       `${tablesOrg.length} tables : ${tablesOrg.join(", ")}${vuesOrg.length ? ` · vues : ${vuesOrg.join(", ")}` : ""}`,
     );
+    check(
+      "toute table du dépôt portant organization_id est connue du schéma Drizzle",
+      tablesOrg.length === toutesTablesOrg.filter((t) => t.startsWith("gf_") || t === "parcel_audits").length,
+      tablesEtrangeres.filter((t) => t.startsWith("gf_")).join(", ") || "aucune table gf_* hors schéma",
+    );
+
+    section("Tables étrangères au dépôt portant organization_id : inaccessibles au rôle applicatif");
+    console.log(
+      tablesEtrangeres.length === 0
+        ? "  (aucune — base conforme aux seules migrations du dépôt)"
+        : `  ${tablesEtrangeres.length} table(s) héritée(s) de la base parente : ${tablesEtrangeres.join(", ")}`,
+    );
+    if (tablesEtrangeres.length > 0) {
+      const PRIVILEGES = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"];
+      const droits = await admin.query(
+        `select t.nom,
+                array_remove(array_agg(case when has_table_privilege($2, format('%I.%I', 'public', t.nom), p.priv)
+                                            then p.priv end), null) as accordes
+           from unnest($1::text[]) as t(nom)
+          cross join unnest($3::text[]) as p(priv)
+          group by t.nom`,
+        [tablesEtrangeres, r0.u, PRIVILEGES],
+      );
+      // La mesure par le rôle lui-même complète celle du catalogue : un GRANT
+      // à PUBLIC ou un héritage de rôle se voient à l'exécution.
+      const sonde = await app.connect();
+      try {
+        await sonde.query("begin");
+        for (const t of tablesEtrangeres) {
+          const accordes = (droits.rows.find((r) => r.nom === t)?.accordes ?? []) as string[];
+          check(
+            `${t} : aucun privilège pour le rôle applicatif`,
+            accordes.length === 0,
+            accordes.length ? `accordés : ${accordes.join(", ")}` : "aucun",
+          );
+          const lecture = await tenter(sonde, `select 1 from ${ident(t)} limit 1`);
+          check(
+            `${t} : lecture refusée au rôle applicatif (42501)`,
+            !lecture.ok && lecture.code === "42501",
+            lecture.ok ? "lecture possible" : `code ${lecture.code}`,
+          );
+        }
+        await sonde.query("rollback");
+      } finally {
+        sonde.release();
+      }
+    }
 
     section("Vues portant organization_id : exécutées avec les droits de l'appelant");
     if (vuesOrg.length > 0) {

@@ -40,6 +40,25 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   done < <(grep -E '🔴|ÉCHEC|ECHEC|Contrôle interrompu' "$JOURNAL" || true)
   synthese="$(grep -E '[0-9]+ contrôles? (réussi|passé)|échec\(s\)|vérification\(s\)|Résultat :' "$JOURNAL" | tail -n 1 | sed 's/%/%25/g')"
   [ -n "$synthese" ] && echo "::notice title=${TITRE}::${synthese} (code ${CODE})"
+
+  # GitHub n'affiche que 10 annotations d'erreur par étape : la liste complète
+  # des échecs va dans le résumé de l'exécution, et le journal entier est
+  # conservé pour l'étape d'archivage (`actions/upload-artifact`).
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    {
+      echo "### ${TITRE} — code ${CODE}"
+      [ -n "$synthese" ] && echo "${synthese}"
+      echecs="$(grep -E '🔴|ÉCHEC|ECHEC' "$JOURNAL" || true)"
+      if [ -n "$echecs" ]; then
+        echo; echo '```'; printf '%s\n' "$echecs" | head -n 200; echo '```'
+      fi
+      echo
+    } >> "$GITHUB_STEP_SUMMARY"
+  fi
+  if [ -n "${RUNNER_TEMP:-}" ]; then
+    mkdir -p "$RUNNER_TEMP/journaux"
+    cp "$JOURNAL" "$RUNNER_TEMP/journaux/$(printf '%s' "$TITRE" | tr ':/ ' '---').log"
+  fi
 fi
 
 exit "$CODE"

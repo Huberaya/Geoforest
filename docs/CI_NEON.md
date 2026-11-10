@@ -50,12 +50,26 @@ Sans ces secrets, le job **échoue** dès la création de la branche : aucune ba
 ## Point à trancher : données copiées
 
 Une branche Neon est une copie de sa parente, **données comprises** — schéma
-hérité inclus. `test:cross-tenant:rls` contrôle **toute** table de `public`
-portant `organization_id` (RLS activée et forcée, politiques `current_org()`,
-0 ligne sans contexte) : une table héritée de la parente, étrangère aux
-migrations du dépôt, est contrôlée comme les nôtres et fait échouer la preuve.
-C'est voulu (ne pas affaiblir le contrôle) ; l'inventaire des tables trouvées
-est imprimé par le contrôle « tables tenant identifiées ».
+hérité inclus. Constaté le 09/11/2026 (runs 42717343596 et 42724931100) : la
+parente désignée étant la production, la branche de CI contenait des tables
+`public.*` portant `organization_id` **étrangères au dépôt** (`documents`,
+`diligence_dossiers`, `audit_events`, …), avec des politiques qui ne reposent
+pas sur `current_org()`. `test:cross-tenant:rls` contrôle donc **toute** table
+`organization_id` de `public`, selon deux invariants, sans en ignorer aucune :
+
+- **tables du dépôt** (schéma Drizzle `src/db/schema.ts`) : RLS activée et
+  forcée, politiques toutes conditionnées par `current_org()`, 0 ligne sans
+  contexte, cloisonnement A/B en lecture/écriture/suppression/insertion,
+  intégrité des comptages ;
+- **toute autre table** : le rôle applicatif `geoforest_app` n'y a **aucun
+  privilège** (catalogue, mesuré par l'administrateur) et une lecture lui est
+  **refusée** (42501, mesurée par le rôle lui-même — un `GRANT … TO PUBLIC` ou
+  un héritage de rôle se voient ainsi).
+
+Si une table étrangère est lisible par le rôle applicatif, la preuve échoue :
+c'est un défaut d'isolation **entre applications** sur la base parente, à
+traiter côté exploitant (`REVOKE`), jamais en assouplissant le contrôle.
+L'inventaire des deux familles est imprimé en tête de section.
 
 Une branche Neon est une copie de sa parente, **données comprises**. Si `NEON_PARENT_BRANCH_ID` désigne la branche de
 production, les données personnelles de production (courriels, noms) sont copiées dans la branche de test pendant la

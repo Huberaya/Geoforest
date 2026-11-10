@@ -25,34 +25,26 @@ concurrency:
   group: geoforest-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# ⚠️ Les noms des quatre jobs suivants sont des **contrats** : la règle de
+#   protection de `main` (ruleset 26568220) exige exactement les contextes
+#   « Qualité (types, lint, règles EUDR, dépendances) », « Backend (pytest) »,
+#   « Contrôles SQL (PostgreSQL) » et « Bout en bout (application démarrée,
+#   PostgreSQL) ». Un job renommé ne remonte plus et la fusion reste bloquée
+#   sans message — constaté le 09/11/2026 (PR #11, état BLOCKED). Le test
+#   `scripts/ci/check-workflow.test.cjs` verrouille ces noms.
 jobs:
   # ---------------------------------------------------------------------------
-  # Compilation, typage, lint, contrôles unitaires et métier, backend, build.
-  # Aucune base de données n'est fournie : le build doit réussir sans.
+  # Qualité : typage, lint, tests unitaires, contrôles métier, règles EUDR,
+  # cohérence version/doc, build sans base, audit des dépendances.
+  # Union des étapes de `main` (job « qualite ») et de la branche (« verify »).
   # ---------------------------------------------------------------------------
-  verify:
-    name: Verify Frontend & Backend
+  qualite:
+    name: Qualité (types, lint, règles EUDR, dépendances)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Install backend dependencies & test
-        working-directory: backend
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          # `--strict-markers` (repris de main, 04/11/2026) : un test qui se
-          # saute doit le déclarer par un marqueur connu ; les 3 tests
-          # geospatial sont `skipped` et affichés, jamais comptés verts.
-          pytest -q --strict-markers
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -124,6 +116,34 @@ jobs:
       # outils de développement sont suivis séparément (`npm run audit:dev`).
       - name: Audit des dépendances de production
         run: npm run audit:sec
+
+  # ---------------------------------------------------------------------------
+  # Backend FastAPI (conservé tant que la décision d'architecture n'est pas
+  # tranchée — cf. chantier C5 de `main`).
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies & test
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          # `--strict-markers` (repris de main, 04/11/2026) : un test qui se
+          # saute doit le déclarer par un marqueur connu ; les 3 tests
+          # geospatial sont `skipped` et affichés, jamais comptés verts.
+          pytest -q --strict-markers
 
   # ---------------------------------------------------------------------------
   # Contrats de base et contrats HTTP sur PGlite (PostgreSQL embarqué, WASM).
@@ -393,6 +413,19 @@ jobs:
         if: always()
         run: |
           if [ -f "$RUNNER_TEMP/next.pid" ]; then kill "$(cat "$RUNNER_TEMP/next.pid")" || true; fi
+
+      # Journaux complets des suites (écrits par scripts/ci/annoter.sh) et du
+      # serveur : les annotations sont plafonnées à 10 erreurs par étape.
+      - name: Archive suite logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journaux-neon-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/journaux/
+            ${{ runner.temp }}/next.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Delete ephemeral Neon branch
         if: always()
