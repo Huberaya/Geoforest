@@ -14,12 +14,22 @@ DECLARE
   can_set_role boolean;
   can_manage_roles boolean;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'geoforest_migrator') THEN
-    RAISE EXCEPTION 'P0 RLS : rôle geoforest_migrator absent ; révocation sûre impossible.';
-  END IF;
-
   SELECT rolsuper OR rolcreaterole INTO can_manage_roles
     FROM pg_roles WHERE rolname = current_user;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'geoforest_migrator') THEN
+    IF NOT coalesce(can_manage_roles, false) THEN
+      RAISE EXCEPTION
+        'P0 RLS : % ne peut pas créer le rôle technique geoforest_migrator (CREATEROLE requis).',
+        current_user;
+    END IF;
+    -- Base vierge : créer un rôle technique sans connexion. Il ne reçoit
+    -- aucun privilège applicatif et reste sans membre après ce script.
+    EXECUTE 'CREATE ROLE geoforest_migrator NOLOGIN';
+    PERFORM set_config('geoforest.p0_created_migrator_role', 'true', true);
+  ELSE
+    PERFORM set_config('geoforest.p0_created_migrator_role', 'false', true);
+  END IF;
   IF NOT coalesce(can_manage_roles, false) THEN
     RAISE EXCEPTION 'P0 RLS : % ne peut pas endosser temporairement geoforest_migrator (CREATEROLE requis).', current_user;
   END IF;
