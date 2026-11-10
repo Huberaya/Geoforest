@@ -31,10 +31,18 @@
  *      première. C'est le contrôle qui justifie la RLS ; il est fait par
  *      l'API, pas par SQL, parce que c'est l'API qu'un client utilise.
  *
+ *   7. **parcours DDR** (C10) : fournisseur, parcelle, analyse, dossier de
+ *      diligence, refus motivé du passage en « prêt à déclarer », refus
+ *      d'export. C'est le parcours pour lequel le produit existe, et il n'était
+ *      couvert par **aucun** contrôle de bout en bout.
+ *
  * ⚠️ Ce que ce script ne prouve pas :
  *   · il ne remplace pas une revue de code ni un test unitaire ;
- *   · il ne teste pas l'analyse satellite (le fournisseur n'est pas joignable
- *     depuis la CI) — cf. chantier C9 ;
+ *   · il n'appelle **jamais** Global Forest Watch : aucun accès réseau sortant
+ *     n'est requis, et aucune clé n'est lue. Le parcours DDR est donc éprouvé
+ *     dans l'état où il se trouve réellement aujourd'hui — sans clé GFW, donc
+ *     sans analyse probante. Le chemin « dossier complet → prêt à déclarer »
+ *     reste non couvert, et c'est écrit plutôt que contourné ;
  *   · il s'exécute sur une base **jetable** : il écrit, et ne nettoie pas.
  *
  * Usage :
@@ -425,6 +433,250 @@ async function controlerParcoursMetier(a: Session): Promise<string | null> {
   return parcelleId;
 }
 
+/**
+ * C10 — le parcours pour lequel le produit existe, de la parcelle à l'export.
+ *
+ * ⚠️ Pourquoi ce contrôle manquait, et ce que son absence laissait passer.
+ *
+ *   `check-bout-en-bout.ts` s'arrêtait à la création d'une parcelle. Tout ce qui
+ *   vient après — fournisseur, analyse rattachée, dossier de diligence,
+ *   passage en « prêt à déclarer », export — n'était vérifié par AUCUN contrôle
+ *   exécuté. Les contrôles C7 (`check:validateur-ddr`) éprouvent le validateur
+ *   sur des objets construits ; ils ne prouvent pas que les routes réelles le
+ *   consultent, ni que la base rend ce qu'il faut. C'est exactement la
+ *   différence entre « le module fait ce qu'il dit » et « le produit s'en sert ».
+ *
+ * ⚠️ Le parcours est conduit dans l'état RÉEL du produit : sans clé GFW.
+ *
+ *   Il n'y a donc pas d'analyse probante possible, et le dossier ne peut pas
+ *   atteindre `READY_FOR_DECLARATION`. Ce n'est pas une limite du contrôle :
+ *   c'est l'état du produit, et le contrôle l'exige explicitement. Prétendre
+ *   tester le chemin « complet » demanderait une clé GFW et un accès réseau que
+ *   la CI n'a pas — le simuler serait tester un produit qui n'existe pas.
+ */
+async function controlerParcoursDdr(a: Session, parcelleId: string | null): Promise<void> {
+  console.log("\n— Parcours DDR —");
+
+  /* --- 1. Fournisseur ---------------------------------------------------- */
+
+  const fournisseur = await a.appel("POST", "/api/v1/suppliers", {
+    name: `Fournisseur DDR ${Date.now()}`,
+    commodity: "cocoa",
+    country: "CI",
+  });
+  exiger(
+    "création d'un fournisseur (201)",
+    fournisseur.statut === 201,
+    `HTTP ${fournisseur.statut} : ${fournisseur.texte.slice(0, 200)}`,
+  );
+  const fournisseurId = champ<string>(fournisseur.corps, "id") ?? null;
+  verifier("le fournisseur créé porte un identifiant", Boolean(fournisseurId), "id absent");
+
+  // ⚠️ Une parcelle sans fournisseur n'est rattachable à aucun dossier : le
+  //   validateur la compterait dans `SANS_PARCELLE` sans jamais pouvoir
+  //   expliquer pourquoi. On vérifie donc le rattachement AVANT de continuer,
+  //   plutôt que de découvrir plus loin un dossier inexplicablement vide.
+  if (parcelleId && fournisseurId) {
+    const rattachement = await a.appel("PATCH", `/api/v1/plots/${parcelleId}`, {
+      supplierId: fournisseurId,
+    });
+    verifier(
+      "la parcelle est rattachée au fournisseur",
+      rattachement.statut === 200,
+      `HTTP ${rattachement.statut} : ${rattachement.texte.slice(0, 200)}`,
+    );
+  }
+
+  /* --- 2. Analyse de la parcelle ----------------------------------------- */
+
+  let auditId: string | null = null;
+  if (parcelleId) {
+    const audit = await a.appel("POST", "/api/v1/audit/parcel", {
+      plot_id: parcelleId,
+      commodity: "cocoa",
+      harvest_date: "2024-06-01",
+      geojson: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-5.421345, 7.541234],
+            [-5.418001, 7.541234],
+            [-5.418001, 7.544001],
+            [-5.421345, 7.544001],
+            [-5.421345, 7.541234],
+          ],
+        ],
+      },
+      operator: { name: "Opérateur de banc", eori: "FR123456789012345" },
+      producer: { name: "Producteur de banc", country: "CI" },
+    });
+    // 201 : l'analyse CRÉE une ligne d'audit. Attendre 200 faisait échouer le
+    // contrôle sur un produit correct — une attente inventée n'est pas une
+    // vérification.
+    exiger(
+      "analyse de la parcelle (201)",
+      audit.statut === 201,
+      `HTTP ${audit.statut} : ${audit.texte.slice(0, 300)}`,
+    );
+    auditId = champ<string>(audit.corps, "audit_id") ?? null;
+
+    // ⚠️ Le point central de C9, revu ici au niveau de l'API : sans clé GFW,
+    //   l'analyse ne peut pas être probante. Le contrôle exige cette
+    //   NON-probité. Si un jour elle devient probante sans clé, c'est que le
+    //   produit s'est remis à certifier ce qu'il n'a pas observé — et ce
+    //   contrôle le dira.
+    if (process.env.GFW_API_KEY === undefined) {
+      // ⚠️ La probité est portée par l'objet `satellite`, pas à la racine de la
+      //   réponse. Lire le mauvais chemin rendrait `undefined`, et un contrôle
+      //   `=== false` sur `undefined` échouerait pour une raison qui n'a rien
+      //   à voir avec le produit — ou, pire, passerait si l'on écrivait
+      //   `!== true`. C'est exactement le genre de vérification qui ne vérifie
+      //   rien.
+      const satellite = champ<{ is_probative?: boolean; compliant?: boolean | null; source?: string }>(
+        audit.corps,
+        "satellite",
+      );
+      const statut = champ<string>(audit.corps, "status");
+      verifier(
+        "sans clé GFW, l'analyse n'est pas probante et ne conclut pas",
+        satellite?.is_probative === false && satellite?.compliant !== true && statut !== "COMPLIANT",
+        `is_probative=${String(satellite?.is_probative)} · compliant=${String(satellite?.compliant)} · status=${String(statut)}`,
+      );
+      verifier(
+        "l'analyse non probante est enregistrée comme telle en base",
+        statut === "ANALYSIS_UNAVAILABLE" || statut === "SIMULATED_NON_PROBATIVE",
+        `status=${String(statut)}`,
+      );
+    }
+  }
+
+  /* --- 3. Dossier de diligence ------------------------------------------- */
+
+  const dossier = await a.appel("POST", "/api/v1/due-diligence", {
+    title: "Dossier de bout en bout",
+    commodity: "cocoa",
+    supplierId: fournisseurId,
+  });
+  exiger(
+    "création d'un dossier de diligence (201)",
+    dossier.statut === 201,
+    `HTTP ${dossier.statut} : ${dossier.texte.slice(0, 300)}`,
+  );
+  const dossierId = champ<string>(dossier.corps, "id") ?? null;
+  verifier(
+    "le dossier naît à l'état DRAFT",
+    champ<string>(dossier.corps, "status") === "DRAFT",
+    `status=${String(champ<string>(dossier.corps, "status"))}`,
+  );
+  if (!dossierId) return;
+
+  /* --- 4. Le dossier n'est pas déclarable, et le refus est motivé ---------- */
+
+  // ⚠️ Le dossier est en DRAFT ; la transition autorisée vers « prêt à
+  //   déclarer » passe par UNDER_REVIEW. On l'y amène, puis on tente le
+  //   passage : c'est CE refus qui prouve que le validateur est réellement
+  //   branché. Une route qui accepterait la transition rendrait C7 décoratif.
+  const revue = await a.appel("PATCH", `/api/v1/due-diligence/${dossierId}`, {
+    status: "IN_ANALYSIS",
+  });
+  verifier(
+    "le dossier peut entrer en analyse",
+    revue.statut === 200,
+    `HTTP ${revue.statut} : ${revue.texte.slice(0, 200)}`,
+  );
+  const enRevue = await a.appel("PATCH", `/api/v1/due-diligence/${dossierId}`, {
+    status: "UNDER_REVIEW",
+  });
+  verifier(
+    "le dossier peut passer en revue",
+    enRevue.statut === 200,
+    `HTTP ${enRevue.statut} : ${enRevue.texte.slice(0, 200)}`,
+  );
+
+  // Le statut « déclaré » est inatteignable : une déclaration suppose un accusé
+  // du système d'information EUDR qu'aucun composant ne sait obtenir.
+  const declare = await a.appel("PATCH", `/api/v1/due-diligence/${dossierId}`, {
+    status: "DECLARED",
+  });
+  exiger(
+    "le statut « déclaré » est refusé (409)",
+    declare.statut === 409,
+    `HTTP ${declare.statut} : ${declare.texte.slice(0, 200)}`,
+  );
+
+  const pret = await a.appel("PATCH", `/api/v1/due-diligence/${dossierId}`, {
+    status: "READY_FOR_DECLARATION",
+  });
+  exiger(
+    "un dossier non étayé ne passe pas en « prêt à déclarer » (409)",
+    pret.statut === 409,
+    `HTTP ${pret.statut} : ${pret.texte.slice(0, 200)}`,
+  );
+  const manques = champ<Array<{ code?: string; gravite?: string; action?: string }>>(pret.corps, "manques");
+  verifier(
+    "le refus énumère les manques, avec ce qu'il faut faire",
+    Array.isArray(manques) &&
+      manques.length > 0 &&
+      manques.every((m) => typeof m.code === "string" && typeof m.action === "string"),
+    `${Array.isArray(manques) ? manques.length : "aucun"} manque(s) — un refus qui n'explique pas se contourne au lieu de se corriger`,
+  );
+  if (Array.isArray(manques)) {
+    // ⚠️ Sans clé GFW, le motif qui DOIT apparaître est l'absence d'analyse
+    //   probante. Vérifier sa présence évite de se satisfaire d'un refus dû à
+    //   un chemin de traverse (dossier sans fournisseur, par exemple).
+    verifier(
+      "le refus invoque l'absence d'analyse probante",
+      manques.some((m) => m.code === "ANALYSE_NON_PROBANTE"),
+      `codes=${manques.map((m) => m.code).join(", ")}`,
+    );
+    verifier(
+      "la parcelle est bien rattachée au dossier (pas de sans-parcelle)",
+      !manques.some((m) => m.code === "SANS_PARCELLE"),
+      `codes=${manques.map((m) => m.code).join(", ")}`,
+    );
+  }
+  const score = champ<number>(pret.corps, "score_calcule");
+  verifier(
+    "le refus porte le score CALCULÉ par le serveur",
+    typeof score === "number" && score >= 0 && score <= 100,
+    `score_calcule=${String(score)} — le score n'est plus reçu du client (C7)`,
+  );
+
+  /* --- 5. L'export refuse une analyse non probante ------------------------ */
+
+  if (auditId) {
+    const exportation = await a.appel("POST", "/api/v1/export/traces", {
+      audit_id: auditId,
+    });
+    // Sans clé GFW il n'y a pas d'analyse probante : l'export doit être refusé,
+    // et le dire. C'est le dernier verrou, et il est côté serveur : l'écran
+    // n'est pas une barrière.
+    exiger(
+      "l'export refuse une analyse non probante (409)",
+      exportation.statut === 409,
+      `HTTP ${exportation.statut} : ${exportation.texte.slice(0, 300)}`,
+    );
+    const probante = champ<boolean>(exportation.corps, "is_probative");
+    verifier(
+      "le refus d'export nomme la non-probité",
+      probante === false,
+      `is_probative=${String(probante)}`,
+    );
+  }
+
+  /* --- 6. Le dossier reste lisible après ces refus ------------------------ */
+
+  // ⚠️ Un refus de transition ne doit pas endommager le dossier. Si le dossier
+  //   n'était plus lisible après un 409, corriger deviendrait impossible —
+  //   c'est le piège d'un validateur trop zélé.
+  const relu = await a.appel("GET", `/api/v1/due-diligence/${dossierId}`);
+  verifier(
+    "le dossier reste lisible après un refus de transition",
+    relu.statut === 200,
+    `HTTP ${relu.statut}`,
+  );
+}
+
 async function controlerIsolation(a: Session, b: Session, parcelleId: string): Promise<void> {
   console.log("\n— Isolation multi-tenant —");
 
@@ -657,6 +909,7 @@ async function main(): Promise<number> {
     const a = await connecter(COMPTES.a);
     const b = await connecter(COMPTES.b);
     const parcelleId = await controlerParcoursMetier(a);
+    await controlerParcoursDdr(a, parcelleId);
     if (parcelleId) await controlerIsolation(a, b, parcelleId);
     else verifier("isolation multi-tenant", false, "aucune parcelle créée");
   } catch (erreur) {
