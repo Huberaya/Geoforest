@@ -1,6 +1,6 @@
 {
-  "id": "94ff98f0-0832-4973-8a31-def7ea640946",
-  "prevId": "59c06e43-39ae-4634-8b16-24516228419f",
+  "id": "0954052e-bd5a-43d9-afca-1e284530009a",
+  "prevId": "f18d2d63-acae-4c60-bb33-4c156c974648",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1396,19 +1396,20 @@
           "name": "operator_name",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "operator_eori": {
           "name": "operator_eori",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "operator_country": {
           "name": "operator_country",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'FR'"
         },
         "operator_address": {
           "name": "operator_address",
@@ -1425,6 +1426,12 @@
         "producer_country": {
           "name": "producer_country",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plot_id": {
+          "name": "plot_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1506,6 +1513,19 @@
           "notNull": true,
           "default": "'STANDARD'"
         },
+        "country_statut": {
+          "name": "country_statut",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'RESOLU'"
+        },
+        "risk_level": {
+          "name": "risk_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "compliant": {
           "name": "compliant",
           "type": "boolean",
@@ -1569,13 +1589,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "risk_level": {
-          "name": "risk_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'STANDARD'"
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -1624,18 +1637,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "plot_id": {
-          "name": "plot_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "due_diligence_id": {
-          "name": "due_diligence_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -1675,36 +1676,9 @@
           "method": "btree",
           "with": {}
         },
-        "idx_parcel_audits_dds": {
-          "name": "idx_parcel_audits_dds",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "due_diligence_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "idx_parcel_audits_plot": {
           "name": "idx_parcel_audits_plot",
           "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
             {
               "expression": "plot_id",
               "isExpression": false,
@@ -1732,8 +1706,8 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "fk_gf_parcel_audits_plot_tenant": {
-          "name": "fk_gf_parcel_audits_plot_tenant",
+        "fk_parcel_audits_plot_tenant": {
+          "name": "fk_parcel_audits_plot_tenant",
           "tableFrom": "parcel_audits",
           "tableTo": "gf_plots",
           "columnsFrom": [
@@ -1744,22 +1718,7 @@
             "id",
             "organization_id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "fk_gf_parcel_audits_dds_tenant": {
-          "name": "fk_gf_parcel_audits_dds_tenant",
-          "tableFrom": "parcel_audits",
-          "tableTo": "gf_due_diligence_statements",
-          "columnsFrom": [
-            "due_diligence_id",
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id",
-            "organization_id"
-          ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1856,6 +1815,30 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "bbox_min_lon": {
+          "name": "bbox_min_lon",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bbox_min_lat": {
+          "name": "bbox_min_lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bbox_max_lon": {
+          "name": "bbox_max_lon",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bbox_max_lat": {
+          "name": "bbox_max_lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -2806,24 +2789,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "invitation_token_hash": {
-          "name": "invitation_token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "invitation_expires_at": {
-          "name": "invitation_expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -2877,21 +2842,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "idx_gf_users_invitation": {
-          "name": "idx_gf_users_invitation",
-          "columns": [
-            {
-              "expression": "invitation_token_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -2907,19 +2857,6 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "gf_users_supplier_id_gf_suppliers_id_fk": {
-          "name": "gf_users_supplier_id_gf_suppliers_id_fk",
-          "tableFrom": "gf_users",
-          "tableTo": "gf_suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2933,12 +2870,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "ck_gf_users_lien_fournisseur": {
-          "name": "ck_gf_users_lien_fournisseur",
-          "value": "(role = 'supplier') = (supplier_id IS NOT NULL)"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

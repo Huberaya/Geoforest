@@ -227,7 +227,7 @@ Les deux **ÉCHEC** ne sont pas des régressions introduites par la branche : l'
 | Audit production | `npm run audit:sec` | **0** vulnérabilité | exit 0 (rejoué pendant cette phase) |
 | Audit développement | `npm run audit:dev` | **5 high** (`braces`) | exit 1 (attendu, voir §6) |
 | Lockfile | `npm ci --dry-run` | cohérent | exit 0 |
-| Règles EUDR | `npm run test:eudr` (corrigé V21) | **24/24** | exit 0 |
+| Règles EUDR | `npm run test:eudr` (corrigé V21) | **24 sur 24** | exit 0 |
 | Suite géospatiale backend | `pytest tests/test_geospatial.py` | 3 skipped | exit 0 |
 
 ### 4.2 Recette PostgreSQL serveur

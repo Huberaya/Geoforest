@@ -22,7 +22,7 @@ aucune réécriture ne l'expose. Statut B-8 : **FIXED** (le code FastAPI reste d
 | Base de données, rôle applicatif, RLS | `npm run test:cross-tenant:rls` | **96 / 96** |
 | Parcours E2E historique (non-régression) | `npm run test:e2e` | **49 / 49** |
 | Backend FastAPI (2 tests documentés) | `pytest` dans `backend/` | 64 réussis, **5 XFAIL** explicites |
-| Typage, lint, tests unitaires, règles EUDR | `typecheck`, `lint`, `test:unit`, `test:eudr` | 0 erreur, 162 ✅, 40/40 |
+| Typage, lint, tests unitaires, règles EUDR | `typecheck`, `lint`, `test:unit`, `test:eudr` | 0 erreur, 162 ✅, 40 sur 40 |
 
 ### Contrôle HTTP (`scripts/check-cross-tenant.ts`)
 

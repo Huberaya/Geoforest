@@ -78,7 +78,8 @@ export default function AuditHistory({ audits, loading, selectedId, onSelect }: 
                 <td className="px-3 py-2.5 font-mono text-slate-600">{a.country_code}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{a.geometry_type.includes("Point") ? "pt" : `${a.area_ha.toFixed(2)} ha`}</td>
                 <td className="px-3 py-2.5 text-slate-600">{a.loss_year ?? "—"}</td>
-                <td className="px-3 py-2.5 text-slate-600">{a.risk_level}</td>
+                {/* C6d : « non établi » ≠ « STANDARD ». */}
+                <td className="px-3 py-2.5 text-slate-600">{a.risk_level ?? "non établi"}</td>
                 <td className="px-5 py-2.5">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[a.status]}`}>{STATUS_LABEL[a.status]}</span>
                 </td>

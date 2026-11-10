@@ -290,14 +290,14 @@ précisément ce que la migration commente et ce que la mesure confirme.
 | Tests Python | `pytest -q` (backend) | **138 passed, 5 xfailed** |
 | Build sans base | `npm run build` | **0** — routes compilées, Proxy (Middleware) inclus |
 | Génération Drizzle | `npx drizzle-kit generate` | « No schema changes » |
-| Migrations sur base vierge | `npm run db:migrate` | 10 migrations + 7 scripts, **RLS 13/13** |
+| Migrations sur base vierge | `npm run db:migrate` | 10 migrations + 7 scripts, **RLS 13 sur 13** |
 | Rôle et cloisonnement | `npm run test:db` | **0** (rôle conforme, superuser non, BYPASSRLS non, 0 table hors cloisonnement) |
-| Parcours de bout en bout | `npm run test:e2e` | **49/49** |
-| Cloisonnement HTTP | `npm run test:cross-tenant` | **262/262** |
-| Export / identité HTTP | `npm run test:export-identite:http` | **31/31** |
-| États DDS HTTP | `npm run test:dds-etats:http` | **39/39** |
-| Pack de preuves HTTP | `npm run test:evidence:http` | **45/45** (3 incidents provoqués et attendus) |
-| Parcours fournisseur HTTP | `npm run test:fournisseur:http` | **57/57** |
+| Parcours de bout en bout | `npm run test:e2e` | **49 sur 49** |
+| Cloisonnement HTTP | `npm run test:cross-tenant` | **262 sur 262** |
+| Export / identité HTTP | `npm run test:export-identite:http` | **31 sur 31** |
+| États DDS HTTP | `npm run test:dds-etats:http` | **39 sur 39** |
+| Pack de preuves HTTP | `npm run test:evidence:http` | **45 sur 45** (3 incidents provoqués et attendus) |
+| Parcours fournisseur HTTP | `npm run test:fournisseur:http` | **57 sur 57** |
 | Audit complet | `npm audit --audit-level=high` | **5 high, 1 avis**, exit 1 — **non masqué** |
 | Audit production | `npm audit --omit=dev` | **0 vulnérabilité**, exit 0 |
 | Démarrage production sans `DATABASE_URL` | `timeout 18 npx next start` | erreur explicite, processus **non terminé** (R6) |

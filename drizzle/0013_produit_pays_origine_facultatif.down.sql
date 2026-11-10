@@ -1,8 +1,8 @@
--- Retour arrière de la migration 0010 (pays d'origine du produit facultatif).
+-- Retour arrière de la migration 0013 (pays d'origine du produit facultatif).
 --
 -- ⚠️ Refuse tant qu'un produit est sans pays d'origine : réintroduire
 --   NOT NULL / DEFAULT 'FR' exigerait d'inventer un pays — exactement le défaut
---   que 0010 (et le script 025) supprime. Même principe que 0009.
+--   que 0013 (et le script 025) supprime. Même principe que 0012.
 DO $garde$
 DECLARE
   sans_pays bigint;

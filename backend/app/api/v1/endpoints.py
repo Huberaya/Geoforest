@@ -1,13 +1,11 @@
 """Endpoints REST v1 de GeoForest Trace."""
 from __future__ import annotations
 
-import hmac
-import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.core.config import settings
 from app.core.database import Database, get_db
@@ -25,13 +23,13 @@ from app.services.gis_validator import validate_geometry
 from app.services.satellite_checker import check_deforestation_risk
 from app.services.traces_exporter import build_reference, export_traces_json, export_traces_xml
 from app.services.identite_operateur import classer_identite_operateur
-from app.core.security import require_backend_token
+from app.core.security import exiger_jeton
 
 router = APIRouter()
 # ⚠️ Les routes de données sont protégées **par construction** : une route
 # ajoutée à ce routeur hérite de la dépendance, même si l'auteur oublie de la
 # déclarer. Seule `/health` reste sur le routeur public.
-router_protege = APIRouter(dependencies=[Depends(require_backend_token)])
+router_protege = APIRouter(dependencies=[Depends(exiger_jeton)])
 
 # ⚠️ Lot A — il existait ici une identité de remplissage (`_ANONYMOUS_OPERATOR`)
 #   écrite en base pour tout opérateur absent : « Opérateur non renseigné » /
@@ -91,6 +89,7 @@ def audit_parcel(
     payload: ParcelAuditRequest,
     request: Request,
     db: Database = Depends(get_db),
+    _jeton: None = Depends(exiger_jeton),
 ) -> ParcelAuditResponse:
     # Le texte brut est conservé : la précision des coordonnées doit être mesurée
     # sur les littéraux du fichier, pas sur les valeurs parsées (cf. P0-05).
@@ -170,31 +169,50 @@ def audit_parcel(
     )
 
 
-@router_protege.get("/audits", response_model=List[AuditSummary], tags=["audit"])
-def list_audits(limit: int = Query(default=50, ge=1, le=500), db: Database = Depends(get_db)) -> List[AuditSummary]:
-    return [
-        AuditSummary(
-            audit_id=r.id,
-            created_at=r.created_at,
-            operator_name=r.operator_name,
-            operator_identity=classer_identite_operateur(r.operator_name, r.operator_eori).etat,
-            commodity=r.commodity,
-            hs_code=r.hs_code,
-            harvest_date=r.harvest_date,
-            area_ha=r.area_ha,
-            geometry_type=r.geometry_type,
-            status=r.status,
-            compliant=r.compliant,
-            loss_year=r.loss_year,
-            risk_level=("HIGH" if r.compliant is False else "UNKNOWN"),
-            country_code="XX",
-        )
-        for r in db.list_audits(limit)
-    ]
+@router_protege.get("/audits", response_model=List[AuditSummary], tags=["audit"], deprecated=True)
+def list_audits(
+    limit: int = Query(default=50, ge=1, le=500),
+    db: Database = Depends(get_db),
+    _jeton: None = Depends(exiger_jeton),
+) -> List[AuditSummary]:
+    """⚠️ DÉSACTIVÉE (C5).
+
+    Cette route renvoyait `SELECT * FROM parcel_audits ORDER BY created_at`
+    sans aucun filtre d'organisation : l'intégralité des dossiers de tous les
+    clients, avec leurs noms d'opérateur, leurs parcelles et leurs verdicts.
+
+    Elle n'est pas seulement protégée, elle est fermée : un jeton unique prouve
+    « l'appelant peut parler au backend », pas « l'appelant est cette
+    organisation ». Tant que ce backend n'a pas de notion d'organisation, toute
+    route qui liste des dossiers est inter-tenant par construction.
+
+    Le multi-tenant vit dans l'application Next.js (`/api/v1/audits`), qui porte
+    l'isolation par organisation et l'authentification de session.
+    """
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "Route désactivée : elle listait les dossiers de toutes les organisations. "
+            "Utilisez /api/v1/audits de l'application principale, qui applique "
+            "l'isolation par organisation."
+        ),
+    )
 
 
 @router_protege.get("/audits/{audit_id}", tags=["audit"])
-def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
+def get_audit(
+    audit_id: str,
+    db: Database = Depends(get_db),
+    _jeton: None = Depends(exiger_jeton),
+) -> Dict[str, Any]:
+    """⚠️ PROTÉGÉE mais inter-tenant (C5).
+
+    L'accès exige désormais un jeton, mais n'importe quel porteur du jeton peut
+    lire n'importe quel dossier : la route ne filtre pas par organisation, ce
+    backend n'en ayant pas la notion. Elle est conservée parce qu'elle sert le
+    parcours d'export (qui, lui, part d'un identifiant déjà vérifié côté
+    Next.js), et signalée comme dette dans `docs/SECURITE-BACKEND.md`.
+    """
     record = db.get_audit(audit_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Audit introuvable")
@@ -231,7 +249,11 @@ def get_audit(audit_id: str, db: Database = Depends(get_db)) -> Dict[str, Any]:
     summary="Export du dossier DDS vers TRACES-NT (XML ou JSON)",
     responses={200: {"content": {"application/xml": {}, "application/json": {}}}},
 )
-def export_traces(payload: TracesExportRequest, db: Database = Depends(get_db)) -> Response:
+def export_traces(
+    payload: TracesExportRequest,
+    db: Database = Depends(get_db),
+    _jeton: None = Depends(exiger_jeton),
+) -> Response:
     if not payload.audit_id:
         raise HTTPException(status_code=422, detail="audit_id requis")
     record = db.get_audit(payload.audit_id)

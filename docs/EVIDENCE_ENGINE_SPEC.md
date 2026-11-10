@@ -112,12 +112,16 @@ encore valide). Cette règle est testée (`scripts/check-readiness.ts`, 40 contr
 - Le rattachement et le détachement d'une analyse à un dossier sont journalisés (`UPDATE` sur `DDS`,
   avec `audit_rattache` ou `audit_detache`).
 
-## 5. Liens de preuve (migration 0007)
+## 5. Liens de preuve (migrations 0008 et 0010)
 
-`parcel_audits.plot_id` et `parcel_audits.due_diligence_id` relient une analyse à une parcelle
+`parcel_audits.plot_id` (migration `0008_c7_audit_plot_link`, venue de `main`) et
+`parcel_audits.due_diligence_id` (migration `0010_parcel_audit_lien_dds`) relient une analyse à une parcelle
 et à un dossier. Les deux liens sont **composites avec `organization_id`** : une analyse ne peut
 pas être rattachée à une parcelle ou à un dossier d'une autre organisation, même par erreur de
-code. Pas de `ON DELETE SET NULL` : il mettrait `organization_id` à NULL. Les suppressions sont logiques.
+code. Le lien vers le dossier n'a pas de `ON DELETE SET NULL` : sur une clé composite il mettrait aussi
+`organization_id` à NULL. ⚠️ Le lien vers la parcelle (0008) en porte un : la suppression physique
+d'une parcelle échouerait donc sur `organization_id NOT NULL` — les suppressions sont logiques, ce cas
+ne survient pas, mais il est consigné.
 Migration et retour arrière testés (`npm run db:rollback` puis `npm run db:migrate`).
 
 ## 6. Ce que le moteur ne fait pas

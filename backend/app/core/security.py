@@ -1,57 +1,88 @@
-"""Authentification du backend FastAPI.
+"""Authentification du backend FastAPI (C5).
 
-⚠️ Pourquoi un jeton de service, et pas une session.
+⚠️ Ce que ce module corrige.
 
-Ce backend ne connaît ni utilisateur ni organisation : sa base SQLite ne
-contient aucune colonne de tenant. Il ne peut donc pas appliquer un
-cloisonnement inter-organisations. La seule position tenable est de le
-traiter comme un service **mono-tenant**, interne, et de refuser toute
-requête anonyme.
+    Ce backend n'avait AUCUNE authentification. `vercel.json` le rend joignable
+    publiquement sur `/fastapi/*` et `/backend/*`, et `GET /api/v1/audits`
+    renvoyait l'intégralité des dossiers de toutes les organisations — pas
+    seulement ceux du demandeur, pas seulement des identifiants : le contenu.
 
-Le jeton est comparé en temps constant. Absent de la configuration, le
-service **échoue fermé** (503) : une variable oubliée ne doit pas rouvrir
-les données.
+    Un backend qui n'authentifie personne n'est pas « en cours de sécurisation ».
+    C'est une fuite, tant qu'il est joignable.
+
+⚠️ Le choix retenu : fermé par défaut.
+
+    Aucun jeton configuré ⇒ les routes métier répondent 503, pas 200. Un backend
+    mal configuré ne doit rien servir, plutôt que de servir tout le monde. La
+    sonde `/health`, elle, reste ouverte : elle ne dit rien du métier, et un
+    orchestrateur doit pouvoir constater qu'un service tourne même mal configuré.
+
+⚠️ Ce que ce jeton n'est PAS : une authentification multi-tenant.
+
+    Un jeton unique prouve « l'appelant est autorisé à parler au backend », pas
+    « l'appelant est cette organisation ». Les routes `/audits` restent donc
+    inter-tenant par construction, et c'est pourquoi elles sont DÉSACTIVÉES
+    (410) plutôt que simplement protégées — voir `endpoints.py`. Le multi-tenant
+    vit dans l'application Next.js, qui porte l'isolation par organisation.
 """
 from __future__ import annotations
 
 import hmac
-import os
 
 from fastapi import Header, HTTPException, status
 
 from app.core.config import settings
 
+_ENTETE = "authorization"
 
-def require_backend_token(authorization: str | None = Header(default=None)) -> None:
-    """Dépendance FastAPI : exige `Authorization: Bearer <GF_BACKEND_TOKEN>`."""
 
-    # ⚠️ Lu à chaque requête, et non depuis `settings` : `Settings` est
-    #   construit une fois à l'import. Un jeton posé après l'import (tests,
-    #   rotation, injection d'environnement) serait sinon ignoré en silence,
-    #   et le service répondrait 503 alors que la variable est bien là.
-    attendu = os.getenv("GF_BACKEND_TOKEN", "").strip()
+def _jeton_attendu() -> str:
+    return settings.backend_api_token.strip()
+
+
+def exiger_jeton(authorization: str | None = Header(default=None)) -> None:
+    """Dépendance FastAPI : exige un jeton d'API valide.
+
+    ⚠️ Trois réponses distinctes, parce qu'elles appellent trois actions
+    différentes :
+
+      503 — aucun jeton configuré : le service est fermé, l'administrateur doit
+            le configurer. Ne jamais confondre avec un refus d'autorisation.
+      401 — en-tête absent ou mal formé : l'appelant doit envoyer un jeton.
+      403 — jeton présent mais faux : soit une erreur de configuration, soit
+            une tentative. On ne renvoie pas 401 pour éviter qu'un client
+            réessaie indéfiniment avec le même jeton.
+
+    ⚠️ Comparaison à temps constant (`hmac.compare_digest`) : une comparaison
+    naïve laisse fuir la longueur du préfixe correct par le temps de réponse.
+    """
+    attendu = _jeton_attendu()
     if not attendu:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Service non configuré : GF_BACKEND_TOKEN est absent. "
-                "Les routes de données restent fermées."
+                "Backend fermé : aucun jeton d'API configuré. Définissez "
+                "BACKEND_API_TOKEN pour activer les routes métier."
             ),
         )
 
-    if not authorization or not authorization.lower().startswith("bearer "):
+    if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Jeton d'accès requis.",
+            detail="En-tête Authorization requis (format : Bearer <jeton>).",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    fourni = authorization[7:].strip()
-    # `compare_digest` sur des octets : la comparaison ne dépend pas du temps
-    # que mettrait un `==` à s'arrêter au premier caractère différent.
-    if not hmac.compare_digest(fourni.encode("utf-8"), attendu.encode("utf-8")):
+    schema, _, fourni = authorization.partition(" ")
+    if schema.lower() != "bearer" or not fourni.strip():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Jeton d'accès invalide.",
+            detail="Format attendu : Authorization: Bearer <jeton>.",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not hmac.compare_digest(fourni.strip(), attendu):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Jeton d'API invalide.",
         )

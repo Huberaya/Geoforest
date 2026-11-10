@@ -24,35 +24,39 @@ def _appel(methode, chemin, corps, headers=None):
 
 
 @pytest.mark.parametrize("methode,chemin,corps", PROTEGEES)
-def test_sans_jeton_configure_le_service_est_ferme(monkeypatch, methode, chemin, corps):
-    monkeypatch.delenv("GF_BACKEND_TOKEN", raising=False)
+def test_sans_jeton_configure_le_service_est_ferme(fixer_jeton_backend, methode, chemin, corps):
+    fixer_jeton_backend("")
     r = _appel(methode, chemin, corps, {"Authorization": "Bearer nimporte-quoi"})
     assert r.status_code == 503
 
 
 @pytest.mark.parametrize("methode,chemin,corps", PROTEGEES)
-def test_sans_en_tete_refus(monkeypatch, methode, chemin, corps):
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
+def test_sans_en_tete_refus(fixer_jeton_backend, methode, chemin, corps):
+    fixer_jeton_backend(JETON)
     assert _appel(methode, chemin, corps).status_code == 401
 
 
 @pytest.mark.parametrize("methode,chemin,corps", PROTEGEES)
-def test_mauvais_jeton_refus(monkeypatch, methode, chemin, corps):
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
-    assert _appel(methode, chemin, corps, {"Authorization": "Bearer autre-jeton"}).status_code == 401
+def test_mauvais_jeton_refus(fixer_jeton_backend, methode, chemin, corps):
+    fixer_jeton_backend(JETON)
+    # 403 et non 401 (convention C5 de `main`) : un jeton a bien été envoyé, il est faux.
+    assert _appel(methode, chemin, corps, {"Authorization": "Bearer autre-jeton"}).status_code == 403
 
 
 @pytest.mark.parametrize("methode,chemin,corps", PROTEGEES)
-def test_schema_Basic_refuse(monkeypatch, methode, chemin, corps):
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
+def test_schema_Basic_refuse(fixer_jeton_backend, methode, chemin, corps):
+    fixer_jeton_backend(JETON)
     assert _appel(methode, chemin, corps, {"Authorization": f"Basic {JETON}"}).status_code == 401
 
 
-def test_jeton_correct_franchit_la_garde(monkeypatch):
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
-    r = client.get("/api/v1/audits", headers={"Authorization": f"Bearer {JETON}"})
-    # Le jeton est accepté : la réponse ne peut plus être 401 ni 503.
-    assert r.status_code not in (401, 503)
+def test_jeton_correct_franchit_la_garde(fixer_jeton_backend):
+    fixer_jeton_backend(JETON)
+    r = client.get("/api/v1/audits/00000000-0000-0000-0000-000000000000", headers={"Authorization": f"Bearer {JETON}"})
+    # Le jeton est accepté : la réponse ne peut plus être 401, 403 ni 503
+    # (404 : le dossier n'existe pas, la garde est franchie).
+    assert r.status_code not in (401, 403, 503)
+    # La liste reste fermée même avec un jeton valide (C5 : route inter-tenant → 410).
+    assert client.get("/api/v1/audits", headers={"Authorization": f"Bearer {JETON}"}).status_code == 410
 
 
 def test_sante_reste_publique():

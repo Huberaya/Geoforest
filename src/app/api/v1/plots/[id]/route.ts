@@ -54,7 +54,7 @@ export const GET = guard<{ params: Promise<{ id: string }> }>("plot:read")(async
   // P0 (recette 2026-10-08) — rattachement par identifiant (plot_id), seul lien
   // fiable : la référence de parcelle est un texte saisi, non unique. La
   // référence ne sert plus qu'en REPLI, pour les analyses antérieures à la
-  // migration 0007 (plot_id absent), et seulement si elle ne mène à aucune autre
+  // migration 0008 (plot_id absent), et seulement si elle ne mène à aucune autre
   // parcelle de l'organisation.
   const reference = row.plot.reference;
   const colonnes = {

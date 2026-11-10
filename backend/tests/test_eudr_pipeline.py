@@ -40,19 +40,26 @@ def _fresh_db() -> None:
     reset_db_for_tests(":memory:")
 
 
-# P0 (recette 2026-10-08) : les routes API exigent un jeton. Le client de test
-# porte le jeton de test ; un appel anonyme est testé séparément (test_backend_auth).
-JETON_DE_TEST = "jeton-de-test-pipeline-" + "x" * 24
+# ⚠️ C5 — le backend exige désormais un jeton d'API sur toutes les routes
+#   métier. Le jeton est configuré ici pour que ces tests portent sur le
+#   MÉTIER et non sur l'authentification ; celle-ci a son propre fichier
+#   (`test_securite_backend.py`) où elle est éprouvée négativement.
+JETON_TEST = "jeton-de-test-uniquement"
 
 
 @pytest.fixture(autouse=True)
-def _jeton_backend(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON_DE_TEST)
+def _jeton_configure():
+    precedent = settings.backend_api_token
+    object.__setattr__(settings, "backend_api_token", JETON_TEST)
+    yield
+    object.__setattr__(settings, "backend_api_token", precedent)
 
 
 @pytest.fixture()
 def client() -> TestClient:
-    return TestClient(app, headers={"Authorization": f"Bearer {JETON_DE_TEST}"})
+    client = TestClient(app)
+    client.headers.update({"Authorization": f"Bearer {JETON_TEST}"})
+    return client
 
 
 @pytest.fixture()
@@ -429,12 +436,19 @@ class TestTracesExport:
         response = client.post("/api/v1/export/traces", json={"audit_id": "does-not-exist"})
         assert response.status_code == 404
 
-    def test_audit_history_listing(self, client: TestClient, gfw_live) -> None:
+    def test_audit_history_listing_is_disabled(self, client: TestClient, gfw_live) -> None:
+        """⚠️ Ce test vérifiait que `GET /audits` listait bien les dossiers.
+
+        C'était le défaut (C5) : la route renvoyait l'intégralité des dossiers
+        de toutes les organisations, sans le moindre filtre. Elle est désormais
+        fermée (410). Le test vérifie donc l'inverse — c'est un renversement
+        volontaire, pas un test contourné.
+        """
         self._create_audit(client, COMPLIANT_POLYGON)
         self._create_audit(client, DEFORESTED_POLYGON, commodity="cocoa")
         response = client.get("/api/v1/audits")
-        assert response.status_code == 200
-        assert len(response.json()) == 2
+        assert response.status_code == 410
+        assert "organisation" in response.json()["detail"]
 
 
 # --------------------------------------------------------------------------- 5. Multi-parcelles & Précision

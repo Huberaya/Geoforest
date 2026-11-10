@@ -1,73 +1,44 @@
 import { createHash } from "node:crypto";
 import { geodesicAreaHa } from "./gis-validator";
-import { frontieresDisponibles, resoudrePays } from "./frontieres";
+import { resoudrePays, type StatutResolution } from "./resolution-pays";
+import { niveauRisqueParcelle } from "./risque-parcelle";
+
 import { EUDR_CUTOFF_DATE, EUDR_CUTOFF_YEAR, type AnalysisEvidence, type Position, type RiskLevel, type SatelliteCheckResult, type SupportedGeometry } from "./types";
 import { incrementer, noterJauges } from "@/lib/observability/metriques";
 import { journal } from "@/lib/observability/journal";
 
-// ---------------------------------------------------------------- Pays et risque pays
+// ---------------------------------------------------------------- Benchmark pays (Commission UE, art. 29 EUDR)
+
 /**
- * P2-16 — attribution du pays par **frontières réelles**, risque pays **inconnu**.
+ * Résolution du pays d'origine d'un point.
  *
- * Deux questions distinctes, traitées différemment :
+ * ⚠️ Cette fonction reposait sur des rectangles englobants avec un niveau de
+ *   risque propre à chacun. Deux défauts, tous deux mesurés (C6a) :
+ *     - les rectangles se chevauchaient et le premier match gagnait :
+ *       Bangkok -> MM/HIGH, Oulan-Bator -> RU/HIGH, Kuala Lumpur -> ID,
+ *       Phnom Penh -> VN ;
+ *     - le niveau de risque porté par le rectangle avait dérivé de l'annexe.
+ *   La résolution se fait désormais par contour réel (`resolution-pays.ts`) et
+ *   le niveau vient exclusivement du référentiel (`benchmark-pays.ts`).
  *
- *  1. **Dans quel pays se trouve le point ?** Résolu par point-dans-polygone
- *     sur le jeu Natural Earth 1:50m versionné dans `data/frontieres/`
- *     (`world-atlas@2.0.2`, empreinte SHA-256 et licence dans
- *     `PROVENANCE.md`). Un point hors couverture — haute mer, entité sans
- *     code ISO, effet de généralisation — reste `XX` : aucun voisin n'est
- *     substitué. Si deux polygones contiennent le point, les candidats sont
- *     exposés et le code reste `XX` : choisir serait inventer une souveraineté.
- *
- *  2. **Quel est le benchmark EUDR de ce pays ?** Aucune classification
- *     officielle versionnée n'est intégrée au dépôt : le niveau reste
- *     `UNKNOWN`. Résoudre correctement le pays ne rend pas une table interne
- *     exacte, et un risque inventé est une fausse preuve. À remplacer
- *     uniquement par la liste publiée par la Commission (art. 29), avec
- *     version, date d'application et provenance.
+ * ⚠️ Un point en mer, ou sur une frontière non délimitée, ne reçoit pas de
+ *   pays inventé : il sort en `HORS_COUVERTURE` ou `CONFLIT`. Une parcelle
+ *   n'est pas en eau, mais un centroïde mal saisi peut l'être — et il vaut
+ *   mieux le dire que le classer au hasard.
  */
-export interface CountryResolution {
+export function resolveCountry(
+  lon: number,
+  lat: number,
+): {
   iso2: string;
   name: string;
-  /** Toujours `UNKNOWN` tant qu'aucun benchmark officiel versionné n'est intégré. */
   risk: RiskLevel;
-  /** Vrai si plusieurs pays contiennent le point (frontière contestée). */
-  ambiguous: boolean;
-  /** Tous les pays candidats, triés. Vide si aucun. */
-  candidates: string[];
-  /** Méthode réellement employée ; `unavailable` si le référentiel n'a pas pu être chargé. */
-  method: "natural-earth-50m" | "unavailable";
-}
-
-export const LIMITE_ATTRIBUTION_PAYS =
-  "Pays attribué par frontières Natural Earth 1:50m (world-atlas 2.0.2, versionné avec provenance) : " +
-  "généralisation régionale, un point à quelques centaines de mètres d'une frontière peut être mal " +
-  "attribué ; un point hors couverture est rendu « XX » sans substitution. Le benchmark de risque pays " +
-  "reste inconnu : aucune classification officielle versionnée n'est intégrée.";
-
-export function resolveCountry(lon: number, lat: number): CountryResolution {
-  if (!frontieresDisponibles()) {
-    return { iso2: "XX", name: "Non déterminé", risk: "UNKNOWN", ambiguous: false, candidates: [], method: "unavailable" };
-  }
-  const r = resoudrePays(lon, lat);
-  return {
-    iso2: r.iso2,
-    name: r.name,
-    risk: "UNKNOWN",
-    ambiguous: r.ambiguous,
-    candidates: r.candidates,
-    method: r.method,
-  };
-}
-
-/** Paramètres de provenance décrivant l'attribution du pays, joints à chaque résultat. */
-function provenanceAttributionPays(country: CountryResolution): Record<string, unknown> {
-  return {
-    resolution_pays: country.method,
-    pays_candidats: country.candidates,
-    pays_ambigu: country.ambiguous,
-    benchmark_pays: "non évalué : aucune classification officielle versionnée intégrée",
-  };
+  listeALAnnexe: boolean;
+  statut: StatutResolution;
+  candidats?: string[];
+  referentiel: string;
+} {
+  return resoudrePays(lon, lat);
 }
 
 // ---------------------------------------------------------------- Hotspots déterministes (mode hors-ligne)
@@ -193,6 +164,8 @@ export function aplatirPourAnalyse(input: SupportedGeometry): SupportedGeometry 
     } else if (t === "MultiPoint") {
       for (const p of g.coordinates as Position[]) points.push(p);
     } else if (t === "Polygon") {
+      // Chaque anneau est conservé : les trous sont refusés en amont (P1-16),
+      // mais une géométrie enregistrée avant le correctif peut en comporter.
       // Un Polygon est une surface : le premier anneau est son contour et les suivants
       // sont des trous. Les séparer en polygones positifs inverserait la sémantique.
       polygones.push(g.coordinates as Position[][]);
@@ -289,7 +262,7 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
   } else {
     details =
       `Simulation : aucun scénario de démonstration ne couvre cette position. ` +
-      `Pays et benchmark officiel non déterminés.`;
+      `Pays : ${country.name} (${country.iso2}), benchmark UE déclaré : ${country.risk}.`;
   }
   if (harvestDate <= EUDR_CUTOFF_DATE) details += " Récolte antérieure à la date butoir : hors champ temporel EUDR.";
 
@@ -299,10 +272,14 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
     compliant: null,
     loss_year: lossYear,
     confidence_score: null,
-    risk_level: "UNKNOWN" as RiskLevel,
+    // ⚠️ Un moteur de démonstration ne rend pas de verdict : pas de niveau de
+    //   risque parcellaire. Le risque pays est conservé comme contexte.
+    risk_level: niveauRisqueParcelle("SIMULATION", country.risk),
     country_code: country.iso2,
     country_name: country.name,
-    country_risk: "UNKNOWN" as RiskLevel,
+    country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "simulated",
     is_probative: false,
     evidence: null,
@@ -315,11 +292,19 @@ export function deterministicCheck(geometry: SupportedGeometry, harvestDate: str
         date_butoir: EUDR_CUTOFF_DATE,
         scenarios_disponibles: LOSS_HOTSPOTS.length,
         scenario_retenu: hotspotLabel,
-        ...provenanceAttributionPays(country),
+        // ⚠️ Cette valeur a longtemps dit « boîte englobante » alors que la
+        //   résolution se fait par contour depuis C6c. Une provenance qui
+        //   décrit un dispositif disparu est exactement le défaut que C3 a
+        //   corrigé dans la documentation — il ne doit pas survivre dans les
+        //   dossiers déjà enregistrés.
+        resolution_pays: "contour Natural Earth 1:50m",
+        referentiel_pays: country.referentiel,
+        statut_resolution_pays: country.statut,
       },
       limits: [
         "Aucune donnée satellite n'a été consultée : les chiffres sont inventés pour la démonstration.",
-        LIMITE_ATTRIBUTION_PAYS,
+        "Le pays est déterminé par point-dans-polygone sur les contours Natural Earth 1:50m, " +
+          "non par géocodage inverse ni par registre foncier (cf. P1-09).",
         ...LIMITES_METHODE_COUVERT,
       ],
     },
@@ -346,10 +331,15 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
     compliant: null,
     loss_year: null,
     confidence_score: null,
-    risk_level: country.risk,
+    // ⚠️ C6d : une analyse indisponible ne produit AUCUN niveau de risque
+    //   parcellaire. Avant, on recopiait `country.risk` — une parcelle
+    //   ghanéenne jamais analysée s'affichait « Risque parcelle : Faible ».
+    risk_level: niveauRisqueParcelle("NON_ANALYSEE", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "unavailable",
     is_probative: false,
     evidence: null,
@@ -358,16 +348,97 @@ function unavailableResult(geometry: SupportedGeometry, reason: string): Satelli
     provenance: {
       method: "aucune",
       version: null,
-      params: provenanceAttributionPays(country),
-      limits: [reason, "Aucun verdict de conformité n'a été établi.", LIMITE_ATTRIBUTION_PAYS, ...LIMITES_METHODE_COUVERT],
+      params: {},
+      limits: [reason, "Aucun verdict de conformité n'a été établi.", ...LIMITES_METHODE_COUVERT],
     },
     disclaimer:
       "Analyse non disponible — aucun verdict de conformité n'a été établi. " +
       "Aucune conclusion ne doit en être tirée pour un dossier EUDR.",
     loss_area_ha: 0,
     tree_cover_2000_pct: null,
-    details: `Analyse satellite impossible : ${reason}. Benchmark de risque pays indisponible.`,
+    details: `Analyse satellite impossible : ${reason}. Pays déduit des coordonnées : ${country.name} (${country.iso2}).`,
   };
+}
+
+/**
+ * L'analyse a bien tourné, mais le fournisseur n'a renvoyé **aucune observation**.
+ *
+ * ⚠️ Ce n'est pas la même chose que « aucune déforestation ».
+ *
+ *   Le jeu de données Hansen/UMD ne couvre que ce qui a été observé : une
+ *   parcelle sous nuage permanent, sous une couverture non observée à une date
+ *   donnée, ou hors de l'emprise du produit, renvoie exactement le même tableau
+ *   vide qu'une parcelle intacte. Rendre `compliant: true` dans ce cas, c'était
+ *   transformer un silence en certificat — et ce certificat entrait ensuite dans
+ *   un dossier DDR sans que rien ne le distingue d'un vrai constat.
+ *
+ *   La distinction n'est pas de la prudence de façade : elle sépare une
+ *   observation d'une absence d'observation, et seule la première peut être
+ *   déclarée à une autorité. Le produit n'a donc pas le droit de combler ce
+ *   vide — mais il a le devoir de le nommer.
+ *
+ * ⚠️ `loss_area_ha` est `null`, pas `0`. Zéro serait un chiffre, et un chiffre
+ *   faux qui plus est : on ne sait pas qu'il n'y a pas eu de perte, on sait
+ *   qu'on ne l'a pas observée.
+ */
+function resultatSansObservation(
+  geometry: SupportedGeometry,
+  evidence: AnalysisEvidence,
+  reason: string,
+): SatelliteCheckResult {
+  const [lon, lat] = centroidOf(geometry);
+  const country = resolveCountry(lon, lat);
+  return {
+    compliant: null,
+    loss_year: null,
+    confidence_score: null,
+    risk_level: niveauRisqueParcelle("NON_ANALYSEE", country.risk),
+    country_code: country.iso2,
+    country_name: country.name,
+    country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
+    source: "gfw-live",
+    // L'appel a eu lieu et a abouti : la provenance est réelle. Ce qui manque
+    // est l'observation, pas la source.
+    is_probative: false,
+    evidence,
+    provenance: {
+      method: "gfw-live",
+      version: evidence.dataset_version,
+      params: {
+        jeu_de_donnees: evidence.dataset_version,
+        fournisseur: evidence.provider,
+        date_butoir: EUDR_CUTOFF_DATE,
+      },
+      limits: [reason, "Aucun verdict de conformité n'a été établi.", ...LIMITES_METHODE_COUVERT],
+    },
+    disclaimer:
+      "Le fournisseur n'a renvoyé aucune observation sur cette parcelle — aucun verdict de conformité " +
+      "n'a été établi. Une absence de perte détectée n'est pas une absence de déforestation.",
+    loss_area_ha: null,
+    tree_cover_2000_pct: null,
+    details: `Aucune observation renvoyée par ${evidence.provider.split(" (")[0]} (${evidence.dataset_version}) : ${reason}. ` +
+      `Pays : ${country.name} (${country.iso2}).`,
+  };
+}
+
+/**
+ * Le fournisseur appelé est-il celui dont la trace peut porter le nom ?
+ *
+ * ⚠️ Avant correction, `nommerFournisseur` calculait déjà l'officialité de
+ *   l'hôte — et `is_probative` ne la consultait jamais. Un cache, un
+ *   intermédiaire ou un banc d'essai produisait donc une analyse marquée
+ *   PROBANTE, que le dossier DDR acceptait, et dont la trace ne permettait à
+ *   personne de rattacher le verdict à Global Forest Watch.
+ *
+ *   `GFW_EXIGER_HOTE_OFFICIEL=false` existe pour les installations qui passent
+ *   délibérément par un miroir interne. Le défaut est l'exigence : une
+ *   installation doit choisir explicitement de relâcher la provenance, et ce
+ *   choix apparaît alors dans la trace (`is_official_source: false`).
+ */
+function hoteOfficielExige(): boolean {
+  return (process.env.GFW_EXIGER_HOTE_OFFICIEL ?? "true").toLowerCase() !== "false";
 }
 
 // ---------------------------------------------------------------- Moteur live Global Forest Watch
@@ -478,15 +549,19 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
       const body = await res.text().catch(() => "");
       throw new Error(`GFW HTTP ${res.status} ${res.statusText} — ${body.slice(0, 200)}`);
     }
-    // fetch suit les redirections : vérifier l'hôte final réellement servi,
-    // pas seulement l'URL configurée, avant de lui attribuer une preuve officielle.
-    const fournisseurFinal = nommerFournisseur(res.url);
-    if (!fournisseurFinal.officiel) {
-      throw new Error(`Destination finale non officielle après redirection (${res.url})`);
-    }
     noterJauges("gfw_disponible", 1);
     noterJauges("gfw_latence_ms", Date.now() - debutAppel);
+    // fetch suit les redirections : un service officiel configuré qui
+    // redirigerait ailleurs ne doit pas conserver l'étiquette « officiel ».
+    // (Un fournisseur non officiel configuré volontairement — GFW_EXIGER_HOTE_OFFICIEL,
+    // check:satellite — reste accepté : il répond sans verdict, cf. liveCheck.)
+    const fournisseurFinal = nommerFournisseur(res.url || base);
+    if (nommerFournisseur(base).officiel && !fournisseurFinal.officiel) {
+      throw new Error(`Destination finale non officielle après redirection (${res.url})`);
+    }
     const payload = (await res.json()) as { data?: unknown };
+    // Contrat des lignes validé strictement : une réponse mal formée lève, elle
+    // ne devient jamais « aucune perte » (chantier B, fail-closed).
     const rows = normaliserLignesGfw(payload?.data);
     // La version réellement servie est déduite de l'URL finale : elle est
     // consignée pour qu'un audit ancien reste reproductible.
@@ -521,62 +596,52 @@ async function gfwQuery(geometry: SupportedGeometry): Promise<GfwQueryResult> {
 
 async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckResult> {
   const { rows, evidence } = await gfwQuery(geometry);
-  // Réponse vide : « aucune perte » et « aucune donnée » ne sont pas distinguables
-  // dans cette réponse. Aucun verdict de conformité n'est donc émis (cf. EUDR_WORKFLOW_VALIDATION).
-  if (rows.length === 0) {
-    return unavailableResult(
-      geometry,
-      "réponse GFW vide : absence de perte et absence de donnée ne sont pas distinguables ; aucun verdict de conformité",
-    );
-  }
-  const currentYear = new Date().getUTCFullYear();
-  const parsed = rows.map((r) => {
-    const year = Number(r.umd_tree_cover_loss__year);
-    const area = Number(r.area__ha);
-    const missingYear = r.umd_tree_cover_loss__year == null ||
-      (typeof r.umd_tree_cover_loss__year === "string" && r.umd_tree_cover_loss__year.trim() === "");
-    const missingArea = r.area__ha == null ||
-      (typeof r.area__ha === "string" && r.area__ha.trim() === "");
-    return { year, area, missingYear, missingArea };
-  });
-  const malformed = parsed.some(({ year, area, missingYear, missingArea }) =>
-    missingYear ||
-    missingArea ||
-    !Number.isInteger(year) ||
-    year < 2001 ||
-    year > currentYear ||
-    !Number.isFinite(area) ||
-    area < 0
-  );
-  if (malformed || parsed.length === 0) {
-    return unavailableResult(
-      geometry,
-      "réponse GFW malformée : année ou surface absente, invalide ou hors plage ; aucun verdict de conformité",
-    );
-  }
   const [lon, lat] = centroidOf(geometry);
   const country = resolveCountry(lon, lat);
   const areaHa = geodesicAreaHa(geometry) || 1;
+  const parsed = rows
+    .map((r) => ({ year: Number(r.umd_tree_cover_loss__year ?? 0), area: Number(r.area__ha ?? 0) }))
+    .filter((r) => r.year > 0);
+  // ⚠️ Aucune ligne : rien n'a été observé. On ne conclut pas.
+  if (parsed.length === 0) {
+    return resultatSansObservation(
+      geometry,
+      evidence,
+      "aucune ligne de perte de couvert renvoyée pour cette emprise (nuage, couverture non observée, ou hors emprise du produit)",
+    );
+  }
+
+  // ⚠️ Le fournisseur n'est pas celui que la déclaration invoquera. L'appel a
+  //   réussi, les données sont peut-être bonnes — mais le produit ne peut pas
+  //   les présenter comme un constat de Global Forest Watch. Il ne tranche donc
+  //   pas : il rend le fait, sans verdict.
+  if (hoteOfficielExige() && !evidence.is_official_source) {
+    return resultatSansObservation(
+      geometry,
+      evidence,
+      `le service interrogé n'est pas Global Forest Watch (${evidence.provider}) et GFW_EXIGER_HOTE_OFFICIEL n'est pas désactivé`,
+    );
+  }
+
   const post = parsed.filter((r) => r.year > EUDR_CUTOFF_YEAR);
   const lossArea = Number(post.reduce((acc, r) => acc + r.area, 0).toFixed(4));
-  // ------------------------------------------------------------ P0 (recette 2026-10-08)
-  // Aucune tolérance. L'ancien seuil (0,5 % de la parcelle, au moins 0,01 ha)
-  // transformait une perte réelle mais faible en « CONFORME » : 0,4 ha de
-  // déforestation post-2020 sur 100 ha passaient pour conformes. Toute surface
-  // de perte post-2020 détectée est donc non conforme ; l'éventuelle erreur
-  // de détection se corrige par revue humaine, pas par un seuil silencieux.
-  const significant = lossArea > 0;
+  const significant = lossArea >= Math.max(0.01, areaHa * 0.005);
 
   if (significant) {
     const lossYear = Math.min(...post.map((r) => r.year));
     return {
       compliant: false,
       loss_year: lossYear,
+      // ⚠️ Aucun score de confiance : la formule qui en tenait lieu n'était pas
+      //   calibrée (0,8 + fraction × 0,5), et un chiffre non calibré se lit
+      //   comme une mesure. L'absence est représentable ; un faux degré ne l'est pas.
       confidence_score: null,
-      risk_level: "HIGH",
+      risk_level: niveauRisqueParcelle("PERTE_CONSTATEE", country.risk),
       country_code: country.iso2,
       country_name: country.name,
       country_risk: country.risk,
+      country_statut: country.statut,
+      country_liste_annexe: country.listeALAnnexe,
       source: "gfw-live",
       is_probative: true,
       evidence,
@@ -586,11 +651,10 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
         params: {
           jeu_de_donnees: evidence.dataset_version,
           fournisseur: evidence.provider,
-          seuil_significativite_ha: 0,
+          seuil_significativite_ha: Number(Math.max(0.01, areaHa * 0.005).toFixed(4)),
           date_butoir: EUDR_CUTOFF_DATE,
-          ...provenanceAttributionPays(country),
         },
-        limits: [LIMITE_ATTRIBUTION_PAYS, ...LIMITES_METHODE_COUVERT],
+        limits: LIMITES_METHODE_COUVERT,
       },
       disclaimer: null,
       loss_area_ha: lossArea,
@@ -607,10 +671,12 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
     compliant: true,
     loss_year: historic,
     confidence_score: null,
-    risk_level: country.risk,
+    risk_level: niveauRisqueParcelle("AUCUNE_PERTE", country.risk),
     country_code: country.iso2,
     country_name: country.name,
     country_risk: country.risk,
+    country_statut: country.statut,
+    country_liste_annexe: country.listeALAnnexe,
     source: "gfw-live",
     is_probative: true,
     evidence,
@@ -620,18 +686,18 @@ async function liveCheck(geometry: SupportedGeometry): Promise<SatelliteCheckRes
       params: {
         jeu_de_donnees: evidence.dataset_version,
         fournisseur: evidence.provider,
-        seuil_significativite_ha: 0,
+        seuil_significativite_ha: Number(Math.max(0.01, areaHa * 0.005).toFixed(4)),
         date_butoir: EUDR_CUTOFF_DATE,
-        ...provenanceAttributionPays(country),
       },
-      limits: [LIMITE_ATTRIBUTION_PAYS, ...LIMITES_METHODE_COUVERT],
+      limits: LIMITES_METHODE_COUVERT,
     },
     disclaimer: null,
     loss_area_ha: lossArea,
     tree_cover_2000_pct: null,
     details:
-      `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : aucune perte significative ` +
-      `post-2020 (${lossArea} ha). Ce signal ne constitue pas une classification de risque pays.`,
+      `${evidence.provider.split(" (")[0]} ${evidence.dataset_version} : perte observée (${parsed.length} année(s) ` +
+      `de données), aucune perte significative post-2020 (${lossArea} ha). ` +
+      `Pays : ${country.name}, benchmark UE : ${country.risk}.`,
   };
 }
 
@@ -665,26 +731,24 @@ export async function checkDeforestationRisk(
   harvestDate: string,
 ): Promise<SatelliteCheckResult> {
   if (gfwConfigured()) {
-    // ------------------------------------------------------------ P0 (recette 2026-10-08)
-    // Un verdict « probant » ne peut venir que du service officiel. Un point
-    // d'accès configuré ailleurs (cache, miroir, banc d'essai) n'a pas de
-    // valeur de preuve : il ne produit donc AUCUN verdict, plutôt qu'un
-    // « conforme » qui aurait l'apparence d'une donnée GFW.
-    const base = (process.env.GFW_API_URL ?? "https://data-api.globalforestwatch.org").replace(/\/$/, "");
-    if (!nommerFournisseur(base).officiel) {
-      return unavailableResult(
-        geometry,
-        `source satellite non officielle (${new URL(base).host}) : aucune preuve ne peut en être tirée`,
-      );
-    }
     try {
       return await liveCheck(geometry);
     } catch (err) {
       const reason = (err as Error).name === "AbortError"
         ? `délai dépassé (${process.env.GFW_TIMEOUT_SECONDS ?? "15"} s)`
         : (err as Error).message;
-      console.error("[GFW] analyse directe impossible — aucun verdict émis :", reason);
-      return unavailableResult(geometry, reason);
+      // Le service réellement visé est nommé dans le motif : une panne d'un
+      // miroir configuré ne doit pas se lire comme une panne de Global Forest Watch.
+      const base = (process.env.GFW_API_URL ?? "https://data-api.globalforestwatch.org").replace(/\/$/, "");
+      let hote = base;
+      try {
+        hote = new URL(base).host;
+      } catch {
+        /* adresse non analysable : on garde la chaîne brute */
+      }
+      const motif = `${nommerFournisseur(base).officiel ? "Global Forest Watch" : `service non officiel ${hote}`} : ${reason}`;
+      console.error("[GFW] analyse directe impossible — aucun verdict émis :", motif);
+      return unavailableResult(geometry, motif);
     }
   }
 

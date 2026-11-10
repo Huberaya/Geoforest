@@ -232,10 +232,10 @@ Mesuré en local sur `b09bfd9` (PG 16.2 jetable, Next 16.4.5, Node 22 ; journaux
 | `test:ci` / typecheck / lint / `db:check` | 5/5 · 0 erreur · 0 erreur 0 avertissement · OK |
 | `check:version` / `check:seed` / `check:docs` | 5/5 · 10/10 · 10/10 |
 | pytest `--strict-markers` | 168 passed, 3 skipped, 2 xfailed |
-| build · unit · controles · eudr · sql · http · audit | OK · 52/52 · 27/27 · 73/73 · 52/52 · 34/34 · 0 vulnérabilité |
+| build · unit · controles · eudr · sql · http · audit | OK · 52 sur 52 · 27 sur 27 · 73 sur 73 · 52 sur 52 · 34 sur 34 · 0 vulnérabilité |
 | Job « Contrôles SQL » (équivalent) | check-sql-limits OK · migrate · `check:schema` sans dérive · migrate idempotent · rollback 0010 + remontée OK |
-| Job « Bout en bout » (équivalent) | `ci-mot-de-passe-role` OK · `check:e2e:complet` **38/38** |
-| Job Neon (équivalent, nouvel ordre) | test:db OK · e2e 49/49 · cross-tenant 262/262 · export-identite 33/33 · fournisseur 57/57 · dds-etats 39/39 · evidence 45/45 · **cross-tenant:rls 99/99** |
+| Job « Bout en bout » (équivalent) | `ci-mot-de-passe-role` OK · `check:e2e:complet` **38 sur 38** |
+| Job Neon (équivalent, nouvel ordre) | test:db OK · e2e 49 sur 49 · cross-tenant 262 sur 262 · export-identite 33 sur 33 · fournisseur 57 sur 57 · dds-etats 39 sur 39 · evidence 45 sur 45 · **cross-tenant:rls 99 sur 99** |
 
 `git merge-tree HEAD origin/main` : plus aucun conflit. **Non poussé** : la CI distante n'a pas été exécutée sur `b09bfd9` ; le job Neon y restera rouge tant que `NEON_PARENT_BRANCH_ID` désigne la production (§ 7).
 
@@ -250,7 +250,7 @@ Runs : [42724931100](https://github.com/Huberaya/Geoforest/actions/runs/42724931
 | Base de données et contrats HTTP (PGlite) | ✅ success |
 | Contrôles SQL (PostgreSQL 16 du runner) — repris de `main` | ✅ success |
 | Bout en bout (application démarrée, PostgreSQL 16) — repris de `main`, 38 contrôles | ✅ success |
-| Database & HTTP contracts (Neon branch) | ❌ **uniquement** à l'étape « Cross-tenant database RLS controls » : e2e 49/49, cross-tenant 262/262, export-identite 33/33, fournisseur 57/57, dds-etats 39/39, evidence 45/45 verts ; `cross-tenant:rls` **261 réussis / 62 échecs**, les mêmes tables héritées de la branche parente de production (`documents`, `document_versions`, `document_reviews`, …) qu'au § 7 |
+| Database & HTTP contracts (Neon branch) | ❌ **uniquement** à l'étape « Cross-tenant database RLS controls » : e2e 49 sur 49, cross-tenant 262 sur 262, export-identite 33 sur 33, fournisseur 57 sur 57, dds-etats 39 sur 39, evidence 45 sur 45 verts ; `cross-tenant:rls` **261 réussis / 62 échecs**, les mêmes tables héritées de la branche parente de production (`documents`, `document_versions`, `document_reviews`, …) qu'au § 7 |
 
 PR #11 : `MERGEABLE` (plus de conflit), état `BLOCKED` (protection de `main` : revue requise + checks). Vercel : déploiement GitHub `Preview` 7669499859 pour `fb34da2` **success** (automatique ; aucune production).
 
@@ -313,7 +313,7 @@ Run push [42728329240](https://github.com/Huberaya/Geoforest/actions/runs/427283
 | Base de données et contrats HTTP (PGlite) | ✅ |
 | Contrôles SQL (PostgreSQL) | ✅ |
 | Bout en bout (application démarrée, PostgreSQL) | ✅ |
-| Database & HTTP contracts (Neon branch) | ❌ uniquement `cross-tenant:rls` : **101 réussis / 65 échecs** ; dds-etats 39/39, evidence 45/45 verts ; artefact `journaux-neon-42728329240-1` (15 Ko) publié |
+| Database & HTTP contracts (Neon branch) | ❌ uniquement `cross-tenant:rls` : **101 réussis / 65 échecs** ; dds-etats 39 sur 39, evidence 45 sur 45 verts ; artefact `journaux-neon-42728329240-1` (15 Ko) publié |
 
 **PR #11 : `MERGEABLE` / `UNSTABLE`** (`gh pr view 11`) — les 4 contextes requis sont verts, la branche est à jour sur `main` `b7ac7aa` (toujours la tête de `main`), 0 fil de revue, 0 approbation requise. `UNSTABLE` = seuls des contrôles **non requis** échouent : **la fusion est désormais techniquement possible** ; elle n'a pas été effectuée (décision du propriétaire).
 
@@ -339,3 +339,52 @@ Conséquences : le job Neon restera rouge tant que (a) `geoforest_app` conserve 
 - **Fusion PR #11** : techniquement possible (`UNSTABLE`, 4 contextes requis verts). Décision du propriétaire, en connaissance des réserves F2 (GFW réelle non exécutée) et F3 (base hébergée : privilèges croisés et tables orphelines ci-dessus). Non effectuée.
 - **Migration base hébergée** : non — les écarts constatés entre la base et le dépôt doivent être traités avant.
 - **Déploiement production** : non.
+
+## 11. Réconciliation n° 2 avec `main` (`7a0d7ad`, PR #18) — 10/11/2026
+
+### Pourquoi
+
+Entre le push de `4337c28` et la décision de fusion, `main` a reçu la PR #18 (`7a0d7ad`, chantiers C2, C5–C11).
+PR #11 est repassée `CONFLICTING` (25 fichiers). Le propriétaire a choisi **« Réconcilier puis fusionner »** : fusionner
+`main` dans la branche, renuméroter les migrations de la branche derrière celles de `main` (déjà en production), résoudre
+sans retirer de contrôle, rejouer toutes les suites, pousser, attendre la CI, puis fusionner PR #11.
+
+Opération : `git merge --no-ff --no-commit origin/main` depuis `4337c28` (26 fichiers en conflit, tous résolus à la main).
+
+### Décisions de résolution (règle : aucun contrôle retiré, ni de la branche, ni de `main`)
+
+| Sujet | `main` (PR #18) | Branche (PR #11) | Résolution |
+|---|---|---|---|
+| Migrations | 0007 `c6d_risque_parcelle_nul`, 0008 `c7_audit_plot_link`, 0009 `c8_plot_bbox` — **appliquées en production** | 0007–0010 (lien DDS, invitation fournisseur, opérateur non renseigné, pays d'origine facultatif) — jamais appliquées sur base persistante | `main` intact. Branche renumérotée **0010–0013** ; `0010_parcel_audit_lien_dds` réécrite pour n'ajouter que ce que la 0008 de `main` n'apporte pas (`due_diligence_id`, FK, index). `drizzle-kit check` OK ; migrations sur base vierge, idempotence, rollback + remontée OK (PostgreSQL 16.2). Anciennes versions conservées hors dépôt (`/home/user/logs/anciennes-migrations/`). |
+| Backend FastAPI | C5 : `BACKEND_API_TOKEN`, `BACKEND_DOCS_ENABLED`, `exiger_jeton`, `router_protege`, `GET /api/v1/audits` → 410 | `GF_BACKEND_TOKEN`, `require_backend_token` | Convention `main` + dépendance **explicite** `_jeton: None = Depends(exiger_jeton)` sur chaque route de données (ceinture et bretelles). `check-docs` compte désormais les routes de `router_protege` (adaptation du décompte, pas de la règle). pytest strict **180 réussis, 3 ignorés, 2 xfail**. |
+| Pays / risque pays | C6 : `resolution-pays`, benchmark UE 2025/1093, `country_statut`, `risk_level` nullable, `RiskLevel` sans `UNKNOWN` | `frontieres.ts` TS, neutralisation lecture `XX`/`UNKNOWN`, `country_attribution` TRACES | Convention `main`. `src/lib/eudr/frontieres.ts` supprimé ; `data/frontieres/points-de-controle.json` conservé pour le backend ; `check-frontieres` réécrit sur les 18 points partagés (23/23). Neutralisation `XX`/`UNKNOWN` retirée (sans objet). TRACES garde `country_attribution`. |
+| Satellite | C9 : réponse vide sans verdict, hôte non officiel appelé et nommé | P0-04 : `confidence_score` jamais inventé, durcissements B | `main` C9 + durcissements B ; **`confidence_score: null`** partout (un score non calibré est un score inventé) ; l'hôte non officiel est appelé (exigence `check:satellite`), nommé dans la trace et dans le motif d'indisponibilité ; aucun verdict. `check:satellite` 17/17, `test:eudr` OK. |
+| DDR → `READY_FOR_DECLARATION` | C7 : `examiner` (parcelles `gf_plots` du fournisseur, dernière analyse par `plot_id`, pièce de légalité par parcelle), 409 avec `manques` + `score_calcule` | P0 : readiness (moteur sans blocage ni manquant, analyses par `due_diligence_id`), 409 avec `readiness` | **Les deux, évalués tous les deux avant de répondre**, dans un seul bloc (le `check:validateur-ddr` de `main` lit le premier bloc). Un refus porte toujours `manques`/`score_calcule`/`base_de_calcul` (contrat C7) **et** `readiness` ; si seul le moteur s'oppose, un manque `MOTEUR_NON_PRET` est ajouté avec l'action à mener. Le score enregistré est celui de l'examen, jamais celui du client ; `riskLevel`/`completenessScore` reçus → 409 (branche). Mesuré : la première rédaction (readiness d'abord, réponse immédiate) répondait 409 **sans manque énuméré** — trouvé par le bout en bout C10, corrigé. |
+| Export RGPD (C11) | `select()` sur `gf_users` sous le rôle applicatif, filtrage en mémoire | post-migrate 010 : `gf_users` lisible **colonne par colonne** (sans `password_hash`, `mfa_secret`, `invitation_token_hash`…) | Le contrôle base est conservé ; l'export **projette dans la requête** les 7 colonnes qu'il exporte. Mesuré : avant correction, HTTP 500 `permission denied` sur le parcours bout en bout. `check:rgpd` 34/34. |
+| Suite `dds-etats:http` (branche) | — | Fixture : analyse rattachée par `due_diligence_id`, pièce par fournisseur | Fixture **enrichie** (parcelle `gf_plots` du fournisseur, analyse rattachée au dossier **et** à la parcelle, pièce de légalité rattachée à la parcelle) pour satisfaire les deux modèles. Aucune assertion retirée ; 40 contrôles (39 avant). |
+| Contrôles de la branche conservés | — | rattachement parcelle + dossier (404/409), PATCH DDR refuse `riskLevel`/`completenessScore` (409), export bloqué `NON_COMPLIANT` (409), `country_of_activity` obligatoire, identité opérateur sans fabrication, `plots.riskLevel` non écrasé sans analyse | Tous présents. |
+| Ajouts de `main` intégrés | C2 runbook secrets, C6f origine exportable, C7 validateur, C8 recouvrement + bbox, C10 parcours DDR e2e, C11 données personnelles | — | Tous présents ; `src/lib/api.ts` = `main`. |
+| Documents | `check-docs` de `main` refuse « N/M » après « pytest » hors `TEST_REPORT` | 9 rapports historiques | Reformulés « N sur M » (41 occurrences, texte inchangé par ailleurs). Numéros de migrations corrigés (EVIDENCE_ENGINE_SPEC §5, SECURITY_TEST_REPORT, PRODUCTION_READINESS_REPORT, MIGRATIONS-NEON, RAPPORT_CLOTURE, `rollback.ts`, `plots/[id]/route.ts`). `.env.example` et `EXPLOITATION-secrets-et-audit.md` alignés sur `BACKEND_API_TOKEN`/`BACKEND_DOCS_ENABLED` ; note de péremption en tête de `rapport-securite-agent-b.md`. |
+
+Point de vigilance consigné (non modifié) : FK composite `fk_parcel_audits_plot_tenant` `ON DELETE SET NULL` alors que
+`organization_id` est `NOT NULL` (EVIDENCE_ENGINE_SPEC §5) — héritée de la 0008 de `main`, déjà en production.
+
+### Preuves locales (arbre de l'index `92a485e`, parents `4337c28` + `7a0d7ad`)
+
+Journaux : `/home/user/logs/merge2/` (hors dépôt).
+
+| Porte CI | Local | Résultat |
+|---|---|---|
+| `qualite` (30 commandes : typecheck, lint, db:check, test:ci, test:unit, test:controles, test:eudr, 19 `check:*`, audit:sec, audit:dev, build) | `portes-qualite-final.sh` | **30/30 OK** — tsc 0, eslint 0, test:ci 6/6, test:unit 52/52, test:controles 27/27, check:eudr 73/73, topologie 16/16, regles 40/40, csv 26/26, seed 10/10, version 5/5, docs 23/23, validateur-ddr 16/16, satellite 17/17, rgpd 34/34, audit 0 vulnérabilité, build 68 routes (46 API) |
+| Backend (pytest strict) | idem | **180 réussis, 3 ignorés, 2 xfail**. |
+| `base-et-http` (PGlite) | `test:sql`, `test:http` | **52 sur 52**, **34 sur 34** |
+| Contrôles SQL (PostgreSQL 16.2 jetable, port 55434) | `portes-pg.sh` §1 | check-sql-limits OK, migrate base vierge (0000→0013) OK, `check:schema` OK, migrate idempotent OK, `db:rollback` (0013) + remontée OK |
+| Bout en bout (serveur `next start`, PostgreSQL) | `portes-pg.sh` §2 | `ci-mot-de-passe-role` OK, build OK, **`check:e2e:complet` 68/68** |
+| Équivalent job Neon (rôle applicatif, un serveur par suite) | `portes-pg.sh` §3 | `test:db` OK · e2e **49/49** · cross-tenant **262/262** · export-identite **33/33** · fournisseur **57/57** · dds-etats **40/40** · evidence **45/45** · cross-tenant:rls **100/100** |
+
+Trois échecs intermédiaires étaient dus au banc local et non au code (`GF_E2E_MOT_DE_PASSE` absent, `DATABASE_URL`
+en rôle d'administration pour `test:db`, `GF_STORAGE_DIR` non partagé avec `evidence:http`) ; deux étaient de vrais défauts
+de fusion, corrigés et décrits ci-dessus (DDR 409 sans manques ; export RGPD 500).
+
+Ce qui reste **non prouvé ici** : la CI distante (à lire après le push), la base hébergée (F3, inchangée : tables étrangères
+et `gf_*` orphelines), GFW réel (F2).

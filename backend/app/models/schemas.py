@@ -229,4 +229,8 @@ class AuditSummary(BaseModel):
 class HealthResponse(BaseModel):
     status: Literal["ok"]
     version: str
-    gfw_mode: Literal["live", "deterministic-mock"]
+    # ⚠️ `"indisponible"` manquait à ce type, alors que la route le produit dès
+    #   qu'aucune source satellite n'est configurée — c'est-à-dire par défaut.
+    #   La sonde de santé répondait donc 500 sur un déploiement nu, ce qui est
+    #   exactement le moment où l'on a besoin qu'elle réponde. Trouvé par C5.
+    gfw_mode: Literal["live", "deterministic-mock", "demo-simule", "indisponible"]

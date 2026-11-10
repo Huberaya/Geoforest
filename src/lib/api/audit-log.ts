@@ -35,7 +35,7 @@ import type { TenantTx } from "@/lib/tenant";
 export interface AuditAction {
   userEmail: string;
   action: "CREATE" | "UPDATE" | "DELETE" | "AUDIT" | "EXPORT" | "VALIDATE" | "LOGIN" | "ACCESS_DENIED" | "PURGE";
-  entityType: "SUPPLIER" | "PRODUCT" | "SHIPMENT" | "PLOT" | "DOCUMENT" | "DDS" | "TASK" | "SETTINGS" | "SESSION" | "AUDIT";
+  entityType: "SUPPLIER" | "PRODUCT" | "SHIPMENT" | "PLOT" | "DOCUMENT" | "DDS" | "TASK" | "SETTINGS" | "SESSION" | "AUDIT" | "ORGANIZATION";
   entityId: string;
   details?: Record<string, unknown>;
   /**
@@ -67,6 +67,28 @@ const CLES_SENSIBLES = /^(password|password_hash|mot_de_passe|token|refresh|secr
 const MOTIFS_SENSIBLES = /(password|passwd|secret|token|apikey|api_key|authorization|cookie)/i;
 
 const MASQUE = "[masqué]";
+
+/**
+ * ⚠️ C11 — les données personnelles recopiées par effet de bord.
+ *
+ *   `nettoyer` masquait les secrets, pas les coordonnées de tiers. Supprimer
+ *   l'e-mail de contact d'un fournisseur effaçait bien la colonne, mais la même
+ *   adresse restait en clair dans le `avant` du journal — et le journal est
+ *   append-only, donc on ne peut plus la retirer ensuite.
+ *
+ *   Les clés sont comparées sur leur forme NORMALISÉE : une ligne arrive en
+ *   `contactEmail` (camelCase Drizzle) à l'écriture et en `contact_email`
+ *   (colonne SQL) à la relecture. Ne traiter qu'une forme laisserait fuiter
+ *   l'autre.
+ *
+ *   Ce qui n'est PAS retiré : l'auteur de l'action (`userEmail`, `acteurId`).
+ *   Sans lui, le journal ne dit plus qui a fait quoi, et perd sa raison d'être
+ *   (D-012).
+ */
+const CLES_PERSONNELLES_TIERS =
+  /^(contactemail|contactphone|contactname|producerphone|operatoremail|useragent|ip)$/i;
+
+const RETIRE = "[retiré — donnée personnelle d'un tiers]";
 
 /**
  * Copie défensive et nettoyée d'un enregistrement.
@@ -101,6 +123,8 @@ function nettoyer(valeur: unknown, profondeur = 0): unknown {
     for (const [cle, v] of Object.entries(source)) {
       if (CLES_SENSIBLES.test(cle) || MOTIFS_SENSIBLES.test(cle)) {
         sortie[cle] = MASQUE;
+      } else if (CLES_PERSONNELLES_TIERS.test(cle.replace(/[_-]/g, ""))) {
+        sortie[cle] = RETIRE;
       } else {
         sortie[cle] = nettoyer(v, profondeur + 1);
       }

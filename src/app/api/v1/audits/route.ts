@@ -33,8 +33,10 @@ export const GET = guard("dds:read")(async (request: Request, _ctx, { tx, organi
     status: r.status as AuditStatus,
     compliant: r.compliant,
     loss_year: r.lossYear,
-    risk_level: (r.compliant === false ? "HIGH" : "UNKNOWN") as RiskLevel,
-    country_code: "XX",
+    // ⚠️ C6d : nullable. Un audit sans analyse n'a pas de niveau de risque,
+    //   et le forcer en "STANDARD" inventerait une classification.
+    risk_level: (r.riskLevel as RiskLevel | null) ?? null,
+    country_code: r.countryCode,
   }));
 
   // P0-07 : plus de liste vide en cas d'incident. Une liste vide se lit comme

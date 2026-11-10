@@ -1,6 +1,6 @@
 # GeoForest Trace — Rapport de vérification
 
-**Mesuré le 05/11/2026** sur `main` (`21b8b83`), **remesuré le 09/11/2026** sur la fusion de `main` (`b7ac7aa`) dans `arena/ba2f9eba-geoforest` (PR #11) · **Version** `0.1.0` · **Runtime** Node 22 (CI et développement ; `engines` ≥ 20.9)
+**Mesuré le 05/11/2026** sur `main` (`21b8b83`), **remesuré le 09/11/2026** sur la fusion de `main` (`b7ac7aa`) puis **le 10/11/2026** sur la fusion de `main` (`7a0d7ad`, PR #18) dans `arena/ba2f9eba-geoforest` (PR #11) · **Version** `0.1.0` · **Runtime** Node 22 (CI et développement ; `engines` ≥ 20.9)
 
 > ⚠️ Ce document remplace un précédent rapport daté du 30/09/2026, intitulé
 > « Production Release v1.0.0 », qui affirmait **29/29 tests pytest**, **25/25
@@ -19,13 +19,13 @@
 |---|---|---|
 | Types TypeScript | **0 erreur** | `npx tsc --noEmit` |
 | Lint ESLint | **0 erreur, 0 avertissement** | `npx eslint .` |
-| Build de production | **66 routes sources** (45 API + 21 pages) — `_not-found` en plus au build, généré par Next | `npm run build` |
-| Tests backend (pytest) | **168 réussis, 3 ignorés, 2 xfail** (moteur géospatial multi-sources non livré) | `cd backend && pytest -q --strict-markers` |
+| Build de production | **67 routes sources** (46 API + 21 pages) — `_not-found` en plus au build, généré par Next | `npm run build` |
+| Tests backend (pytest) | **180 réussis, 3 ignorés, 2 xfail** (moteur géospatial multi-sources non livré) | `cd backend && pytest -q --strict-markers` |
 | Contrôles de règles métier | **170 contrôles, tous verts** (73 + 16 + 40 + 26 + 10 + 5) | `npm run check:eudr && npm run check:topologie && npm run check:regles && npm run check:csv && npm run check:seed && npm run check:version` |
 | Tests unitaires / SQL (PGlite) / HTTP (PGlite) | **52 / 52 / 34**, tous verts | `npm run test:unit && npm run test:sql && npm run test:http` |
 | Contrôles métier (ligne d'intégration) | **27 contrôles, tous verts** | `npm run test:controles` |
-| Bout en bout (serveur démarré, PostgreSQL 16) | **38 contrôles, tous verts** | `npm run check:e2e:complet` |
-| Suites HTTP sur base jetable (serveur démarré) | e2e **49/49** · cross-tenant **262/262** · export-identite **33/33** · fournisseur **57/57** · dds-etats **39/39** · evidence **45/45** · preuve RLS **99/99** | `scripts/recette/serveur-local.sh suite <nom>` puis `npm run test:cross-tenant:rls` |
+| Bout en bout (serveur démarré, PostgreSQL 16) | **68 contrôles, tous verts** (parcours DDR C10 de `main` inclus) | `npm run check:e2e:complet` |
+| Suites HTTP sur base jetable (serveur démarré) | e2e **49/49** · cross-tenant **262/262** · export-identite **33/33** · fournisseur **57/57** · dds-etats **40/40** · evidence **45/45** · preuve RLS **100/100** | `scripts/recette/serveur-local.sh suite <nom>` puis `npm run test:cross-tenant:rls` |
 | Vulnérabilités production | **0** | `npm run audit:prod` |
 | Vulnérabilités haute/critique | **0** | `npm audit --audit-level=high` |
 | Intégration continue | **4 jobs verts** sur `main` (`21b8b83`) ; sur la branche fusionnée : voir le run cité dans `docs/RAPPORT_FINALISATION_POST_PR11_2026-10-29.md` | `gh run list --branch main --limit 1` |
@@ -52,7 +52,7 @@ Ces scripts existaient dans le dépôt mais **n'étaient exécutés par aucune C
 avant le 04/11/2026. Ils le sont désormais, et chacun a été **falsifié** : casser
 la valeur testée fait bien échouer le script.
 
-### 2.2 — Bout en bout (38 contrôles, serveur réel + PostgreSQL réel)
+### 2.2 — Bout en bout (68 contrôles, serveur réel + PostgreSQL réel)
 
 `scripts/check-bout-en-bout.ts`, exécuté par le job CI `Bout en bout` :
 
@@ -61,7 +61,9 @@ la valeur testée fait bien échouer le script.
 - RLS activée **et forcée** sur les 13 tables métier, lues dans `pg_class` ;
 - authentification : mot de passe, activation TOTP, 8 codes de secours, session utilisable ;
 - parcours métier : création d'une parcelle géolocalisée, relecture, surface ;
-- **isolation multi-tenant** : B ne lit, ne modifie, ne supprime pas la parcelle de A.
+- **isolation multi-tenant** : B ne lit, ne modifie, ne supprime pas la parcelle de A ;
+- **parcours DDR** (C10, repris de `main`) : un dossier non étayé est refusé en « prêt à déclarer » avec `manques` et `score_calcule` ; l'export refuse une analyse non probante ;
+- **export RGPD** (C11) : l'export de l'organisation répond 200 sous le rôle applicatif, sans colonne de secret.
 
 Détail et limites : `docs/BANC-BOUT-EN-BOUT.md`.
 
@@ -94,8 +96,8 @@ Relevés le 05/11/2026. Chacun a été **mesuré**, pas supposé.
 
 | Affirmation documentaire | Réalité mesurée |
 |---|---|
-| « 25 routes applicatives » | **60 routes** au build sur `main` (39 API + 21 pages) ; **67** sur la branche fusionnée (45 API + 21 pages + `_not-found`) |
-| « Suite Pytest 29/29 » | **41 réussis, 3 ignorés** sur `main` ; **168 réussis, 3 ignorés, 2 xfail** sur la branche fusionnée |
+| « 25 routes applicatives » | **60 routes** au build sur `main` (39 API + 21 pages) ; **68** sur la branche fusionnée (46 API + 21 pages + `_not-found`) |
+| « Suite Pytest 29/29 » | **41 réussis, 3 ignorés** sur `main` ; **180 réussis, 3 ignorés, 2 xfail** sur la branche fusionnée |
 | « Analyses `Hansen`, Sentinel-2, ESA WorldCover » | **Hansen seul.** Aucune occurrence de Sentinel ni de WorldCover dans `src/lib/eudr/` |
 | Page `/analyses/[id]` — « visualiseur comparatif temporel » | **La route n'existe pas.** Seul `analyses/page.tsx` existe |
 | « Export de rapports PDF/Excel » | **Non implémenté** — aucune occurrence dans `/api/v1/reports` ni dans la page |

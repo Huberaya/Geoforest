@@ -8,4 +8,24 @@ from __future__ import annotations
 
 import os
 
-os.environ.setdefault("GF_BACKEND_TOKEN", "jeton-de-test-backend")
+os.environ.setdefault("BACKEND_API_TOKEN", "jeton-de-test-backend")
+
+import pytest  # noqa: E402
+
+from app.core.config import settings  # noqa: E402
+
+
+@pytest.fixture()
+def fixer_jeton_backend():
+    """Pose (ou retire, avec "") le jeton attendu par `exiger_jeton`, puis le restaure.
+
+    ⚠️ `settings` est figé à l'import : modifier l'environnement après coup est
+    sans effet. On modifie l'instance, comme `test_securite_backend.py`.
+    """
+    precedent = settings.backend_api_token
+
+    def _fixer(valeur: str) -> None:
+        object.__setattr__(settings, "backend_api_token", valeur)
+
+    yield _fixer
+    object.__setattr__(settings, "backend_api_token", precedent)

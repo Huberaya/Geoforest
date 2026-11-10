@@ -45,7 +45,7 @@ pendant cet audit : verrouillage de compte, limitation de débit, expiration et 
 - `verifier-role` (rôle `geoforest_app`) : pas superutilisateur, pas `BYPASSRLS`, 0 table hors cloisonnement, 0 droit de destruction. Sortie observée : « Rôle conforme : la RLS s'applique aux requêtes du produit ».
 - Limites SQL (`src/lib/api/limits.ts`) : `statement_timeout = 10 s`, `idle_in_transaction_session_timeout = 15 s`, délai de connexion 5 s ; vérifiées côté serveur par `check-sql-limits`.
 - **Correction P0-11** : l'application ne se rabat plus sur `postgres:postgres` (superutilisateur, qui contourne la RLS). En production, l'absence de `DATABASE_URL` fait échouer le chargement du module avec le message « DATABASE_URL est requis en production ». Reproduit le 08/10/2026.
-- Migration 0007 (`drizzle/0007_parcel_audit_liens.sql` et `.down.sql`) : ajout de colonnes et de clés composites. Le retour arrière doit passer par `npm run db:rollback` ; il n'a pas été rejoué pendant cet audit.
+- Migrations 0008 (`drizzle/0008_c7_audit_plot_link.sql`) et 0010 (`drizzle/0010_parcel_audit_lien_dds.sql` et `.down.sql`) : ajout de colonnes et de clés composites. Le retour arrière doit passer par `npm run db:rollback` ; il n'a pas été rejoué pendant cet audit.
 - Le nombre exact de politiques RLS n'a pas été recompté ; la protection est mesurée par `verifier-role`.
 
 ## 5. Service FastAPI (`backend/`)

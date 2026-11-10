@@ -55,6 +55,26 @@ class Settings:
     app_version: str = "1.0.0"
     api_v1_prefix: str = "/api/v1"
 
+    # ------------------------------------------------------------------ C5
+    # ⚠️ Ce backend n'avait AUCUNE authentification : joignable sur /fastapi/*
+    #   et /backend/* via `vercel.json`, il laissait `GET /api/v1/audits`
+    #   lister l'intégralité des dossiers de toutes les organisations.
+    #
+    #   Il est désormais fermé par défaut. Sans `BACKEND_API_TOKEN`, toutes les
+    #   routes métier répondent 503 : un backend mal configuré ne sert rien,
+    #   plutôt que de servir tout le monde.
+    #
+    #   Générer un jeton :  openssl rand -base64 48
+    backend_api_token: str = field(default_factory=lambda: os.getenv("BACKEND_API_TOKEN", ""))
+    # `/health` reste ouvert : c'est une sonde, elle ne dit rien du métier.
+    backend_health_public: bool = field(
+        default_factory=lambda: _env_bool("BACKEND_HEALTH_PUBLIC", True)
+    )
+    # Documentation interactive : ouverte en développement, fermée en production.
+    backend_docs_enabled: bool = field(
+        default_factory=lambda: _env_bool("BACKEND_DOCS_ENABLED", False)
+    )
+
     # --- Règles EUDR (Règlement (UE) 2023/1115) ---
     # Article 2(13) : date butoir de déforestation.
     eudr_cutoff_date: date = date(2020, 12, 31)
@@ -94,31 +114,12 @@ class Settings:
         )
     )
 
-    # --- Authentification du service ---
-    #
-    # ⚠️ Ce backend est **mono-tenant** : ni utilisateur, ni organisation, ni
-    #   contrôle d'accès dans SQLite. Il ne doit donc jamais être joignable
-    #   sans jeton, et ne doit jamais servir plusieurs organisations.
-    #   Sans `GF_BACKEND_TOKEN`, les routes de données répondent 503 : le
-    #   service échoue fermé au lieu de s'ouvrir par défaut.
-    backend_token: str = field(default_factory=lambda: os.getenv("GF_BACKEND_TOKEN", "").strip())
-
-    # --- Documentation interactive ---
-    #
-    # ⚠️ `/docs`, `/redoc` et `/openapi.json` décrivent l'ensemble des routes,
-    #   leurs paramètres et leurs schémas. Ce n'est pas une donnée métier, mais
-    #   c'est une carte offerte à qui veut la lire — et sur un service interne,
-    #   personne n'en a besoin. Fermées par défaut ; `GF_BACKEND_DOCS=on` les
-    #   rouvre pour un poste de développement.
-    docs_publiques: bool = field(
-        default_factory=lambda: os.getenv("GF_BACKEND_DOCS", "").strip().lower() in ("on", "1", "true", "oui")
-    )
-
     # --- CORS ---
-    # ⚠️ Pas de « * » : le middleware autorise `allow_credentials=True`, et
-    #   l'association des deux fait refléter n'importe quelle origine. Les
-    #   origines doivent être nommées. Une valeur « * » est refusée au
-    #   démarrage plutôt que silencieusement affaiblie.
+    # ⚠️ Le joker `*` était dans la liste par défaut. Combiné à
+    #   `allow_credentials=True`, il autorisait n'importe quelle origine à lire
+    #   les réponses ; et même sans identifiants, il ouvrait l'API à tout site
+    #   tiers. Le joker est retiré, et une valeur explicite `*` est refusée au
+    #   démarrage (voir `cors_valides`).
     cors_origins: List[str] = field(
         default_factory=lambda: _env_list(
             "CORS_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -132,6 +133,11 @@ class Settings:
                 "les requêtes avec credentials, et une origine générique "
                 "reviendrait à ouvrir l'API à tout site web."
             )
+
+    @property
+    def cors_valides(self) -> List[str]:
+        """Origines réellement appliquées — le joker est écarté, jamais honoré."""
+        return [o for o in self.cors_origins if o.strip() != "*"]
 
     @property
     def gfw_live_available(self) -> bool:

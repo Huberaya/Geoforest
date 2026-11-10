@@ -24,7 +24,7 @@ Référence : `PRODUCTION_READINESS_REPORT.md` (NO-GO, 08/10/2026).
 | Règles EUDR | `npm run test:eudr` | 36/36 |
 | Backend | `npm run test:backend` (venv avec pytest) | 63 réussis, 3 `xfail` |
 | DB | `npm run test:db` | OK (rôle, limites SQL) |
-| E2E | `npm run test:e2e` (build de production) | 49/49 |
+| E2E | `npm run test:e2e` (build de production) | 49 sur 49 |
 | Types / lint / build | `typecheck`, `lint`, `build` | OK |
 | Dépendances | `npm run audit:sec` | exit 1 : 6 « high » (outillage `eslint-config-next`) |
 

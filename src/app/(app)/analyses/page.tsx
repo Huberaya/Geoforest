@@ -126,7 +126,14 @@ export default function AnalysesPage() {
                             )}
                           </td>
                           <td className="px-4 py-2.5">
-                            <RiskBadge level={String(a.risk_level ?? "STANDARD")} />
+                            {/* ⚠️ C6d : ne pas retomber sur "STANDARD" — ce
+                                serait afficher une classification qui n'a
+                                jamais été prononcée. */}
+                            {a.risk_level === null ? (
+                              <span className="text-[11px] italic text-slate-400">non établi</span>
+                            ) : (
+                              <RiskBadge level={String(a.risk_level)} />
+                            )}
                           </td>
                           <td className="px-4 py-2.5 font-mono text-[10px] text-slate-500">
                             {a.draft_reference ? String(a.draft_reference) : "—"}

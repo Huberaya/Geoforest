@@ -1,11 +1,11 @@
--- Retour arrière de la migration 0008 (comptes fournisseurs invités).
+-- Retour arrière de la migration 0011 (comptes fournisseurs invités).
 --
 -- ⚠️ Refuse tant qu'un compte est rattaché à une fiche fournisseur ou porte
 --   une invitation : retirer `supplier_id` couperait le lien que la
 --   contrainte `ck_gf_users_lien_fournisseur` garantit, et le compte « supplier »
 --   deviendrait un compte sans périmètre. Ces comptes sont à traiter
 --   explicitement avant (reprise produit), pas à désosser par une descente.
--- ⚠️ La mise en quarantaine faite par 0008 (comptes « supplier » sans fiche
+-- ⚠️ La mise en quarantaine faite par 0011 (comptes « supplier » sans fiche
 --   ramenés à viewer/suspended) n'est **pas** annulée : on ne sait pas, pour
 --   un compte donné, quel était son état avant — et le journal d'audit en
 --   garde la trace.

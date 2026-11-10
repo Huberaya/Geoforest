@@ -8,6 +8,20 @@ interface GeoUploaderProps {
   onGeometryLoaded: (geojson: GeoJsonInput | null) => void;
   onSubmit: (payload: ParcelAuditRequest) => Promise<void>;
   loading: boolean;
+  /**
+   * C7 — parcelle enregistrée sur laquelle porte l'analyse.
+   *
+   * ⚠️ Sans elle, l'analyse ne peut pas être rattachée à une parcelle, et un
+   *   dossier de diligence ne peut donc pas savoir ce qui a été analysé. Le
+   *   champ reste modifiable : on peut analyser un tracé avant de l'avoir
+   *   enregistré comme parcelle, et cet état doit rester possible.
+   *
+   * L'identifiant est un UUID collé depuis la fiche de la parcelle. Une liste
+   * déroulante serait meilleure, mais elle exigerait de charger les parcelles
+   * dans cet écran — hors du périmètre de C7, et à faire au niveau du produit.
+   */
+  plotId?: string;
+  onPlotIdChange?: (value: string) => void;
 }
 
 interface DemoSample {
@@ -109,7 +123,7 @@ const inputClass =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-50";
 const labelClass = "mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500";
 
-export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: GeoUploaderProps) {
+export default function GeoUploader({ onGeometryLoaded, onSubmit, loading, plotId, onPlotIdChange }: GeoUploaderProps) {
   const [dragging, setDragging] = useState(false);
   const [parsed, setParsed] = useState<ParsedUpload | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -214,6 +228,7 @@ export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: Geo
           : null,
       declared_area_ha: declared,
       parcel_reference: parcelRef.trim() || null,
+      plot_id: plotId && plotId.trim() ? plotId.trim() : null,
     });
   };
 
@@ -394,6 +409,22 @@ export default function GeoUploader({ onGeometryLoaded, onSubmit, loading }: Geo
         <div>
           <label className={labelClass} htmlFor="parcelRef">Réf. parcelle (optionnel)</label>
           <input id="parcelRef" value={parcelRef} onChange={(e) => setParcelRef(e.target.value)} className={inputClass} placeholder="LOT-2024-001" />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="plotId">
+            Parcelle enregistrée <span className="text-slate-400">(identifiant, pour rattacher l&apos;analyse)</span>
+          </label>
+          <input
+            id="plotId"
+            value={plotId ?? ""}
+            onChange={(e) => onPlotIdChange?.(e.target.value)}
+            className={inputClass}
+            placeholder="00000000-0000-0000-0000-000000000000"
+          />
+          <p className="mt-1 text-[10px] text-slate-400">
+            L&apos;identifiant figure dans l&apos;URL de la fiche de la parcelle. Sans lui, l&apos;analyse reste
+            valable mais ne peut pas être rattachée à un dossier de diligence.
+          </p>
         </div>
         {isPointUpload && (
           <div className="sm:col-span-2">

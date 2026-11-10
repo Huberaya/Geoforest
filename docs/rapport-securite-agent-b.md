@@ -1,5 +1,7 @@
 # Rapport de mission — Agent B
 
+> **Note de péremption (10/11/2026).** Ce rapport décrit l'état des commits qu'il cite. Depuis, `main` (PR #18, `7a0d7ad`) a renommé les variables du backend FastAPI : `GF_BACKEND_TOKEN` → `BACKEND_API_TOKEN`, `GF_BACKEND_DOCS` → `BACKEND_DOCS_ENABLED` (chantier C5), et la liste `GET /api/v1/audits` répond désormais **410**. Les mentions ci-dessous de ces noms et de cette route sont historiques ; les valeurs en vigueur sont dans `.env.example` et `backend/app/core/config.py`.
+
 ## Sécurité et qualité des parcours : isolation inter-tenant et autorisations
 
 | | |
@@ -1100,7 +1102,7 @@ lecture impossible.
 complète a par ailleurs été rejouée sur cet arbre : `typecheck` 0, `lint` 0
 erreur, `test:unit` 36/36, `test:sql` 42/42, `test:http` 25/25, `build` sans
 variables, `audit:sec` 0, `audit:dev` en échec attendu, `pytest` 55, recette
-serveur 9/9.
+serveur 9 sur 9.
 
 **Commits postérieurs.** Le présent rapport est mis à jour par un commit qui ne
 modifie **que ce fichier** : l'arbre du code, des migrations, des tests et des

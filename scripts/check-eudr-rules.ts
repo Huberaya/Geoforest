@@ -333,13 +333,19 @@ function testDeterministicEngine(): void {
   const a = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   const b = deterministicCheck(DEFORESTED_POLYGON as never, "2024-06-01");
   check("deux appels identiques donnent le même verdict", JSON.stringify(a) === JSON.stringify(b));
-  // P2-16 : le pays vient des frontières Natural Earth versionnées (sud-ouest
-  // ivoirien → CI), jamais d'un rectangle ; le benchmark reste UNKNOWN.
+  // C6c/C6d (main) : le pays vient des contours Natural Earth (sud-ouest
+  // ivoirien → CI), jamais d'un rectangle ; le benchmark vient du référentiel
+  // officiel (règlement d'exécution (UE) 2025/1093), pas d'une table interne.
   const country = resolveCountry(-5.5, 6.2);
-  check("pays attribué par frontières réelles, pas par boîte englobante", country.iso2 === "CI" && country.method === "natural-earth-50m");
-  check("benchmark pays non évalué sans source officielle", country.risk === "UNKNOWN");
-  check("hors couverture : XX sans voisin substitué", resolveCountry(-30, 20).iso2 === "XX");
-  check("moteur démo n'invente pas un risque pays", a.country_code === "BR" && a.country_risk === "UNKNOWN" && a.risk_level === "UNKNOWN");
+  check("pays attribué par contour réel, pas par boîte englobante", country.iso2 === "CI" && country.statut === "RESOLU");
+  check("benchmark pays issu du référentiel officiel", country.referentiel === "EU-2025/1093" && ["LOW", "STANDARD", "HIGH"].includes(country.risk));
+  check("hors couverture : XX sans voisin substitué", resolveCountry(-30, 20).iso2 === "XX" && resolveCountry(-30, 20).statut === "HORS_COUVERTURE");
+  // Moteur de démonstration : pas de verdict, donc pas de niveau de risque
+  // parcellaire (null) ; le risque pays est un contexte issu du référentiel.
+  check(
+    "moteur démo n'invente pas un risque parcelle (null) et garde le benchmark pays du référentiel",
+    a.country_code === "BR" && a.risk_level === null && a.country_risk === resolveCountry(-52.396234, -5.096234).risk,
+  );
 }
 
 /**
@@ -433,12 +439,12 @@ async function testReponseGfw(): Promise<void> {
     const vide = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("réponse vide : aucun verdict", vide.compliant === null, `compliant=${vide.compliant}`);
     check("réponse vide : non probant", vide.is_probative === false);
-    check("réponse vide : risque pays non évalué (pays ET attribué par frontières)", vide.country_risk === "UNKNOWN" && vide.country_code === "ET");
+    check("réponse vide : aucun niveau de risque parcelle, pays ET attribué par contour", vide.risk_level === null && vide.country_code === "ET");
 
     avecReponse([{ umd_tree_cover_loss__year: 2015, area__ha: 0.5 }]);
     const avant = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");
     check("perte pré-cutoff seule : conforme probant", avant.compliant === true && avant.is_probative === true);
-    check("analyse satellite n'invente pas le benchmark pays", avant.country_risk === "UNKNOWN" && avant.country_code === "ET");
+    check("benchmark pays issu du référentiel (ET), pays attribué par contour", avant.country_code === "ET" && ["LOW", "STANDARD", "HIGH"].includes(avant.country_risk));
 
     avecReponse([{ umd_tree_cover_loss__year: 2023, area__ha: 0.4 }]);
     const apres = await checkDeforestationRisk(CLEAN_POLYGON as never, "2024-06-01");

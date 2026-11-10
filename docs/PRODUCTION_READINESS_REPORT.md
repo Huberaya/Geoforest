@@ -40,7 +40,7 @@ Ce qui est acquis : les corrections P0 qui permettaient de présenter une fausse
   - `npm run test:backend` (pytest, environnement `/home/user/.venv-gf`) : **63 réussis, 3 `xfail`** (moteur géospatial non livré) ;
   - `npm test` : exit 0 **uniquement** si `python3` dispose de pytest (sinon échec d'environnement, pas de code) ;
   - `npm run test:db` : OK (limites SQL et rôle applicatif conformes) ;
-  - `npm run test:e2e` : **49/49** sur build de production ;
+  - `npm run test:e2e` : **49 sur 49** sur build de production ;
   - `npm run typecheck` : OK ; `npm run lint` : exit 0, 0 avertissement ; `npm run build` : exit 0.
 - **Security** : contrôles OK sur authentification, MFA, autorisations, cloisonnement API, rôle DB, service FastAPI. **Ouverts** : 6 « high » npm (outillage lint), CSP en report-only, rotation des identifiants (non faite), historique Git non audité par outil dédié.
 - **GIS** : validation de géométrie et précision 6 décimales testées (16/16, 26/26 CSV). Non testé : géométries réelles de production.
@@ -65,7 +65,7 @@ Ce qui est acquis : les corrections P0 qui permettaient de présenter une fausse
 | P0-04 | Propriété `simulated_loss_year` d'une Feature pouvant dicter le verdict ; README le présentait comme fonctionnalité | Propriété jamais lue ; README corrigé | `grep` : aucune occurrence dans `src/` ni `backend/app/` |
 | P0-05 | **Export TRACES** : une parcelle probante déforestée après 2020 était exportable | Blocage 409 (TypeScript et FastAPI) ; export « signalé » supprimé | `test_export_non_compliant_bloque` (pytest) |
 | P0-06 | Pas de contrôle de préparation avant déclaration ; risque et complétude saisissables à la main | Moteur de readiness (`src/lib/eudr/readiness.ts`) ; porte de sortie vers `READY_FOR_DECLARATION` (revue + moteur sans blocage) ; champs calculés, saisie refusée (409) | `check-readiness` (40/40) ; E2E-004 |
-| P0-07 | Analyses non rattachées à la parcelle ni au dossier | Migration 0007 (`drizzle/0007_parcel_audit_liens.sql`, `.down.sql`) : `plot_id`, `due_diligence_id`, clés composites tenant-safe ; rattachement à la création de l'analyse | E2E-003, E2E-005 |
+| P0-07 | Analyses non rattachées à la parcelle ni au dossier | Migrations 0008 (`drizzle/0008_c7_audit_plot_link.sql`, `plot_id`) et 0010 (`drizzle/0010_parcel_audit_lien_dds.sql`, `.down.sql`, `due_diligence_id`) : `plot_id`, `due_diligence_id`, clés composites tenant-safe ; rattachement à la création de l'analyse | E2E-003, E2E-005 |
 | P0-08 | Parcelle non mise à jour depuis l'analyse | Statut, année de perte et confiance de la parcelle dérivés de l'analyse rattachée ; une analyse non probante laisse `PENDING` | E2E-003 (`audits_linked_by = plot_id`, statut `PENDING`) |
 | P0-09 | Pièces : URL libre acceptable comme pièce ; validation possible hors de la conformité | URL refusée (422) ; `VALID` réservé à `dds:validate` (403 sinon), exige pièce déposée (`storage_key`, `sha256`, 422 sinon), refuse `INFECTED` (422) | E2E-008 (422, 403, 422) |
 | P0-10 | **Service FastAPI** : création d'analyses, lecture et export TRACES sans authentification | Jeton Bearer obligatoire (comparaison à temps constant), fermeture (503) si non configuré ; export FastAPI soumis aux mêmes blocages | `test_backend_auth.py` (14 cas collectés) |
@@ -104,7 +104,7 @@ Ce qui est acquis : les corrections P0 qui permettaient de présenter une fausse
 | Export TRACES (document) | **Opérationnel** avec blocages | E2E-007 ; pytest |
 | Soumission TRACES NT | **Absente** : aucun appel dans le produit | B7 |
 | Déclaration officielle (statut `DECLARED`) | **Absente** : aucune route ne la pose | — |
-| Service FastAPI (`backend/`) | **Opérationnel** derrière jeton ; stockage SQLite (repli `/tmp` si le chemin échoue) | pytest 63/3 xfail |
+| Service FastAPI (`backend/`) | **Opérationnel** derrière jeton ; stockage SQLite (repli `/tmp` si le chemin échoue) | pytest 63 sur 3 xfail |
 | Moteur géospatial (3 tests `xfail`) | **Non livré** : aucune route `geospatial` | `backend/tests/test_geospatial.py` |
 | Tableau de bord (synthèse) | **Non re-vérifié** pendant cet audit | — |
 | Portail fournisseur | **Non testé** de bout en bout (aucun compte fournisseur dans le jeu de test) | §7 |

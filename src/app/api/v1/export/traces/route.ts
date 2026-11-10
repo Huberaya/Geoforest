@@ -3,6 +3,8 @@ import { dueDiligenceStatements, parcelAudits } from "@/db/schema";
 import { logAction } from "@/lib/api/audit-log";
 import { buildDdsPayload, buildReference, buildTracesXml, producteurDe, type TracesOptions } from "@/lib/eudr/traces-exporter";
 import { buildEudrIsGeoJson } from "@/lib/eudr/eudr-is-geojson";
+import { verifierOrigineExportable } from "@/lib/eudr/origine-exportable";
+import type { StatutResolution } from "@/lib/eudr/resolution-pays";
 import type { ActivityType, TracesFormat } from "@/lib/eudr/types";
 import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -14,6 +16,31 @@ import { paysValide, resoudreIdentiteExport } from "@/lib/eudr/identite-operateu
 
 export const dynamic = "force-dynamic";
 
+/**
+ * ⚠️ C7 — pourquoi cet export raisonne par PARCELLE et non par DOSSIER.
+ *
+ *   Les deux objets n'ont pas le même grain, et c'est une propriété du
+ *   règlement, pas un oubli :
+ *
+ *   · une **analyse** porte sur une parcelle — une géométrie, une date de
+ *     production, une mesure de couvert forestier. C'est l'unité de preuve ;
+ *   · un **dossier de diligence** porte sur un produit — un lot, un poids net,
+ *     une quantité mise sur le marché. C'est l'unité de déclaration.
+ *
+ *   Un produit peut agréger plusieurs parcelles ; rattacher l'export à un
+ *   dossier unique obligerait à choisir laquelle des parcelles agrégeées est
+ *   « la » preuve, et ce choix serait arbitraire. L'export reste donc attaché à
+ *   une analyse, et le dossier rassemble les analyses.
+ *
+ *   ⚠️ Ce que cela implique, et qui n'était écrit nulle part avant C7 : un
+ *     dossier « prêt à déclarer » et un export réussi sont deux constats
+ *     INDÉPENDANTS. Le premier dit que le dossier est assez étayé ; le second
+ *     dit qu'une analyse précise est exportable. Aucun des deux ne vaut preuve
+ *     que l'autre a eu lieu. La déclaration, elle, exige les deux — et c'est à
+ *     l'opérateur de les rapprocher, aucun composant du produit ne le faisant.
+ *
+ *   La limite est consignée en D-005.
+ */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIVITIES: ActivityType[] = ["IMPORT", "EXPORT", "DOMESTIC"];
 
@@ -140,6 +167,27 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
         blocked: true,
         analysis_status: row.status,
         compliant: false,
+      },
+      { status: 409 },
+    );
+  }
+
+  // ⚠️ C6f — un dossier dont l'origine n'est pas établie n'est pas exportable.
+  //   `country_benchmark_risk` et `country_code` sont des champs réglementaires :
+  //   une chaîne vide s'y lirait « non renseigné par négligence », et une
+  //   valeur prise au hasard se lirait comme une affirmation. On refuse, en
+  //   disant quoi corriger.
+  const origine = verifierOrigineExportable(
+    (row.countryStatut as StatutResolution) ?? null,
+    row.countryCode,
+  );
+  if (!origine.exportable) {
+    return NextResponse.json(
+      {
+        detail: origine.detail,
+        code: origine.code,
+        country_statut: origine.statut,
+        action_requise: origine.action,
       },
       { status: 409 },
     );
@@ -318,6 +366,8 @@ export const POST = guard("export:run")(async (request: Request, _ctx, { tx, org
       methode: row.analysisMethod,
       versionAnalyse: row.analysisVersion,
       producteur: producteur?.name ?? null,
+      pays_de_production: row.countryCode,
+      statut_origine: row.countryStatut,
     },
   });
 

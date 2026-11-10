@@ -2,9 +2,13 @@
 
 Constat, mesuré le 14/10/2026 : ce service n'a **aucune notion d'organisation**.
 Sa base (SQLite) n'a pas de colonne d'organisation, et un seul jeton partagé
-(`GF_BACKEND_TOKEN`) ouvre toutes les routes. Le produit Next.js ne l'appelle
+(`BACKEND_API_TOKEN`) ouvre toutes les routes. Le produit Next.js ne l'appelle
 pas (le navigateur ne l'atteint pas ; cf. next.config.ts), mais docker-compose
 publie son port 8000 : tant que ce n'est pas tranché, il n'est pas cloisonné.
+
+Depuis C5 (`main`, PR #18), `GET /api/v1/audits` est **fermée** (410) précisément
+parce qu'elle était inter-tenant ; les tests ci-dessous décrivent toujours la
+propriété attendue d'un service cloisonné (liste par organisation), qui n'existe pas.
 
 Les tests décrivent la propriété attendue. Ils sont marqués `xfail(strict=True)` :
 la lacune reste visible dans la suite, et un test qui passerait (XPASS) fait
@@ -50,8 +54,8 @@ def _polygone(lon: float, lat: float) -> dict:
     }
 
 
-def _creer_analyse(monkeypatch, lon: float, lat: float, reference: str) -> str:
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
+def _creer_analyse(fixer_jeton_backend, lon: float, lat: float, reference: str) -> str:
+    fixer_jeton_backend(JETON)
     corps = {
         "geojson": _polygone(lon, lat),
         "commodity": "cocoa",
@@ -66,17 +70,17 @@ def _creer_analyse(monkeypatch, lon: float, lat: float, reference: str) -> str:
 
 
 @pytest.fixture
-def deux_analyses(monkeypatch):
+def deux_analyses(fixer_jeton_backend):
     """Deux analyses distinctes, créées par l'API : sans elles, les tests seraient vacueux."""
-    a = _creer_analyse(monkeypatch, -4.123457, 6.123457, "XT-PARCELLE-A")
-    b = _creer_analyse(monkeypatch, -3.523457, 5.523457, "XT-PARCELLE-B")
+    a = _creer_analyse(fixer_jeton_backend, -4.123457, 6.123457, "XT-PARCELLE-A")
+    b = _creer_analyse(fixer_jeton_backend, -3.523457, 5.523457, "XT-PARCELLE-B")
     assert a != b
     return a, b
 
 
 @CLOISONNEMENT_NON_LIVRE
-def test_audits_portent_leur_organisation(monkeypatch, deux_analyses):
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
+def test_audits_portent_leur_organisation(fixer_jeton_backend, deux_analyses):
+    fixer_jeton_backend(JETON)
     reponse = client.get("/api/v1/audits", headers=ENTETES)
     assert reponse.status_code == 200
     audits = reponse.json()
@@ -86,8 +90,8 @@ def test_audits_portent_leur_organisation(monkeypatch, deux_analyses):
 
 
 @CLOISONNEMENT_NON_LIVRE
-def test_organisation_non_identifiee_ne_recoit_pas_les_analyses(monkeypatch, deux_analyses):
-    monkeypatch.setenv("GF_BACKEND_TOKEN", JETON)
+def test_organisation_non_identifiee_ne_recoit_pas_les_analyses(fixer_jeton_backend, deux_analyses):
+    fixer_jeton_backend(JETON)
     # Une organisation qui n'a rien créé ne doit voir aucune analyse.
     entetes = {**ENTETES, "X-Organization-Id": "00000000-0000-4000-8000-00000000abcd"}
     reponse = client.get("/api/v1/audits", headers=entetes)

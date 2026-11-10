@@ -88,7 +88,9 @@ export function attributionPays(
   params: Record<string, unknown> | undefined | null,
 ): "natural-earth-50m" | "unavailable" | "legacy_unknown" {
   const methode = params?.resolution_pays;
-  if (methode === "natural-earth-50m") return "natural-earth-50m";
+  // Deux écritures pour la même méthode : « natural-earth-50m » (P2-16) et
+  // « contour Natural Earth 1:50m » (C6c, `resolution-pays.ts`).
+  if (methode === "natural-earth-50m" || methode === "contour Natural Earth 1:50m") return "natural-earth-50m";
   if (methode === "unavailable") return "unavailable";
   return "legacy_unknown";
 }
@@ -183,9 +185,16 @@ export function buildDdsPayload(row: ParcelAuditRow, operator: OperatorInfo, opt
       geometry_rule: row.areaHa > EUDR_POLYGON_THRESHOLD_HA ? "POLYGON_REQUIRED" : "POINT_ALLOWED",
       tree_cover_loss_detected_post_cutoff: row.compliant === false,
       loss_year: row.lossYear,
-      confidence_score: null,
-      risk_level: row.compliant === false ? "HIGH" : "UNKNOWN",
-      country_benchmark_risk: "UNKNOWN",
+      confidence_score: row.confidenceScore,
+      // ⚠️ C6d : vide quand aucune analyse n'a établi de niveau. Écrire une
+      //   valeur par défaut ici ferait entrer dans le dossier TRACES une
+      //   classification qui n'a jamais été prononcée.
+      risk_level: row.riskLevel ?? "",
+      // ⚠️ C6f : plus de chaîne vide. L'export refuse en amont les dossiers
+      //   dont l'origine est indéterminée (voir `origine-exportable.ts`), donc
+      //   ce champ est toujours renseigné ici. S'il ne l'était pas, ce serait
+      //   un défaut de la barrière, pas une donnée manquante tolérable.
+      country_benchmark_risk: row.countryRisk,
       // E / P2-16 — l'attribution du pays est lue dans la provenance de
       //     l'analyse telle qu'elle a été enregistrée : `natural-earth-50m`
       //     (frontières versionnées, data/frontieres/PROVENANCE.md) ou

@@ -174,10 +174,20 @@ vercel
 vercel --prod
 ```
 
-### Intégration continue et déploiement : deux chaînes distinctes
-Chaque push déclenche la CI (`.github/workflows/ci.yml`) : typage, lint, tests
-unitaires, contrôles métier, règles EUDR, contrats SQL/HTTP, tests backend et,
-sur une branche Neon éphémère, migrations + parcours e2e/cross-tenant.
+### Déploiement Continu via GitHub Actions :
+Chaque **pull request** vers `main` déclenche le pipeline CI, qui doit être vert
+avant toute fusion : typage TypeScript, lint sans erreur tolérée, règles EUDR,
+topologie des géométries, contrôles SQL, backend (`pytest`), bout en bout sur
+une base PostgreSQL réelle, et les contrôles de cohérence documentaire.
+
+⚠️ Le nombre de tests n'est pas figé ici : il vieillit mal et une valeur
+recopiée devient fausse en silence. La valeur exacte est produite par la CI et
+consignée dans `docs/TEST_REPORT.md`, avec la commande qui permet de la
+revérifier.
+
+⚠️ Le **déploiement** n'est pas déclenché par ce pipeline : Vercel construit à
+partir du dépôt. Un pipeline vert ne prouve donc pas que l'application déployée
+fonctionne — c'est un contrôle distinct, décrit dans `docs/TEST_REPORT.md`.
 
 ⚠️ **La CI ne migre jamais la base de production.** Le déploiement Vercel est
 déclenché par le push, indépendamment de la CI, et n'exécute aucune migration.

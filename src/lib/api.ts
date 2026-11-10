@@ -20,11 +20,43 @@ import type {
 
 /**
  * Client HTTP du dashboard.
- * Le navigateur n'appelle QUE les routes Next.js (`/api/v1/...`), jamais le service FastAPI :
- * le service exige un jeton serveur (GF_BACKEND_API_TOKEN) qui ne doit pas atteindre le client
- * (audit B9). Aucune variable NEXT_PUBLIC_* ne peut rediriger ces appels vers un autre service.
+ * - Par défaut : routes Next.js intégrées (`/api/v1/...`, persistance PostgreSQL).
+ * - Si `NEXT_PUBLIC_API_URL` est défini (ex: http://localhost:8000) : backend FastAPI.
+ *
+ * ⚠️ C5 — le backend FastAPI exige désormais un jeton (`BACKEND_API_TOKEN`).
+ *   Ce client ne peut pas le porter de façon sûre : une variable
+ *   `NEXT_PUBLIC_*` est embarquée dans le bundle envoyé au navigateur, donc
+ *   publique. La brancher sur le backend exposerait le jeton à tout visiteur.
+ *
+ *   Le branchement est donc REFUSÉ, explicitement, au lieu d'échouer en 401 à
+ *   l'exécution. Un backend qu'on ne peut pas authentifier depuis le client ne
+ *   doit pas être appelé depuis le client : la voie correcte est de passer par
+ *   une route Next.js qui relaie avec le jeton côté serveur.
  */
-const API_BASE = "";
+const API_BASE_BRUT = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+
+function baseApi(): string {
+  if (API_BASE_BRUT && /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(API_BASE_BRUT)) {
+    // Développement local : le backend tourne sur la même machine, le jeton est
+    // fourni à la main par le développeur. On accepte, en le disant.
+    console.warn(
+      "[api] Client branché sur le backend FastAPI local. En production, " +
+        "BACKEND_API_TOKEN ne doit jamais transiter par une variable NEXT_PUBLIC_*.",
+    );
+    return API_BASE_BRUT;
+  }
+  if (API_BASE_BRUT) {
+    throw new ApiError(
+      0,
+      "NEXT_PUBLIC_API_URL pointe vers un backend distant : appel refusé. " +
+        "Le backend exige BACKEND_API_TOKEN, qui ne peut pas être exposé au " +
+        "navigateur. Passez par une route Next.js qui relaie côté serveur.",
+    );
+  }
+  return "";
+}
+
+const API_BASE = baseApi();
 
 export class ApiError extends Error {
   constructor(
@@ -188,14 +220,33 @@ export async function getPlot(id: string): Promise<PlotDetail> {
  * passer par un objet JSON rétrécirait `-5.500000` en `-5.5` et ferait rejeter
  * une géométrie conforme (P0-05).
  */
-export async function createPlot(payload: Record<string, unknown>): Promise<Plot> {
+export async function createPlot(
+  payload: Record<string, unknown>,
+): Promise<Plot & { recoupements?: Recoupement[] }> {
   const response = await fetch(`${API_BASE}/api/v1/plots`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw new ApiError(response.status, await extractError(response));
-  return (await response.json()) as Plot;
+  // ⚠️ Le recoupement est CONSERVÉ, pas typé en `Plot` puis jeté.
+  //
+  //   `Plot` ne le porte pas : c'est une annotation de la réponse, pas une
+  //   propriété de la parcelle. Le convertir en `Plot` suffisait à le faire
+  //   disparaître à la compilation — et l'écran ne pouvait plus l'afficher.
+  //   Le serveur l'avait constaté, journalisé, renvoyé : il mourait ici.
+  return (await response.json()) as Plot & { recoupements?: Recoupement[] };
+}
+
+/**
+ * Une parcelle de la même organisation dont la surface recouvre celle qu'on
+ * vient de créer. Il n'y a volontairement pas de surface en hectares : un
+ * chiffre faux entrerait dans une déclaration, une absence de chiffre non.
+ */
+export interface Recoupement {
+  id: string;
+  name: string;
+  verdict: string;
 }
 
 export async function deletePlot(id: string): Promise<void> {

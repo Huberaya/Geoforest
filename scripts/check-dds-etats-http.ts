@@ -127,17 +127,38 @@ async function main(): Promise<void> {
   check("dossier créé en DRAFT", reussi(dds) && dds.json?.status === "DRAFT", `${dds.status} ${dds.json?.status}`);
   const ddsId: string = dds.json?.id;
 
+  // Depuis la fusion de `main` (C7, 10/11/2026), un dossier n'est « prêt à
+  // déclarer » que si le produit a pu le CONSTATER : les parcelles sont des
+  // entités `gf_plots` du fournisseur, leur dernière analyse est rattachée par
+  // `plot_id`, et la légalité est étayée par une pièce rattachée à une
+  // parcelle. Le lien explicite `due_diligence_id` (cette branche) reste
+  // exigé par la readiness P0. La fixture satisfait donc les DEUX modèles :
+  // une parcelle, une analyse rattachée au dossier ET à la parcelle, une pièce
+  // de légalité rattachée à la parcelle.
   const poly = polygone(-3.123457, 5.123457);
+  const parcelle = await appel(admin, "POST", "/api/v1/plots", {
+    name: `Parcelle ${nom}`,
+    reference: nom,
+    countryCode: "CI",
+    commodity: "cocoa",
+    supplierId,
+    geometry: JSON.parse(poly),
+    areaHa: 1.2,
+    geometryType: "polygon",
+  });
+  check("parcelle du fournisseur créée", reussi(parcelle) && typeof parcelle.json?.id === "string", `${parcelle.status}`);
+  const plotId: string = parcelle.json?.id;
+
   const audit = await appel(
     admin,
     "POST",
     "/api/v1/audit/parcel",
-    `{"geojson":${poly},"commodity":"cocoa","harvest_date":"2025-03-01","operator":{"name":"Op ${nom}","eori":"FR12345678901234"},"parcel_reference":"${nom}","due_diligence_id":"${ddsId}"}`,
+    `{"geojson":${poly},"commodity":"cocoa","harvest_date":"2025-03-01","operator":{"name":"Op ${nom}","eori":"FR12345678901234"},"parcel_reference":"${nom}","plot_id":"${plotId}","due_diligence_id":"${ddsId}"}`,
   );
   check("analyse de parcelle créée et rattachée au dossier", reussi(audit) && typeof audit.json?.audit_id === "string", `${audit.status}`);
   const auditId: string = audit.json?.audit_id;
 
-  const piece = await envoyerFichier(admin, { title: `Titre ${nom}`, category: "LAND_TENURE", supplierId });
+  const piece = await envoyerFichier(admin, { title: `Titre ${nom}`, category: "LAND_TENURE", supplierId, plotId });
   check("pièce LAND_TENURE déposée", reussi(piece), `${piece.status}`);
   const pieceId: string = piece.json?.id ?? piece.json?.document?.id;
   const valide = await appel(admin, "PATCH", `/api/v1/documents/${pieceId}`, { status: "VALID" });

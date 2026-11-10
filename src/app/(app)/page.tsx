@@ -49,6 +49,8 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function DashboardPage() {
   const [pendingGeometry, setPendingGeometry] = useState<GeoJsonInput | null>(null);
+  // C7 — identifiant de la parcelle sur laquelle porte l'analyse (facultatif).
+  const [plotId, setPlotId] = useState("");
   const [result, setResult] = useState<ParcelAuditResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -368,7 +370,13 @@ export default function DashboardPage() {
             <h2 className="text-sm font-bold text-slate-900">1. Audit instantané de parcelle</h2>
             <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">GIS & GFW</span>
           </div>
-          <GeoUploader onGeometryLoaded={handleGeometryLoaded} onSubmit={handleSubmit} loading={loading} />
+          <GeoUploader
+            onGeometryLoaded={handleGeometryLoaded}
+            onSubmit={handleSubmit}
+            loading={loading}
+            plotId={plotId}
+            onPlotIdChange={setPlotId}
+          />
         </section>
 
         <section className="min-h-[520px] xl:col-span-5 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs flex flex-col">

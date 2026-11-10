@@ -16,10 +16,9 @@ const RISK_STYLES: Record<RiskLevel, string> = {
   STANDARD: "bg-amber-100 text-amber-800 ring-amber-200",
   HIGH: "bg-red-100 text-red-800 ring-red-200",
   CRITICAL: "bg-rose-100 text-rose-800 ring-rose-200",
-  UNKNOWN: "bg-slate-100 text-slate-700 ring-slate-300",
 };
 
-const RISK_LABELS: Record<RiskLevel, string> = { LOW: "Faible", STANDARD: "Standard", HIGH: "Élevé", CRITICAL: "Critique", UNKNOWN: "Non évalué" };
+const RISK_LABELS: Record<RiskLevel, string> = { LOW: "Faible", STANDARD: "Standard", HIGH: "Élevé", CRITICAL: "Critique" };
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -101,14 +100,29 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
         : status === "SIMULATED_NON_PROBATIVE"
           ? { text: "ANALYSE SIMULÉE — NON PROBANT", cls: "bg-slate-600 text-white", icon: "⚠" }
           : status === "ANALYSIS_UNAVAILABLE"
-            ? { text: "ANALYSE INDISPONIBLE", cls: "bg-slate-500 text-white", icon: "?" }
+            ? satellite?.evidence !== null && satellite?.evidence !== undefined
+              ? // Le fournisseur a répondu, mais sans rien observer : ce n'est pas
+                // une indisponibilité, c'est une absence d'observation. Les
+                // confondre ferait chercher une panne là où il n'y en a pas, et
+                // surtout ferait croire à un problème technique là où il s'agit
+                // d'une limite de la donnée.
+                { text: "AUCUNE OBSERVATION", cls: "bg-amber-600 text-white", icon: "◐" }
+              : { text: "ANALYSE INDISPONIBLE", cls: "bg-slate-500 text-white", icon: "?" }
             : { text: "GÉOMÉTRIE INVALIDE", cls: "bg-amber-500 text-white", icon: "!" };
 
   // P0-04 : un résultat simulé ou absent ne part pas en déclaration TRACES.
   // Seule une analyse probante, appuyée sur des données réelles, est exportable.
   const exportable = status === "COMPLIANT" || status === "NON_COMPLIANT";
-  const provenance =
-    satellite?.source === "gfw-live"
+  // ⚠️ C9 — `source === "gfw-live"` ne suffit plus à afficher « Données GFW » en
+  //   vert. Depuis la correction, une analyse peut avoir interrogé le
+  //   fournisseur et n'avoir reçu AUCUNE observation : la source est alors
+  //   réelle, mais le verdict n'existe pas. Afficher le vert dans ce cas
+  //   reproduirait exactement le défaut corrigé, au dernier étage — celui que
+  //   l'utilisateur lit.
+  const sansObservation = satellite?.source === "gfw-live" && satellite.is_probative === false;
+  const provenance = sansObservation
+    ? { text: "GFW interrogé — aucune observation", cls: "bg-amber-50 text-amber-900 ring-amber-300" }
+    : satellite?.source === "gfw-live"
       ? { text: "Données GFW (Hansen/UMD)", cls: "bg-emerald-50 text-emerald-800 ring-emerald-200" }
       : satellite?.source === "simulated"
         ? { text: "Simulation — aucune donnée satellite", cls: "bg-orange-50 text-orange-800 ring-orange-300" }
@@ -150,13 +164,27 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.country_risk]}`}>
               Risque pays : {RISK_LABELS[satellite.country_risk]}{satellite.country_code !== "XX" ? ` (${satellite.country_code})` : ""}
             </span>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
-              Risque parcelle : {RISK_LABELS[satellite.risk_level]}
-            </span>
+            {satellite.risk_level === null ? (
+              // ⚠️ C6d : une parcelle non analysée n'a pas de niveau de risque.
+              //   Afficher celui du pays ferait passer une absence de mesure
+              //   pour un résultat d'analyse.
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-300">
+                Risque parcelle : non établi
+              </span>
+            ) : (
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.risk_level]}`}>
+                Risque parcelle : {RISK_LABELS[satellite.risk_level]}
+              </span>
+            )}
+            {satellite.confidence_score !== null && (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
+                Confiance {Math.round(satellite.confidence_score * 100)} %
+              </span>
+            )}
             {satellite.loss_year && (
               <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${satellite.loss_year > 2020 ? "bg-red-100 text-red-800 ring-red-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>
                 Perte de couvert : {satellite.loss_year}
-                {satellite.loss_area_ha > 0 ? ` · ${satellite.loss_area_ha} ha` : ""}
+                {satellite.loss_area_ha !== null && satellite.loss_area_ha > 0 ? ` · ${satellite.loss_area_ha} ha` : ""}
               </span>
             )}
           </div>

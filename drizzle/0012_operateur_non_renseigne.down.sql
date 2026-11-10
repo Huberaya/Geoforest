@@ -1,4 +1,4 @@
--- Retour arrière de la migration 0009 (identité de l'opérateur facultative).
+-- Retour arrière de la migration 0012 (identité de l'opérateur facultative).
 --
 -- ⚠️ Ce retour arrière **échoue volontairement** tant qu'un dossier est sans
 -- identité. Réintroduire `NOT NULL` exigerait d'inventer une identité pour ces

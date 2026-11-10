@@ -13,7 +13,6 @@ Ce que ces tests verrouillent, et pourquoi chacun existe :
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -22,10 +21,9 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
-# Le jeton est lu par `settings` au moment de l'appel : il doit être posé avant
-# l'import des modules qui figent la configuration.
+# ⚠️ `settings` est figé à l'import (conftest pose déjà BACKEND_API_TOKEN) : le
+# jeton de ce fichier est posé sur l'instance, par la fixture `client` ci-dessous.
 JETON_DE_TEST = "jeton-de-test-" + "a" * 24
-os.environ["GF_BACKEND_TOKEN"] = JETON_DE_TEST  # noqa: E402
 
 from app.core import database as module_base  # noqa: E402
 from app.core.database import Database, reset_db_for_tests  # noqa: E402
@@ -99,7 +97,8 @@ OPERATEUR = {
 
 
 @pytest.fixture()
-def client() -> TestClient:
+def client(fixer_jeton_backend) -> TestClient:
+    fixer_jeton_backend(JETON_DE_TEST)
     return TestClient(app, headers={"Authorization": f"Bearer {JETON_DE_TEST}"})
 
 

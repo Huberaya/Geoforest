@@ -24,6 +24,8 @@ import { documentVersions, documents } from "@/db/schema";
 import { FICHIER_MAX_OCTETS, TYPES_REFUSES } from "@/lib/api/limits";
 import type { FichierMultipart } from "@/lib/api/multipart";
 
+import { messageQuota, quotaStockageOctets, verifierQuota } from "@/lib/rgpd/quota-stockage";
+
 import { analyseObligatoire, analyseurCourant, type ResultatAnalyse } from "./antivirus";
 import { detecterType, ecartDeType, type TypeReel } from "./file-type";
 import { stockageCourant, stockageValide } from "./index";
@@ -42,7 +44,7 @@ export interface PieceDeposee {
   avertissements: string[];
 }
 
-export type DepotRefuse = { refuse: true; statut: number; detail: string };
+export type DepotRefuse = { refuse: true; statut: number; detail: string; code?: string };
 export type DepotAccepte = { refuse: false; piece: PieceDeposee };
 
 /**
@@ -192,6 +194,31 @@ export async function deposerPiece(
 
   const { typeReel, typeTrompeur, analyse } = verif.controle;
   const avertissements = [...verif.controle.avertissements];
+
+  // ---------------------------------------------------------------- C11
+  // 4 bis. QUOTA — vérifié AVANT toute écriture.
+  //
+  // ⚠️ Le stockage est un répertoire disque partagé, cloisonné par préfixe
+  //   d'organisation. Sans quota, une organisation remplit le disque et rend le
+  //   service indisponible pour toutes les autres : ce n'est pas un forfait
+  //   dépassé, c'est une panne provoquée par un seul tenant.
+  //
+  //   Le contrôle est placé ici, après les contrôles de type et d'analyse mais
+  //   avant l'écriture : plus tôt, un fichier refusé pour son type aurait
+  //   consommé une requête de comptage pour rien ; plus tard, le fichier serait
+  //   déjà sur le disque et le refus ne protégerait de rien.
+  const [usage] = await tx
+    .select({ octets: sql<number>`coalesce(sum(${documentVersions.sizeBytes}), 0)` })
+    .from(documentVersions)
+    .where(eq(documentVersions.organizationId, organisationId));
+  const quota = verifierQuota({
+    utilise: Number(usage?.octets ?? 0),
+    ajout: fichier.contenu.length,
+    quota: quotaStockageOctets(),
+  });
+  if (quota.depasse) {
+    return { refuse: true, statut: 413, detail: messageQuota(quota), code: "QUOTA_DEPASSE" };
+  }
 
   // 5. écriture puis relecture
   const stockage = stockageCourant();

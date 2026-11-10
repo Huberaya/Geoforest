@@ -1,5 +1,5 @@
 {
-  "id": "a8e88824-33bc-4430-9393-3aabce86b744",
+  "id": "95a3daaf-966c-47f4-bc3f-ca7e06c46dd4",
   "prevId": "22d84015-a1da-439c-99e3-dceb57b8a93c",
   "version": "7",
   "dialect": "postgresql",
@@ -1507,6 +1507,19 @@
           "notNull": true,
           "default": "'STANDARD'"
         },
+        "country_statut": {
+          "name": "country_statut",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'RESOLU'"
+        },
+        "risk_level": {
+          "name": "risk_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "compliant": {
           "name": "compliant",
           "type": "boolean",
@@ -1570,13 +1583,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "risk_level": {
-          "name": "risk_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'STANDARD'"
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -1625,18 +1631,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "plot_id": {
-          "name": "plot_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "due_diligence_id": {
-          "name": "due_diligence_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -1675,48 +1669,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "idx_parcel_audits_dds": {
-          "name": "idx_parcel_audits_dds",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "due_diligence_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_parcel_audits_plot": {
-          "name": "idx_parcel_audits_plot",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plot_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -1731,36 +1683,6 @@
             "id"
           ],
           "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "fk_gf_parcel_audits_plot_tenant": {
-          "name": "fk_gf_parcel_audits_plot_tenant",
-          "tableFrom": "parcel_audits",
-          "tableTo": "gf_plots",
-          "columnsFrom": [
-            "plot_id",
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id",
-            "organization_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "fk_gf_parcel_audits_dds_tenant": {
-          "name": "fk_gf_parcel_audits_dds_tenant",
-          "tableFrom": "parcel_audits",
-          "tableTo": "gf_due_diligence_statements",
-          "columnsFrom": [
-            "due_diligence_id",
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id",
-            "organization_id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

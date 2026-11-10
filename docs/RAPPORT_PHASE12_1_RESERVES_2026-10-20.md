@@ -345,7 +345,7 @@ Exécutées dans `/home/user/phase121`, sur `cf6f117` puis `65c1bc1`/`fcf7125` p
 | 3 | Tests unitaires + bancs | `npm run test:unit` | **0** | 72/72 · 22/22 · **27/27** · **28/28** · 40/40 · 25/25 · 27/27 |
 | 4 | Tests backend | `cd backend && python -m pytest -q` | **0** | **138 passed, 5 xfailed** |
 | 5 | Build **sans base** | `env -u DATABASE_URL -u DATABASE_URL_ADMIN npm run build` | **0** | compilé, `/api/metrics` présent |
-| 6 | Test des workflows CI | `npm run test:ci` | **0** | 4/4 |
+| 6 | Test des workflows CI | `npm run test:ci` | **0** | 4 sur 4 |
 | 7 | Audits | `npm run audit:sec` | **1** | 5 high, **toutes dev** — alerte non masquée |
 | 8 | Audit production | `npm audit --omit=dev` | **0** | `found 0 vulnerabilities` |
 | 9 | Dérive de schéma | `npx drizzle-kit generate` | **0** | `No schema changes, nothing to migrate` |
