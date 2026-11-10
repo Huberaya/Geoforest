@@ -137,21 +137,36 @@ async function main(): Promise<void> {
     //   disparaissait de l'inventaire après `revoke all`).
     const cols = await admin.query(
       `select c.relname as table_name,
-              case c.relkind when 'v' then 'VIEW' else 'BASE TABLE' end as table_type
-         from pg_attribute a
-         join pg_class c on c.oid = a.attrelid
+              case c.relkind when 'v' then 'VIEW' else 'BASE TABLE' end as table_type,
+              exists (
+                select 1 from pg_attribute a
+                 where a.attrelid = c.oid and a.attname = 'organization_id'
+                   and not a.attisdropped
+              ) as has_organization_id
+         from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and a.attname = 'organization_id' and not a.attisdropped
-          and c.relkind in ('r', 'p', 'v')
+        where n.nspname = 'public' and c.relkind in ('r', 'p', 'v')
+          -- Les objets PostGIS sont fournis par l'extension, pas par le dépôt.
+          and not exists (
+            select 1 from pg_depend d
+             where d.classid = 'pg_class'::regclass and d.objid = c.oid
+               and d.refclassid = 'pg_extension'::regclass and d.deptype = 'e'
+          )
         order by 1`,
     );
-    const toutesTablesOrg = cols.rows
+    const toutesTables = cols.rows
       .filter((r) => r.table_type === "BASE TABLE")
       .map((r) => r.table_name as string);
+    const toutesTablesOrg = cols.rows
+      .filter((r) => r.table_type === "BASE TABLE" && r.has_organization_id)
+      .map((r) => r.table_name as string);
     const tablesOrg = toutesTablesOrg.filter((t) => TABLES_DU_DEPOT.has(t));
-    const tablesEtrangeres = toutesTablesOrg.filter((t) => !TABLES_DU_DEPOT.has(t));
+    // Toutes les tables étrangères sont contrôlées, pas seulement celles qui
+    // portent organization_id : une table héritée sans colonne tenant ne doit
+    // pas davantage être accessible au rôle applicatif.
+    const tablesEtrangeres = toutesTables.filter((t) => !TABLES_DU_DEPOT.has(t));
     const vuesOrg = cols.rows
-      .filter((r) => r.table_type === "VIEW")
+      .filter((r) => r.table_type === "VIEW" && r.has_organization_id)
       .map((r) => r.table_name as string);
     const tablesOrgAvecOrgs = [...tablesOrg, "gf_organizations"];
     // L'inventaire est affiché en clair : sur une branche Neon dérivée d'une
@@ -162,10 +177,14 @@ async function main(): Promise<void> {
       tablesOrg.length >= 10,
       `${tablesOrg.length} tables : ${tablesOrg.join(", ")}${vuesOrg.length ? ` · vues : ${vuesOrg.join(", ")}` : ""}`,
     );
+    const tablesTenantAttendues = [...TABLES_DU_DEPOT].filter(
+      (t) => !["gf_organizations", "gf_sessions", "gf_login_attempts"].includes(t),
+    );
+    const tablesTenantAbsentes = tablesTenantAttendues.filter((t) => !toutesTablesOrg.includes(t));
     check(
-      "toute table du dépôt portant organization_id est connue du schéma Drizzle",
-      tablesOrg.length === toutesTablesOrg.filter((t) => t.startsWith("gf_") || t === "parcel_audits").length,
-      tablesEtrangeres.filter((t) => t.startsWith("gf_")).join(", ") || "aucune table gf_* hors schéma",
+      "toutes les tables métier du schéma Drizzle portent organization_id et sont présentes",
+      tablesTenantAbsentes.length === 0,
+      tablesTenantAbsentes.join(", ") || `${tablesTenantAttendues.length} tables attendues`,
     );
 
     section("Tables étrangères au dépôt portant organization_id : inaccessibles au rôle applicatif");
