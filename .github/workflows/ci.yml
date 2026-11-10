@@ -82,6 +82,91 @@ jobs:
       - name: Cohérence entre la documentation et le code
         run: npm run check:docs
 
+      # ⚠️ Le référentiel pays (règlement d'exécution (UE) 2025/1093) est une
+      #   donnée réglementaire recopiée à la main. Une coquille y produit un
+      #   faux verdict de conformité, sans qu'aucun test de code ne bronche.
+      #   Ce contrôle vérifie la fidélité de la table à l'annexe : 140 LOW,
+      #   4 HIGH nommés, 27 États membres, aucun conflit.
+      - name: Intégrité du référentiel pays EUDR
+        run: npm run check:referentiel-pays
+
+      # ⚠️ Les frontières pays sont un fichier généré (Natural Earth 1:50m).
+      #   Un artefact d'antiméridien y a rendu la Fidji couvrante sur le monde
+      #   entier, ce qui mettait l'Angola en conflit de frontière. Le banc de
+      #   régression ne pouvait pas le voir : il ne teste que des points où
+      #   l'on attend un pays donné.
+      - name: Intégrité des frontières pays
+        run: npm run check:frontieres-pays
+
+      # ⚠️ Un dossier dont l'origine n'est pas établie n'est pas exportable.
+      #   `country_code` et `country_benchmark_risk` sont des champs
+      #   réglementaires : une chaîne vide s'y lit « non renseigné par
+      #   négligence », et une origine prise au hasard s'y lit comme une
+      #   affirmation.
+      - name: Exportabilité selon l'origine
+        run: npm run check:origine-export
+
+      # ⚠️ Décision D-001 : le parcours de diligence raisonnée ne se raccourcit
+      #   pas selon le pays d'origine, alors que l'article 13 le permettrait.
+      #   C'est un choix argumenté ; ce contrôle empêche qu'il soit défait par
+      #   inadvertance.
+      - name: Le parcours DDR ne dépend pas du risque pays
+        run: npm run check:parcours-ddr
+
+      # ⚠️ Risque PARCELLE contre risque PAYS. Avant C6d, `risk_level` valait
+      #   `country.risk` : une parcelle ghanéenne jamais analysée s'affichait
+      #   « Risque parcelle : Faible », et l'interface présentait cela comme une
+      #   seconde confirmation alors que c'était une recopie.
+      - name: Découplage risque parcelle / risque pays
+        run: npm run check:risque-parcelle
+
+      # ⚠️ Banc de régression de la résolution pays : 47 points géographiques
+      #   et 5 cas de décision, contre le règlement d'exécution (UE) 2025/1093.
+      #   Il est en CI depuis C6c, parce qu'il est VERT. Une barrière rouge en
+      #   permanence ne protège rien : elle bloque toutes les fusions et pousse
+      #   à contourner le dispositif.
+      - name: Résolution du pays et benchmark EUDR
+        run: npm run check:banc-pays
+
+      # ⚠️ C11 — les données personnelles n'étaient ni cartographiées, ni
+      #   exportables, ni purgées, et le journal d'audit recopiait les
+      #   coordonnées de tiers dans une table immuable. Ce contrôle EXÉCUTE
+      #   l'assainissement et le quota, il ne se contente pas de lire le code.
+      - name: Données personnelles (C11)
+        run: npm run check:rgpd
+
+      # ⚠️ C9 — une réponse vide du fournisseur satellite devenait
+      #   `compliant: true`. Le contrôle lance un faux fournisseur en local :
+      #   aucune clé, aucune requête sortante, et pourtant le défaut est prouvé.
+      - name: Analyse satellite (C9)
+        run: npm run check:satellite
+
+      # ⚠️ C8 — deux parcelles saisies avec le même tracé étaient acceptées sans
+      #   un mot : la surface était comptée deux fois, sans aucun symptôme
+      #   visible. Ce contrôle EXÉCUTE la détection sur des tracés construits,
+      #   et exige qu'un contact de limite NE SOIT PAS un recouvrement : un
+      #   contrôle qui signale chaque parcelle voisine n'est plus lu.
+      - name: Chevauchement de parcelles
+        run: npm run check:chevauchement
+
+      # ⚠️ C7 — un dossier de diligence « prêt à déclarer » doit être un CONSTAT
+      #   du produit, pas une affirmation de l'utilisateur. Ce contrôle exécute
+      #   le validateur sur un dossier vide (refusé), une simulation (refusée),
+      #   une date de production absente (refusée) — ET sur un dossier complet
+      #   (accepté). Sans ce dernier cas, un validateur qui refuse tout
+      #   passerait : ce serait un mur, pas une validation.
+      - name: Validateur de dossier DDR
+        run: npm run check:validateur-ddr
+
+      # ⚠️ Un secret en service mais absent de la procédure de rotation est un
+      #   secret qu'une rotation laissera en place : le runbook serait suivi à
+      #   la lettre et laisserait quand même un secret d'origine. Ce contrôle
+      #   vérifie aussi que la rotation d'AUTH_SECRET invalide réellement les
+      #   jetons déjà émis — c'était faux jusqu'au 05/11/2026, à cause d'un
+      #   cache jamais invalidé.
+      - name: Procédure de rotation des secrets
+        run: npm run check:rotation-secrets
+
       - name: Vulnérabilités des dépendances de production
         run: npm run audit:prod
 
@@ -116,7 +201,13 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # 2. Backend FastAPI (conservé tant que la décision d'architecture n'est pas
-  #    tranchée — cf. chantier C5).
+  #    tranchée).
+  #
+  #    ⚠️ C5 : ce backend n'authentifiait personne et `GET /audits` renvoyait
+  #    tous les dossiers de toutes les organisations. Il est désormais fermé
+  #    par défaut (503 sans jeton), `GET /audits` est désactivée (410), le
+  #    joker CORS est écarté et la documentation interactive est fermée.
+  #    Voir docs/SECURITE-BACKEND.md.
   # ---------------------------------------------------------------------------
   backend:
     name: Backend (pytest)
@@ -137,9 +228,13 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          # 41 tests actifs ; 3 sont explicitement `skipped` (routes
+          # 53 tests actifs ; 3 sont explicitement `skipped` (routes
           # /api/v1/geospatial/* absentes — cf. backend/tests/test_geospatial.py
           # et chantier C9). `-q` les affiche : ils ne sont pas comptés verts.
+          # ⚠️ C5 : 12 de ces tests éprouvent la fermeture du backend
+          #   (`test_securite_backend.py`). Ils vérifient d'abord que l'accès
+          #   NON autorisé échoue — un test qui ne vérifierait que l'accès
+          #   autorisé passerait aussi sur un backend ouvert.
           # ⚠️ `--strict-markers` : un test qui se saute doit le déclarer par un
           #   marqueur connu. Un `skip` implicite passerait sinon pour un succès.
           pytest -q --strict-markers

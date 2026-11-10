@@ -50,6 +50,27 @@
       "when": 1791135581646,
       "tag": "0006_idempotence",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793865060587,
+      "tag": "0007_c6d_risque_parcelle_nul",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793959791106,
+      "tag": "0008_c7_audit_plot_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794266571117,
+      "tag": "0009_c8_plot_bbox",
+      "breakpoints": true
     }
   ],
   "prevId": "0004_document_mime_mismatch"

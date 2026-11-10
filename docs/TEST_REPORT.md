@@ -19,7 +19,7 @@
 |---|---|---|
 | Types TypeScript | **0 erreur** | `npx tsc --noEmit` |
 | Lint ESLint | **0 erreur, 5 avertissements** | `npx eslint .` |
-| Build de production | **59 routes sources** (39 API + 20 pages) — 60 au build, `_not-found` étant généré par Next | `npm run build` |
+| Build de production | **60 routes sources** (40 API + 20 pages) — 61 au build, `_not-found` étant généré par Next | `npm run build` |
 | Tests backend (pytest) | **41 réussis, 3 ignorés** | `cd backend && pytest -q` |
 | Contrôles de règles métier | **116 contrôles, tous verts** | `npm run check:eudr && npm run check:topologie && npm run check:regles && npm run check:csv && npm run check:seed && npm run check:version` |
 | Bout en bout (serveur démarré) | **38 contrôles, tous verts** | `npm run check:e2e:complet` |
@@ -91,7 +91,7 @@ Relevés le 05/11/2026. Chacun a été **mesuré**, pas supposé.
 
 | Affirmation documentaire | Réalité mesurée |
 |---|---|
-| « 25 routes applicatives » | **60 routes** au build : 39 API + 21 pages |
+| « 25 routes applicatives » | **61 routes** au build : 40 API + 21 pages |
 | « Suite Pytest 29/29 » | **41 réussis, 3 ignorés** |
 | « Analyses `Hansen`, Sentinel-2, ESA WorldCover » | **Hansen seul.** Aucune occurrence de Sentinel ni de WorldCover dans `src/lib/eudr/` |
 | Page `/analyses/[id]` — « visualiseur comparatif temporel » | **La route n'existe pas.** Seul `analyses/page.tsx` existe |

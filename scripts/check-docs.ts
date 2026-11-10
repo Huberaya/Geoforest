@@ -21,6 +21,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { PAYS_RISQUE_ELEVE, PAYS_RISQUE_FAIBLE } from "../src/lib/eudr/benchmark-pays";
 
 interface Controle {
   nom: string;
@@ -148,6 +149,149 @@ verifier(
   "HSTS : « preload » n'est annoncé que s'il est posé",
   /preload/.test(proxy) || !/includeSubDomains;\s*preload/.test(architecture),
   "ARCHITECTURE.md annonce un HSTS preload que src/proxy.ts ne pose pas",
+);
+
+/* --- Chiffres du dispositif pays cités dans les documents ---------------- */
+/*
+ * ⚠️ Depuis C6, le guide affirme des nombres précis : 140 pays LOW, 4 HIGH,
+ *   52 cas de banc, 19 contrôles de référentiel, 16 de frontières. Ces nombres
+ *   sont exactement le genre d'affirmation qui se périme en silence — le défaut
+ *   d'origine de TEST_REPORT.md. On les recompte ici.
+ */
+const guidePays = lire(join("docs", "EUDR_COMPLIANCE_GUIDE.md"));
+// ⚠️ Compté en important le module, pas en comptant des lignes de texte : un
+//   comptage par expression régulière a rendu 144 pour les deux listes, ce qui
+//   aurait validé n'importe quel chiffre annoncé.
+const nbLow = Object.keys(PAYS_RISQUE_FAIBLE).length;
+const nbHigh = Object.keys(PAYS_RISQUE_ELEVE).length;
+
+verifier(
+  "le guide annonce les effectifs réels de l'annexe",
+  guidePays.includes(`${nbLow} LOW`) && guidePays.includes(`${nbHigh} HIGH`),
+  `référentiel : ${nbLow} LOW, ${nbHigh} HIGH — le guide doit annoncer les mêmes`,
+);
+
+// ⚠️ Le guide ne doit plus décrire le dispositif par rectangles comme actuel.
+verifier(
+  "le guide ne présente plus la résolution par rectangle comme active",
+  !/Le pays est résolu par \*\*rectangle englobant\*\*/.test(guidePays),
+  "le guide décrit encore les rectangles englobants comme dispositif en vigueur",
+);
+
+// La rectification de C3 doit rester consignée : retirer une erreur en silence
+// la rend invisible à qui relira l'historique.
+verifier(
+  "la rectification de l'affirmation sur les pays tiers est conservée",
+  /Rectification d'une affirmation antérieure/.test(guidePays),
+  "la correction de l'erreur « ni faible ni standard par construction » a disparu",
+);
+
+/* --- Provenance : décrire le dispositif réellement utilisé --------------- */
+
+const checker = lire(join("src", "lib", "eudr", "satellite-checker.ts"));
+verifier(
+  "la provenance ne cite pas un dispositif de résolution disparu",
+  !/resolution_pays:\s*"boîte englobante"/.test(checker),
+  "la provenance persistée annonce encore « boîte englobante » : elle décrirait un dispositif qui n'existe plus",
+);
+
+/* --- Aucun document ne cite un résultat de test en dur ------------------ */
+/*
+ * ⚠️ `DEPLOYMENT_VERCEL.md` affirmait « Pytest 29/29 » alors que la suite en
+ *   compte 41. C'est le même défaut que TEST_REPORT.md : un chiffre recopié
+ *   dans un document censé décrire le déploiement, et faux depuis longtemps.
+ *   Un compte de tests n'a pas sa place dans une procédure : il périme seul.
+ */
+const docsAvecComptesDeTests = readdirSync("docs")
+  .filter((f) => f.endsWith(".md") && f !== "TEST_REPORT.md")
+  .map((f) => ({ fichier: f, contenu: lire(join("docs", f)) }))
+  .filter(({ contenu }) => /(Pytest|pytest)[^.]*\d+\s*\/\s*\d+/.test(contenu));
+
+verifier(
+  "aucun document hors TEST_REPORT ne cite un compte de tests en dur",
+  docsAvecComptesDeTests.length === 0,
+  docsAvecComptesDeTests.map((d) => d.fichier).join(", "),
+);
+
+/* --- Sécurité du backend : la documentation doit suivre le code --------- */
+
+const securiteBackend = lire(join("docs", "SECURITE-BACKEND.md"));
+const endpointsPy = lire(join("backend", "app", "api", "v1", "endpoints.py"));
+const securityPy = lire(join("backend", "app", "core", "security.py"));
+
+const nbRoutes = (endpointsPy.match(/@router\.(get|post)/g) ?? []).length;
+const nbJetons = (endpointsPy.match(/Depends\(exiger_jeton\)/g) ?? []).length;
+verifier(
+  "toute route métier du backend exige un jeton",
+  // `GET /health` est la seule exception admise.
+  nbJetons === nbRoutes - 1,
+  `${nbRoutes} routes, ${nbJetons} protégées — il en manque une`,
+);
+
+// ⚠️ Contrôle STRUCTUREL, pas lexical. Chercher « 503 » dans le fichier
+//   passait au vert alors que la branche était désactivée : le texte de la
+//   ligne `raise` restait présent, simplement inatteignable. Il faut que
+//   l'absence de jeton soit IMMÉDIATEMENT suivie du refus.
+verifier(
+  "le backend est fermé quand aucun jeton n'est configuré",
+  /if not attendu:\s*\n\s*raise HTTPException\(\s*\n\s*status_code=status\.HTTP_503_SERVICE_UNAVAILABLE/.test(
+    securityPy,
+  ),
+  "la branche « aucun jeton » ne renvoie pas 503 : le backend s'ouvrirait par défaut",
+);
+
+// ⚠️ Et la comparaison doit être à temps constant : une comparaison naïve
+//   laisse fuir la longueur du préfixe correct par le temps de réponse.
+verifier(
+  "le jeton est comparé à temps constant",
+  /hmac\.compare_digest\(/.test(securityPy),
+  "comparaison de jeton non constante : le préfixe correct fuit par le temps de réponse",
+);
+
+verifier(
+  "la liste inter-tenant des dossiers est désactivée",
+  /HTTP_410_GONE/.test(endpointsPy),
+  "GET /audits n'est plus fermée : elle listerait tous les dossiers de toutes les organisations",
+);
+
+verifier(
+  "le joker CORS n'est pas honoré",
+  /cors_valides/.test(lire(join("backend", "app", "core", "config.py"))),
+  "le joker CORS n'est pas écarté : allow_credentials + * exposent les réponses",
+);
+
+verifier(
+  "la dette résiduelle du backend est documentée",
+  /inter-tenant/i.test(securiteBackend) && /Condition de sortie/i.test(securiteBackend),
+  "docs/SECURITE-BACKEND.md doit nommer ce qui reste ouvert et sa condition de sortie",
+);
+
+/* --- Rotation des secrets : la procédure doit couvrir le code ----------- */
+
+// ⚠️ `check:rotation-secrets` vérifie que la procédure est cohérente avec
+//   elle-même. Ici on vérifie qu'elle est cohérente avec le CODE : tout secret
+//   que le code refuse de voir manquer doit figurer dans la procédure.
+//
+//   Le défaut trouvé le 05/11/2026 était exactement celui-là : le runbook
+//   était bien écrit, il couvrait quatre secrets sur six.
+const rotation = lire(join("docs", "ROTATION_SECRETS.md"));
+const variablesEnService = ["AUTH_SECRET", "GF_METRICS_TOKEN", "GF_STORAGE_SIGNING_SECRET", "BACKEND_API_TOKEN"];
+const secretsAbsents = variablesEnService.filter((v) => !rotation.includes(v));
+verifier(
+  "la procédure de rotation couvre tout secret exigé par le code",
+  secretsAbsents.length === 0,
+  `absents de docs/ROTATION_SECRETS.md : ${secretsAbsents.join(", ")}`,
+);
+
+// ⚠️ Le code doit refuser un secret de stockage court même hors production ?
+//   Non : en développement la valeur par défaut est tolérée. Mais en
+//   production, un secret court ne doit pas passer — sinon la garde ne garde
+//   que les développeurs.
+const urlSignee = lire(join("src", "lib", "storage", "url-signee.ts"));
+verifier(
+  "le secret de signature des URLs est refusé s'il est court en production",
+  /32/.test(urlSignee) && /production/i.test(urlSignee),
+  "src/lib/storage/url-signee.ts n'impose plus de longueur minimale en production",
 );
 
 /* --- Dates réglementaires ------------------------------------------------ */

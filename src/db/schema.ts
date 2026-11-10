@@ -290,6 +290,25 @@ export const plots = pgTable(
     vertexCount: integer("vertex_count").notNull().default(0),
     centroidLon: doublePrecision("centroid_lon").notNull().default(0),
     centroidLat: doublePrecision("centroid_lat").notNull().default(0),
+    /**
+     * C8 — cadre englobant, stocké pour que la détection de chevauchement
+     * puisse écarter en O(1) les paires qui ne peuvent pas se recouvrir.
+     *
+     * ⚠️ Ces quatre colonnes ne portent AUCUNE information nouvelle : la borne
+     *   est déjà calculée à l'ingestion (`gis-validator.ts`, `result.bbox`)
+     *   puis, jusqu'ici, jetée. Les stocker évite de relire et reparcourir
+     *   toutes les géométries de l'organisation à chaque saisie — avec
+     *   `SOMMETS_MAX = 10 000`, ce parcours ne tiendrait pas.
+     *
+     * Nullables : les parcelles créées avant C8 n'en ont pas. Une borne nulle
+     * signifie « à calculer », pas « centrée à l'origine » — une valeur par
+     * défaut à 0 ferait croire que toutes les parcelles sont au large du
+     * Golfe de Guinée, et le pré-filtre écarterait alors tout.
+     */
+    bboxMinLon: doublePrecision("bbox_min_lon"),
+    bboxMinLat: doublePrecision("bbox_min_lat"),
+    bboxMaxLon: doublePrecision("bbox_max_lon"),
+    bboxMaxLat: doublePrecision("bbox_max_lat"),
     status: text("status").notNull().default("PENDING"), // COMPLIANT, NON_COMPLIANT, INVALID_GEOMETRY, PENDING
     riskLevel: text("risk_level").notNull().default("STANDARD"),
     lossYear: integer("loss_year"),
@@ -555,6 +574,21 @@ export const parcelAudits = pgTable(
      */
     producerName: text("producer_name"),
     producerCountry: text("producer_country"),
+    /**
+     * C7 — parcelle sur laquelle porte l'analyse.
+     *
+     * ⚠️ Le défaut corrigé ici. Jusqu'au 06/11/2026, `parcel_audits` ne
+     *   portait que `parcel_reference`, du **texte libre** saisi par
+     *   l'utilisateur. Rien, ni en base ni dans le code, ne reliait une analyse
+     *   à une parcelle : le dossier de diligence ne pouvait donc pas savoir ce
+     *   qui avait été analysé, et le validateur qui examine un dossier ne
+     *   pouvait examiner un lien inexistant.
+     *
+     * Nullable, et c'est essentiel : un audit mené sur un tracé importé sans
+     * parcelle enregistrée reste un état représentable. Le remplir d'un UUID
+     * pris au hasard serait exactement le défaut que cette colonne corrige.
+     */
+    plotId: uuid("plot_id"),
     commodity: text("commodity").notNull(),
     hsCode: text("hs_code").notNull(),
     harvestDate: text("harvest_date").notNull(),
@@ -567,6 +601,21 @@ export const parcelAudits = pgTable(
     centroidLat: doublePrecision("centroid_lat").notNull().default(0),
     countryCode: text("country_code").notNull().default("XX"),
     countryRisk: text("country_risk").notNull().default("STANDARD"),
+    /**
+     * C6d — statut de la résolution pays : RESOLU, CONFLIT ou HORS_COUVERTURE.
+     * Sans lui, un point en mer et une parcelle ghanéenne se relisent pareil.
+     */
+    countryStatut: text("country_statut").notNull().default("RESOLU"),
+    /**
+     * C6d — `risk_level` est désormais **nullable**.
+     *
+     * ⚠️ Une colonne NOT NULL obligeait à écrire une valeur alors qu'aucune
+     *   analyse n'avait eu lieu : le code écrivait `?? "HIGH"`, c'est-à-dire
+     *   « risque élevé » sur un dossier jamais analysé. Une colonne ne peut pas
+     *   distinguer « pas analysé » de « pas de risque » ; une absence de
+     *   valeur, si.
+     */
+    riskLevel: text("risk_level"),
     // `compliant` est nullable : une analyse non probante n'a PAS de verdict,
     // et « pas de verdict » est différent de « non conforme » (P0-04).
     compliant: boolean("compliant"),
@@ -591,7 +640,6 @@ export const parcelAudits = pgTable(
     analysisVersion: text("analysis_version"),
     analysisParams: jsonb("analysis_params"),
     analysisLimits: jsonb("analysis_limits"),
-    riskLevel: text("risk_level").notNull().default("STANDARD"),
     status: text("status").notNull(),
     validation: jsonb("validation").notNull(),
     satellite: jsonb("satellite"),
@@ -615,6 +663,18 @@ export const parcelAudits = pgTable(
   (table) => [
     index("idx_parcel_audits_created_at").on(table.createdAt),
     index("idx_parcel_audits_org_created").on(table.organizationId, table.createdAt),
+    // ⚠️ La clé étrangère est COMPOSITE (parcelle + organisation), comme pour
+    //   les documents et les parcelles. Une clé simple sur `plot_id` suffirait
+    //   à garantir que la parcelle existe, pas qu'elle appartient à la même
+    //   organisation : une analyse d'une organisation pourrait viser la
+    //   parcelle d'une autre, et la RLS ne le verrait pas — elle filtre les
+    //   lignes lues, pas les références écrites.
+    foreignKey({
+      columns: [table.plotId, table.organizationId],
+      foreignColumns: [plots.id, plots.organizationId],
+      name: "fk_parcel_audits_plot_tenant",
+    }).onDelete("set null"),
+    index("idx_parcel_audits_plot").on(table.plotId),
   ],
 );
 

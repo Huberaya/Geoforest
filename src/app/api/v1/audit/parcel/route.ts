@@ -1,5 +1,6 @@
 import { lireCorpsJson } from "@/lib/api/body";
-import { parcelAudits } from "@/db/schema";
+import { parcelAudits, plots } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { logAction } from "@/lib/api/audit-log";
 import { validateGeometry } from "@/lib/eudr/gis-validator";
 import { checkDeforestationRisk } from "@/lib/eudr/satellite-checker";
@@ -20,6 +21,8 @@ import { guard } from "@/lib/auth/guard";
 export const dynamic = "force-dynamic";
 
 const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
+/** Même motif que les autres routes : un UUID mal formé est un 422, pas un 500. */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ANONYMOUS_OPERATOR: OperatorInfo = { name: "Opérateur non renseigné", eori: "XX0000000000000", country: "XX" };
 
 function badRequest(detail: string, status = 422): NextResponse {
@@ -138,6 +141,30 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       : parsedProducer.producer;
   const parcelReference = typeof body.parcel_reference === "string" ? body.parcel_reference.slice(0, 100) : null;
 
+  // ⚠️ C7 — la parcelle sur laquelle porte l'analyse.
+  //
+  //   Avant la migration 0008, seul `parcel_reference` existait : du texte
+  //   libre. Rien ne rattachait une analyse à une parcelle enregistrée, donc
+  //   rien ne permettait à un dossier de diligence de savoir ce qui avait été
+  //   analysé — et un validateur de dossier ne pouvait examiner un lien
+  //   inexistant.
+  //
+  //   La parcelle est vérifiée comme appartenant à l'organisation de la
+  //   session. La clé étrangère composite le garantit déjà en base ; le
+  //   contrôle ici évite un 500 là où un 422 explique ce qui ne va pas.
+  const plotId = typeof body.plot_id === "string" ? body.plot_id.trim() : "";
+  if (plotId !== "") {
+    if (!UUID_PATTERN.test(plotId)) return badRequest("plot_id invalide (UUID attendu)");
+    const [parcelle] = await tx
+      .select({ id: plots.id })
+      .from(plots)
+      .where(and(eq(plots.id, plotId), eq(plots.organizationId, organizationId)))
+      .limit(1);
+    // 404 et non 403 : répondre « interdit » confirmerait l'existence de la
+    // parcelle d'une autre organisation.
+    if (!parcelle) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
+  }
+
   const validation = validateGeometry(geojson as GeoJsonInput, {
     declaredAreaHa: declaredArea,
     rawText,
@@ -182,6 +209,7 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         hsCode,
         harvestDate,
         parcelReference,
+        plotId: plotId === "" ? null : plotId,
         geometry: validation.normalized_geometry ?? geojson,
         geometryType: validation.geometry_type ?? "Unknown",
         areaHa: validation.area_ha,
@@ -190,6 +218,10 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         centroidLat: validation.centroid?.[1] ?? 0,
         countryCode: satellite?.country_code ?? "XX",
         countryRisk: satellite?.country_risk ?? "STANDARD",
+        // ⚠️ C6d : un point en mer et une parcelle ghanéenne se relisaient
+        //   pareil, tous deux en « STANDARD ». Le statut de résolution les
+        //   distingue.
+        countryStatut: satellite?.country_statut ?? "HORS_COUVERTURE",
         // ⚠️ `null ?? false` vaut `false` : écrire cette ligne ainsi
         // transformait « aucun verdict » en « NON CONFORME » persisté.
         compliant: satellite?.compliant ?? null,
@@ -212,7 +244,11 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         analysisLimits: satellite?.provenance.limits ?? [
           "Aucune analyse n'a été menée : la provenance n'a pas été établie.",
         ],
-        riskLevel: satellite?.risk_level ?? "HIGH",
+        // ⚠️ C6d : cette ligne valait `?? "HIGH"`, c'est-à-dire « risque
+        //   élevé » écrit sur un dossier jamais analysé. Une colonne
+        //   nullable dit « non établi » ; c'est ce que la colonne doit
+        //   contenir quand aucune analyse n'a eu lieu.
+        riskLevel: satellite?.risk_level ?? null,
         status,
         validation,
         satellite,
@@ -268,6 +304,13 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       methode: satellite?.provenance.method ?? "aucune",
       version: satellite?.provenance.version ?? null,
       limites: satellite?.provenance.limits?.length ?? 0,
+      // ⚠️ C9 — deux analyses peuvent porter la même `source` (« gfw-live ») et
+      //   ne pas dire la même chose : l'une a observé une perte, l'autre n'a
+      //   rien observé du tout. Sans ce champ, la piste d'audit ne permet pas
+      //   de les distinguer — et c'est précisément la distinction qu'un contrôle
+      //   a posteriori viendra chercher.
+      observation: satellite?.evidence === null || satellite?.evidence === undefined ? "aucune" : "fournisseur_interroge",
+      surface_perte_ha: satellite?.loss_area_ha ?? null,
       parcelReference,
       areaHa: validation.area_ha,
     },
@@ -275,7 +318,10 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       // Ce qui distingue une preuve d'un jeu d'essai est consigné ici, dans
       // une table qu'on ne peut plus ni modifier ni effacer.
       probante: satellite?.is_probative ?? false,
-      risque: satellite?.risk_level ?? "STANDARD",
+      // ⚠️ `null` et non "STANDARD" : confondre « non établi » et « standard »
+      //   dans la piste d'audit reviendrait à y consigner une classification
+      //   qui n'a jamais été prononcée.
+      risque: satellite?.risk_level ?? null,
     },
   });
 
