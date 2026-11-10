@@ -149,10 +149,12 @@ GRANT SELECT, INSERT, UPDATE ON
   gf_documents,
   gf_due_diligence_statements,
   gf_compliance_tasks,
-  gf_audit_logs,
   gf_document_versions,
   parcel_audits
 TO geoforest_app;
+
+-- Le journal est append-only : ne jamais réaccorder UPDATE après 020.
+GRANT SELECT, INSERT ON gf_audit_logs TO geoforest_app;
 
 -- gf_users : écriture applicative, lecture limitée aux colonnes non secrètes.
 GRANT INSERT, UPDATE ON gf_users TO geoforest_app;
@@ -212,9 +214,31 @@ BEGIN
   IF NOT has_column_privilege('geoforest_app', 'public.gf_users', 'email', 'SELECT') THEN
     RAISE EXCEPTION 'P0 RLS : gf_users.email doit rester lisible.';
   END IF;
-  IF has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'DELETE')
+  IF has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'UPDATE')
+     OR has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'DELETE')
      OR has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'TRUNCATE') THEN
-    RAISE EXCEPTION 'P0 RLS : le journal d''audit ne doit pas être destructible.';
+    RAISE EXCEPTION 'P0 RLS : le journal d''audit doit rester strictement append-only.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_default_acl d
+      JOIN pg_roles r ON r.oid = d.defaclrole
+      JOIN pg_namespace n ON n.oid = d.defaclnamespace
+     WHERE n.nspname = 'public'
+       AND r.rolname IN (current_user, 'geoforest_migrator')
+       AND d.defaclacl::text LIKE '%geoforest_app%'
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : un privilège par défaut accorde encore des droits à geoforest_app.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM unnest(allowlist) AS t(table_name)
+     WHERE has_table_privilege('geoforest_app', format('public.%I', t.table_name), 'DELETE')
+        OR has_table_privilege('geoforest_app', format('public.%I', t.table_name), 'TRUNCATE')
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : une table de l''allowlist reste destructible par geoforest_app.';
   END IF;
   IF has_table_privilege('geoforest_app', 'public.v_parcel_audits_identite', 'INSERT')
      OR has_table_privilege('geoforest_app', 'public.v_parcel_audits_identite', 'UPDATE')
