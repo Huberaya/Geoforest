@@ -152,6 +152,88 @@ export async function verifierRoleAvec(base: Pool): Promise<EtatRoleBase> {
   };
 }
 
+/**
+ * Contrôle de la connexion d'**administration**.
+ *
+ * ⚠️ Défaut constaté en recette PostgreSQL serveur, le 19/10/2026.
+ *
+ *   `DATABASE_URL_ADMIN` sert à deux choses qui, par nature, se produisent
+ *   **avant** ou **hors** du contexte d'organisation : authentifier un
+ *   utilisateur (on ne sait pas encore à quelle organisation il appartient) et
+ *   écrire le journal d'audit. Sur une base où la RLS est forcée, ce rôle doit
+ *   donc contourner la RLS — `BYPASSRLS` ou superutilisateur. C'est le cas de
+ *   `neondb_owner` sur Neon, et c'est documenté.
+ *
+ *   Rien ne le vérifiait. Un rôle d'administration distinct mais **ordinaire**
+ *   (propriétaire sans `BYPASSRLS`, par exemple sur un PostgreSQL auto-hébergé)
+ *   démarrait sans un mot, puis : `auth_user_by_email()` ne rendait aucune
+ *   ligne, la connexion répondait « compte inconnu », et l'application
+ *   paraissait fonctionner. La panne se présentait comme un mauvais mot de
+ *   passe — le diagnostic le plus coûteux qui soit.
+ *
+ *   Le contrôle porte sur un fait mesurable et indépendant des données :
+ *   `row_security_active()` sur une table cloisonnée. Vrai signifie que la RLS
+ *   s'applique **à cette connexion**, donc que l'authentification ne peut pas
+ *   lire hors contexte.
+ */
+export interface EtatRoleAdministration {
+  role: string;
+  superutilisateur: boolean;
+  contourneRls: boolean;
+  /** La RLS s'applique à cette connexion : elle ne peut pas lire hors contexte. */
+  rlsAppliquee: boolean;
+  ok: boolean;
+  message: string | null;
+}
+
+/** Interprétation pure, séparée de la requête pour être testable sans base. */
+export function interpreterRoleAdministration(ligne: {
+  role: string;
+  superutilisateur: boolean;
+  contourne_rls: boolean;
+  rls_appliquee: boolean;
+}): EtatRoleAdministration {
+  const ok = !ligne.rls_appliquee;
+  return {
+    role: ligne.role,
+    superutilisateur: ligne.superutilisateur,
+    contourneRls: ligne.contourne_rls,
+    rlsAppliquee: ligne.rls_appliquee,
+    ok,
+    message: ok
+      ? null
+      : `la connexion d'administration « ${ligne.role} » est soumise à la RLS : ` +
+        "elle ne peut lire aucune ligne hors contexte d'organisation. " +
+        "L'authentification échouerait en répondant « compte inconnu », et le " +
+        "journal d'audit ne serait plus lisible. Donner à ce rôle l'attribut " +
+        "BYPASSRLS (ou utiliser le rôle propriétaire de l'hébergeur), et le " +
+        "déclarer dans DATABASE_URL_ADMIN — distinct de DATABASE_URL.",
+  };
+}
+
+const REQUETE_ADMIN = `
+select current_user::text                                                as role,
+       (select rolsuper     from pg_roles where rolname = current_user)  as superutilisateur,
+       (select rolbypassrls from pg_roles where rolname = current_user)  as contourne_rls,
+       row_security_active('gf_users'::regclass)                         as rls_appliquee
+`;
+
+export async function verifierRoleAdministrationAvec(base: Pool): Promise<EtatRoleAdministration> {
+  const { rows } = await base.query<{
+    role: string;
+    superutilisateur: boolean;
+    contourne_rls: boolean;
+    rls_appliquee: boolean;
+  }>(REQUETE_ADMIN);
+  return interpreterRoleAdministration(rows[0]);
+}
+
+/** Contrôle la connexion privilégiée du produit (`src/db/admin.ts`). */
+export async function verifierRoleAdministration(): Promise<EtatRoleAdministration> {
+  const { adminPool } = await import("./admin");
+  return verifierRoleAdministrationAvec(adminPool);
+}
+
 /** Contrôle la connexion que le produit utilise effectivement. */
 export async function verifierRoleApplication(): Promise<EtatRoleBase> {
   return verifierRoleAvec(await poolApplication());

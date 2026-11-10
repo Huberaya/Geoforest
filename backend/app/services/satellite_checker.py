@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -23,78 +24,69 @@ from shapely.geometry import Point, mapping, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from urllib.parse import urlparse
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-RiskLevel = str  # "LOW" | "STANDARD" | "HIGH"
+RiskLevel = str  # "LOW" | "STANDARD" | "HIGH" | "CRITICAL" | "UNKNOWN"
 
 
-# --------------------------------------------------------------------------- Benchmark pays
-@dataclass(frozen=True)
-class CountryBox:
-    iso2: str
-    name: str
-    lon_min: float
-    lat_min: float
-    lon_max: float
-    lat_max: float
-    risk: RiskLevel
+# --------------------------------------------------------------------------- Pays et risque pays
+# P2-16 — deux questions distinctes :
+#   1. le pays du point est résolu par point-dans-polygone sur les frontières
+#      Natural Earth 1:50m versionnées dans data/frontieres/ (parité stricte avec
+#      src/lib/eudr/frontieres.ts, même fichier, même algorithme). Hors couverture
+#      ou frontière contestée : "XX", sans substitution d'un voisin ;
+#   2. le benchmark de risque EUDR du pays n'est PAS intégré (aucune liste
+#      officielle versionnée) : il reste "UNKNOWN". Résoudre le pays ne rend pas
+#      une table interne exacte, et un risque inventé est une fausse preuve.
+LIMITE_ATTRIBUTION_PAYS = (
+    "Pays attribué par frontières Natural Earth 1:50m (world-atlas 2.0.2, versionné avec "
+    "provenance) : généralisation régionale, un point à quelques centaines de mètres d'une "
+    "frontière peut être mal attribué ; un point hors couverture est rendu « XX » sans "
+    "substitution. Le benchmark de risque pays reste inconnu : aucune classification "
+    "officielle versionnée n'est intégrée."
+)
 
 
-# Emprises approximatives (ordre = priorité). Benchmark conforme à la classification
-# publiée par la Commission (règlement d'exécution 2025, art. 29 EUDR) :
-#   HIGH : Biélorussie, Myanmar, Corée du Nord, Russie — LOW : UE et la plupart des pays
-#   à faible risque — STANDARD : le reste (grands pays producteurs tropicaux).
-COUNTRY_BOXES: List[CountryBox] = [
-    CountryBox("BY", "Biélorussie", 23.1, 51.2, 32.8, 56.2, "HIGH"),
-    CountryBox("MM", "Myanmar", 92.1, 9.5, 101.2, 28.6, "HIGH"),
-    CountryBox("KP", "Corée du Nord", 124.1, 37.6, 130.7, 43.0, "HIGH"),
-    CountryBox("RU", "Russie", 27.3, 41.1, 180.0, 81.9, "HIGH"),
-    CountryBox("CI", "Côte d'Ivoire", -8.6, 4.3, -2.5, 10.8, "STANDARD"),
-    CountryBox("GH", "Ghana", -3.3, 4.7, 1.2, 11.2, "STANDARD"),
-    CountryBox("NG", "Nigeria", 2.6, 4.2, 14.7, 13.9, "STANDARD"),
-    CountryBox("CM", "Cameroun", 8.4, 1.6, 16.2, 13.1, "STANDARD"),
-    CountryBox("CD", "RD Congo", 12.2, -13.5, 31.3, 5.4, "STANDARD"),
-    CountryBox("UG", "Ouganda", 29.5, -1.5, 35.0, 4.2, "STANDARD"),
-    CountryBox("ET", "Éthiopie", 32.9, 3.4, 48.0, 14.9, "STANDARD"),
-    CountryBox("KE", "Kenya", 33.9, -4.7, 41.9, 5.5, "STANDARD"),
-    CountryBox("TZ", "Tanzanie", 29.3, -11.8, 40.5, -0.9, "STANDARD"),
-    CountryBox("LR", "Liberia", -11.5, 4.3, -7.4, 8.6, "STANDARD"),
-    CountryBox("ID", "Indonésie", 95.0, -11.0, 141.0, 6.1, "STANDARD"),
-    CountryBox("MY", "Malaisie", 99.6, 0.8, 119.3, 7.4, "STANDARD"),
-    CountryBox("VN", "Vietnam", 102.1, 8.4, 109.5, 23.4, "STANDARD"),
-    CountryBox("TH", "Thaïlande", 97.3, 5.6, 105.7, 20.5, "STANDARD"),
-    CountryBox("PG", "Papouasie-Nouvelle-Guinée", 140.8, -11.7, 156.0, -1.3, "STANDARD"),
-    CountryBox("IN", "Inde", 68.1, 6.7, 97.4, 35.5, "STANDARD"),
-    CountryBox("BR", "Brésil", -74.0, -33.8, -34.8, 5.3, "STANDARD"),
-    CountryBox("CO", "Colombie", -79.0, -4.2, -66.9, 12.5, "STANDARD"),
-    CountryBox("PE", "Pérou", -81.4, -18.4, -68.7, -0.03, "STANDARD"),
-    CountryBox("EC", "Équateur", -81.1, -5.0, -75.2, 1.7, "STANDARD"),
-    CountryBox("BO", "Bolivie", -69.6, -22.9, -57.5, -9.7, "STANDARD"),
-    CountryBox("PY", "Paraguay", -62.7, -27.6, -54.3, -19.3, "STANDARD"),
-    CountryBox("AR", "Argentine", -73.6, -55.1, -53.6, -21.8, "STANDARD"),
-    CountryBox("HN", "Honduras", -89.4, 12.9, -83.1, 16.5, "STANDARD"),
-    CountryBox("GT", "Guatemala", -92.3, 13.7, -88.2, 17.8, "STANDARD"),
-    CountryBox("NI", "Nicaragua", -87.7, 10.7, -83.1, 15.0, "STANDARD"),
-    CountryBox("CR", "Costa Rica", -85.9, 8.0, -82.6, 11.2, "STANDARD"),
-    CountryBox("MX", "Mexique", -118.4, 14.5, -86.7, 32.7, "STANDARD"),
-    CountryBox("US", "États-Unis", -125.0, 24.5, -66.9, 49.4, "LOW"),
-    CountryBox("CA", "Canada", -141.0, 41.7, -52.6, 83.1, "LOW"),
-    CountryBox("AU", "Australie", 113.3, -43.6, 153.6, -10.7, "LOW"),
-    CountryBox("NZ", "Nouvelle-Zélande", 166.5, -47.3, 178.6, -34.4, "LOW"),
-    CountryBox("JP", "Japon", 129.4, 31.0, 145.8, 45.5, "LOW"),
-    CountryBox("CN", "Chine", 73.5, 18.2, 134.8, 53.6, "LOW"),
-    CountryBox("EU", "Union européenne", -10.5, 35.0, 31.6, 71.2, "LOW"),
-]
+def resolve_country_detail(lon: float, lat: float) -> Dict[str, Any]:
+    """Attribution complète : iso2, nom, candidats, ambiguïté, méthode, risque UNKNOWN.
+
+    Si le référentiel de frontières est absent ou illisible, la méthode vaut
+    ``unavailable`` et le pays ``XX`` : jamais une méthode approximative en repli.
+    """
+    from app.services.frontieres import FrontieresIndisponibles, resoudre_pays
+
+    try:
+        r = resoudre_pays(lon, lat)
+    except FrontieresIndisponibles as exc:
+        logger.warning("Référentiel de frontières indisponible : %s", exc)
+        return {
+            "iso2": "XX",
+            "name": "Non déterminé",
+            "ambiguous": False,
+            "candidates": [],
+            "method": "unavailable",
+            "risk": "UNKNOWN",
+        }
+    return {**r, "risk": "UNKNOWN"}
 
 
 def resolve_country(lon: float, lat: float) -> Tuple[str, str, RiskLevel]:
-    """Retourne (iso2, nom, niveau de risque benchmark) pour un centroïde."""
-    for box in COUNTRY_BOXES:
-        if box.lon_min <= lon <= box.lon_max and box.lat_min <= lat <= box.lat_max:
-            return box.iso2, box.name, box.risk
-    return "XX", "Non déterminé", "STANDARD"
+    """Compatibilité : (iso2, nom, risque). Le risque est toujours UNKNOWN."""
+    d = resolve_country_detail(lon, lat)
+    return d["iso2"], d["name"], d["risk"]
+
+
+def _attribution_pays(detail: Dict[str, Any]) -> Dict[str, Any]:
+    """Champs d'attribution du pays joints à chaque résultat d'analyse."""
+    return {
+        "country_attribution": detail["method"],
+        "country_candidates": list(detail["candidates"]),
+        "country_ambiguous": bool(detail["ambiguous"]),
+    }
 
 
 # --------------------------------------------------------------------------- Hotspots déterministes
@@ -162,7 +154,8 @@ def _analysis_polygon(geom: BaseGeometry) -> Dict[str, Any]:
 def deterministic_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     centroid = geom.centroid
     lon, lat = centroid.x, centroid.y
-    iso2, country_name, country_risk = resolve_country(lon, lat)
+    pays = resolve_country_detail(lon, lat)
+    iso2, country_name, country_risk = pays["iso2"], pays["name"], pays["risk"]
     seed = f"{round(lon, 4)}:{round(lat, 4)}"
     jitter = _stable_fraction(seed)
 
@@ -209,8 +202,7 @@ def deterministic_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any
         confidence = round(0.90 + jitter * 0.09, 3)
         risk_level = country_risk
         details = (
-            f"Aucune alerte Hansen Tree Cover Loss post-2020 sur l'emprise. Pays : {country_name} ({iso2}), "
-            f"benchmark UE : {country_risk}."
+            "Aucune alerte Hansen Tree Cover Loss post-2020 sur l'emprise. Le risque pays et le benchmark officiel ne sont pas évalués."
         )
 
     if harvest_date <= settings.eudr_cutoff_date:
@@ -226,6 +218,7 @@ def deterministic_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any
         "country_code": iso2,
         "country_name": country_name,
         "country_risk": country_risk,
+        **_attribution_pays(pays),
         "source": "simulated",
         "is_probative": False,
         "evidence": None,
@@ -269,6 +262,11 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
             f"GFW HTTP {response.status_code} — {response.text[:200]}", response=response
         )
     payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Réponse GFW invalide : le corps JSON doit être un objet")
+    data = payload.get("data")
+    if not isinstance(data, list):
+        raise ValueError("Réponse GFW invalide : le champ data doit être un tableau")
     # Version réellement servie, déduite de l'URL finale après redirection.
     served = version
     match = re.search(r"/dataset/[^/]+/([^/]+)/", response.url or "")
@@ -283,13 +281,58 @@ def _gfw_query(analysis_geometry: Dict[str, Any]) -> Tuple[List[Dict[str, Any]],
         "geometry_type": analysis_geometry.get("type", "Unknown"),
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    return list(payload.get("data") or []), evidence
+    return data, evidence
 
+
+def _normalize_gfw_rows(rows: List[Any]) -> List[Dict[str, Any]]:
+    """Valide le contrat GFW avec les mêmes règles que le moteur TypeScript."""
+    current_year = datetime.now(timezone.utc).year
+    normalized: List[Dict[str, Any]] = []
+    for index, raw in enumerate(rows):
+        if not isinstance(raw, dict):
+            raise ValueError(f"Réponse GFW invalide : ligne {index + 1} non objet")
+        raw_year = raw.get("umd_tree_cover_loss__year")
+        raw_area = raw.get("area__ha")
+
+        # Les booléens sont des entiers en Python, mais ne sont pas des années.
+        if isinstance(raw_year, bool) or raw_year is None:
+            year = 0
+        else:
+            try:
+                year_number = float(raw_year.strip() if isinstance(raw_year, str) else raw_year)
+                year = int(year_number) if math.isfinite(year_number) and year_number.is_integer() else 0
+            except (TypeError, ValueError, OverflowError):
+                year = 0
+
+        # Ne pas convertir True/False en 1.0/0.0, contrairement à float(bool).
+        if isinstance(raw_area, bool) or raw_area is None:
+            area = float("nan")
+        else:
+            try:
+                area = float(raw_area.strip() if isinstance(raw_area, str) else raw_area)
+            except (TypeError, ValueError, OverflowError):
+                area = float("nan")
+
+        if year < 2001 or year > current_year:
+            raise ValueError(f"Réponse GFW invalide : année de perte absente ou hors plage à la ligne {index + 1}")
+        if not math.isfinite(area) or area < 0:
+            raise ValueError(f"Réponse GFW invalide : surface absente, non finie ou négative à la ligne {index + 1}")
+        normalized.append({"umd_tree_cover_loss__year": year, "area__ha": area})
+    return normalized
 
 def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     rows, evidence = _gfw_query(_analysis_polygon(geom))
+    rows = _normalize_gfw_rows(rows)
+    # Réponse vide : absence de perte et absence de donnée ne sont pas distinguables.
+    # Aucun verdict de conformité (miroir de la version TypeScript).
+    if not rows:
+        return _unavailable_result(
+            geom,
+            "réponse GFW vide : absence de perte et absence de donnée ne sont pas distinguables ; aucun verdict de conformité",
+        )
     centroid = geom.centroid
-    iso2, country_name, country_risk = resolve_country(centroid.x, centroid.y)
+    pays = resolve_country_detail(centroid.x, centroid.y)
+    iso2, country_name, country_risk = pays["iso2"], pays["name"], pays["risk"]
 
     from app.services.gis_validator import geodesic_area_ha
 
@@ -300,8 +343,10 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     all_rows = [r for r in rows if r.get("umd_tree_cover_loss__year")]
 
     loss_area = round(sum(float(r.get("area__ha") or 0.0) for r in post_cutoff_rows), 4)
-    # Seuil de bruit : 0,5 % de la parcelle ou 0,01 ha (~1 pixel Landsat = 0,09 ha, on reste strict)
-    significant = loss_area >= max(0.01, area_ha * 0.005)
+    # P0 (recette 2026-10-08) : aucune tolérance. Un seuil de bruit (0,5 % de la
+    # parcelle) rendait « conforme » une perte réelle mais faible. Toute perte
+    # post-2020 détectée est non conforme ; l'erreur se corrige en revue humaine.
+    significant = loss_area > 0
 
     if significant:
         loss_year = min(int(r["umd_tree_cover_loss__year"]) for r in post_cutoff_rows)
@@ -310,11 +355,12 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
         return {
             "compliant": False,
             "loss_year": loss_year,
-            "confidence_score": confidence,
+            "confidence_score": None,
             "risk_level": "HIGH",
             "country_code": iso2,
             "country_name": country_name,
             "country_risk": country_risk,
+            **_attribution_pays(pays),
             "source": "gfw-live",
             "is_probative": True,
             "evidence": evidence,
@@ -331,11 +377,12 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
     return {
         "compliant": True,
         "loss_year": historic_year,
-        "confidence_score": 0.95,
-        "risk_level": country_risk,
+        "confidence_score": None,
+        "risk_level": "UNKNOWN",
         "country_code": iso2,
         "country_name": country_name,
         "country_risk": country_risk,
+        **_attribution_pays(pays),
         "source": "gfw-live",
         "is_probative": True,
         "evidence": evidence,
@@ -344,7 +391,7 @@ def live_check(geom: BaseGeometry, harvest_date: date) -> Dict[str, Any]:
         "tree_cover_2000_pct": None,
         "details": (
             f"GFW {evidence['dataset_version']} : aucune perte significative post-2020 ({loss_area} ha). "
-            f"Pays : {country_name}, benchmark UE : {country_risk}."
+            "Ce signal ne constitue pas une classification de risque pays."
         ),
     }
 
@@ -358,7 +405,8 @@ def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
     remplace par une estimation.
     """
     centroid = geom.centroid
-    iso2, country_name, country_risk = resolve_country(centroid.x, centroid.y)
+    pays = resolve_country_detail(centroid.x, centroid.y)
+    iso2, country_name, country_risk = pays["iso2"], pays["name"], pays["risk"]
     return {
         "compliant": None,
         "loss_year": None,
@@ -367,6 +415,7 @@ def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
         "country_code": iso2,
         "country_name": country_name,
         "country_risk": country_risk,
+        **_attribution_pays(pays),
         "source": "unavailable",
         "is_probative": False,
         "evidence": None,
@@ -378,9 +427,17 @@ def _unavailable_result(geom: BaseGeometry, reason: str) -> Dict[str, Any]:
         "tree_cover_2000_pct": None,
         "details": (
             f"Analyse satellite impossible : {reason}. "
-            f"Pays déduit des coordonnées : {country_name} ({iso2})."
+            "Benchmark de risque pays indisponible."
         ),
     }
+
+
+GFW_HOTE_OFFICIEL = "data-api.globalforestwatch.org"
+
+
+def _hote_officiel(url: str) -> bool:
+    """Vrai seulement si l'adresse désigne le service officiel Global Forest Watch."""
+    return urlparse(url).hostname == GFW_HOTE_OFFICIEL
 
 
 def check_deforestation_risk(geometry: Dict[str, Any], harvest_date: str) -> Dict[str, Any]:
@@ -401,6 +458,14 @@ def check_deforestation_risk(geometry: Dict[str, Any], harvest_date: str) -> Dic
     geom = _to_shapely(geometry)
 
     if settings.gfw_live_available:
+        # P0 (recette 2026-10-08) : seul le service officiel produit une preuve.
+        # Un point d'accès configuré ailleurs ne produit aucun verdict.
+        if not _hote_officiel(settings.gfw_api_url):
+            return _unavailable_result(
+                geom,
+                f"source satellite non officielle ({urlparse(settings.gfw_api_url).netloc}) : "
+                "aucune preuve ne peut en être tirée",
+            )
         try:
             return live_check(geom, parsed_date)
         except (requests.RequestException, ValueError, KeyError) as exc:

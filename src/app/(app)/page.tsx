@@ -30,7 +30,10 @@ const STATUS_LABELS: Record<string, string> = {
   IN_ANALYSIS: "en analyse",
   UNDER_REVIEW: "en revue",
   READY: "prêt",
-  DECLARED: "déclaré",
+  READY_FOR_DECLARATION: "prêt à déclarer",
+  EXPORTED: "brouillon exporté (non transmis)",
+  SUBMITTED: "soumission officielle (non disponible)",
+  DECLARED: "déclaration officielle (non disponible)",
 };
 
 const ACTION_LABELS: Record<string, string> = {

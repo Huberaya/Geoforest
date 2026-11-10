@@ -1,0 +1,133 @@
+{
+  "_commentaire": "Points de contrôle partagés par src/lib/eudr/frontieres.ts et backend/app/services/frontieres.py. Ce fichier existe pour qu'une divergence entre les deux implémentations échoue dans les DEUX suites, et non seulement dans celle qu'on pense à lancer. Les rattachements des territoires contestés rapportent le jeu Natural Earth : le produit ne les endosse pas.",
+  "methode": "natural-earth-50m",
+  "source": "data/frontieres/countries-50m.json",
+  "points": [
+    {
+      "label": "Tunis",
+      "lon": 10.1815,
+      "lat": 36.8065,
+      "iso2": "TN",
+      "motif": "tombe dans la boîte « Union européenne » avant P2-16"
+    },
+    {
+      "label": "Alger",
+      "lon": 3.0588,
+      "lat": 36.7538,
+      "iso2": "DZ",
+      "motif": "tombe dans la boîte « Union européenne »"
+    },
+    {
+      "label": "Tanger",
+      "lon": -5.7998,
+      "lat": 35.7595,
+      "iso2": "MA",
+      "motif": "tombe dans la boîte « UE » ; en mer au 1:110m"
+    },
+    {
+      "label": "Belgrade",
+      "lon": 20.4573,
+      "lat": 44.7872,
+      "iso2": "RS",
+      "motif": "tombe dans la boîte « Union européenne »"
+    },
+    {
+      "label": "Kiev",
+      "lon": 30.5234,
+      "lat": 50.4501,
+      "iso2": "UA",
+      "motif": "tombe dans la boîte « Russie »"
+    },
+    {
+      "label": "Hokkaido",
+      "lon": 142.0,
+      "lat": 43.0,
+      "iso2": "JP",
+      "motif": "ambigu JP/RU avec des rectangles"
+    },
+    {
+      "label": "Oulan-Bator",
+      "lon": 106.9057,
+      "lat": 47.8864,
+      "iso2": "MN",
+      "motif": "tombe dans la boîte « Russie »"
+    },
+    {
+      "label": "Nassau",
+      "lon": -77.3396,
+      "lat": 25.0443,
+      "iso2": "BS",
+      "motif": "attribué aux États-Unis par rectangle ; en mer au 1:110m"
+    },
+    {
+      "label": "San Salvador",
+      "lon": -89.2182,
+      "lat": 13.6929,
+      "iso2": "SV",
+      "motif": "ambigu avec des rectangles"
+    },
+    {
+      "label": "Paris",
+      "lon": 2.3522,
+      "lat": 48.8566,
+      "iso2": "FR",
+      "motif": "cas nominal"
+    },
+    {
+      "label": "Abidjan",
+      "lon": -4.0083,
+      "lat": 5.3599,
+      "iso2": "CI",
+      "motif": "cas nominal hors UE"
+    },
+    {
+      "label": "Kinshasa",
+      "lon": 15.3136,
+      "lat": -4.3217,
+      "iso2": "CD",
+      "motif": "cas nominal hors UE"
+    },
+    {
+      "label": "Pristina",
+      "lon": 21.1655,
+      "lat": 42.6629,
+      "iso2": "XX",
+      "motif": "Kosovo : entité sans code ISO — jamais rattachée à un voisin"
+    },
+    {
+      "label": "Haute mer Atlantique",
+      "lon": -30.0,
+      "lat": 20.0,
+      "iso2": "XX",
+      "motif": "aucun pays : hors couverture"
+    },
+    {
+      "label": "Crimée (Sébastopol)",
+      "lon": 34.1,
+      "lat": 45.3,
+      "iso2": "RU",
+      "motif": "rattachement du jeu Natural Earth, rapporté et non endossé"
+    },
+    {
+      "label": "Cachemire (Srinagar)",
+      "lon": 75.0,
+      "lat": 34.5,
+      "iso2": "IN",
+      "motif": "rattachement du jeu Natural Earth, rapporté et non endossé"
+    },
+    {
+      "label": "Sahara occidental (Laayoune)",
+      "lon": -13.0,
+      "lat": 24.5,
+      "iso2": "MA",
+      "motif": "rattachement du jeu Natural Earth, rapporté et non endossé"
+    },
+    {
+      "label": "Frontière FR/DE (Strasbourg)",
+      "lon": 8.2,
+      "lat": 48.9,
+      "iso2": "DE",
+      "motif": "point riverain — la précision de quelques centaines de mètres s'applique"
+    }
+  ]
+}

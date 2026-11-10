@@ -11,6 +11,8 @@ import { dansContexte, motifDeRoute, contexteCourant } from "@/lib/observability
 import { journal } from "@/lib/observability/journal";
 import { enregistrerRequete, noterJauges } from "@/lib/observability/metriques";
 import { avecIdempotence, methodeProtegee } from "@/lib/idempotence";
+import { exigerSchemaPret, SchemaSecuriteIncompletError } from "@/db/etat-schema";
+import { schemaIncompletResponse } from "@/lib/api/schema-error";
 
 export interface GuardedContext {
   /** Session validée (utilisateur, organisation, permissions). */
@@ -58,6 +60,12 @@ export function guard<C = { params?: Promise<Record<string, string>> }>(
 
       const reponse = await dansContexte({ route, requestId: propose, debut }, async () => {
         try {
+          // R-05 — aucun gestionnaire protégé ne s'exécute sur un schéma dont
+          // l'état de sécurité n'est pas complet. Le contrôle de démarrage
+          // couvre l'ouverture du service ; celui-ci couvre la course entre
+          // l'arrivée d'une requête et la fin de `register()`, ainsi qu'une
+          // dégradation détectée par le cache court.
+          await exigerSchemaPret();
           const session = permission ? await requirePermission(permission) : await requireAuth();
 
           const organizationId = session.user.organizationId;
@@ -90,6 +98,13 @@ export function guard<C = { params?: Promise<Record<string, string>> }>(
               })
             : await executer();
         } catch (error) {
+          if (error instanceof SchemaSecuriteIncompletError) {
+            journal.error("schema.incomplet", {
+              route,
+              problemes: error.etat.problemes.map((p) => p.code),
+            });
+            return schemaIncompletResponse(error.etat);
+          }
           if (isAuthError(error)) return authErrorResponse(error);
           // P0-07 : une base injoignable se déclare. On ne la déguise ni en 200
           // dégradé, ni en 404, ni en erreur générique sans corps exploitable.

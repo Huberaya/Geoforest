@@ -13,7 +13,11 @@ export const dynamic = "force-dynamic";
  * calculés. Un compteur nul n'est pas affiché : l'absence de badge doit
  * signifier l'absence d'élément, pas un oubli d'affichage.
  */
-export const GET = guard()(async (_request: Request, _ctx, { tx, organizationId }): Promise<Response> => {
+export const GET = guard()(async (_request: Request, _ctx, { tx, organizationId, session }): Promise<Response> => {
+  // Chantier 6 : les compteurs décrivent toute l'organisation. Un compte fournisseur
+  // n'en voit aucun (audit : « 27 documents à revoir » visibles par un producteur).
+  if (session.user.role === "supplier") return NextResponse.json({ counts: {} });
+
   const [row] = await tx
     .select({
       documentsToReview: sql<number>`count(*) filter (where ${documents.status} = 'TO_VERIFY')`,

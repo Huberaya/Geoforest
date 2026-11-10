@@ -15,29 +15,13 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 import { logAction } from "@/lib/api/audit-log";
+import { aujourdhuiIso, chargerDossier, recalculerDossier } from "@/lib/eudr/readiness-db";
+import { estFige, TRANSITIONS, verifierTransitionManuelle } from "@/lib/eudr/dds-etats";
 
 export const dynamic = "force-dynamic";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * Transitions de statut autorisées pour un dossier de diligence raisonnée.
- *
- * ⚠️ P0-06 : `DECLARED` est délibérément **inatteignable**. Une déclaration
- * n'existe qu'après un accusé du système d'information EUDR, qu'aucun
- * composant de ce produit ne peut obtenir à ce jour.
- */
-const TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
-  DRAFT: ["MISSING_DATA", "IN_ANALYSIS", "ARCHIVED"],
-  MISSING_DATA: ["DRAFT", "IN_ANALYSIS", "ARCHIVED"],
-  IN_ANALYSIS: ["UNDER_REVIEW", "RISK_IDENTIFIED", "MISSING_DATA", "ARCHIVED"],
-  UNDER_REVIEW: ["RISK_IDENTIFIED", "ACTION_REQUIRED", "READY_FOR_DECLARATION", "IN_ANALYSIS", "ARCHIVED"],
-  RISK_IDENTIFIED: ["ACTION_REQUIRED", "UNDER_REVIEW", "ARCHIVED"],
-  ACTION_REQUIRED: ["UNDER_REVIEW", "RISK_IDENTIFIED", "ARCHIVED"],
-  READY_FOR_DECLARATION: ["UNDER_REVIEW", "ACTION_REQUIRED", "ARCHIVED"],
-  DECLARED: ["ARCHIVED"],
-  ARCHIVED: ["DRAFT"],
-};
 
 /**
  * Rassemble ce que l'examen du dossier doit lire, et rien de plus.
@@ -160,8 +144,20 @@ export const GET = guard<{ params: Promise<{ id: string }> }>("dds:read")(async 
     .from(complianceTasks)
     .where(and(eq(complianceTasks.organizationId, organizationId), eq(complianceTasks.diligenceId, id)))
     .orderBy(complianceTasks.createdAt);
-
+  // P0 (recette 2026-10-08) — la readiness est calculée à partir des faits
+  // rattachés, jamais lue dans un champ saisi à la main.
+  const charge = await chargerDossier(tx, organizationId, id, aujourdhuiIso());
   return NextResponse.json({
+    readiness: charge
+      ? {
+          etat: charge.resultat.etat,
+          completude: charge.resultat.completude,
+          risque: charge.resultat.risque,
+          blocages: charge.resultat.blocages,
+          manquants: charge.resultat.manquants,
+          explication: charge.resultat.explication,
+        }
+      : null,
     id: row.dds.id,
     reference: row.dds.reference,
     title: row.dds.title,
@@ -219,30 +215,40 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const patch: Record<string, unknown> = { updatedAt: new Date() };
 
+  // B-12 — un dossier figé (prêt, exporté, soumis, déclaré) ne change pas de données :
+  // un brouillon exporté ne doit pas diverger du dossier. Repasser en revue d'abord.
+  if ((body.title !== undefined || body.netWeightKg !== undefined) && estFige(current.status as DdsStatus)) {
+    const issue =
+      current.status === "READY_FOR_DECLARATION" || current.status === "EXPORTED"
+        ? "Repassez-le en revue (statut « UNDER_REVIEW ») avant toute modification."
+        : "Aucune modification n'est possible à ce stade.";
+    return NextResponse.json(
+      { detail: `Dossier figé (statut « ${current.status} ») : ses données ne se modifient pas. ${issue}` },
+      { status: 409 },
+    );
+  }
+
   if (body.title !== undefined) {
     if (str(body.title).length < 2) return NextResponse.json({ detail: "Intitulé trop court" }, { status: 422 });
     patch.title = str(body.title);
   }
-  if (body.riskLevel !== undefined) {
-    if (!["LOW", "STANDARD", "HIGH", "CRITICAL"].includes(str(body.riskLevel))) {
-      return NextResponse.json({ detail: "Niveau de risque invalide" }, { status: 422 });
-    }
-    patch.riskLevel = str(body.riskLevel);
+  // ------------------------------------------------------------ P0 (recette 2026-10-08)
+  // Le niveau de risque et la complétude sont CALCULÉS à partir des analyses et
+  // des pièces rattachées. Les accepter en saisie permettait d'afficher un
+  // dossier « risque LOW, complétude 100 % » sans aucune donnée derrière.
+  if (body.riskLevel !== undefined || body.completenessScore !== undefined) {
+    return NextResponse.json(
+      {
+        detail:
+          "Le niveau de risque et la complétude sont calculés à partir des parcelles analysées et des pièces " +
+          "rattachées : ils ne se saisissent pas. Consultez GET /api/v1/due-diligence/{id} (readiness).",
+      },
+      { status: 409 },
+    );
   }
-  // ⚠️ C7 — le score de complétude n'est plus reçu du client.
-  //
-  //   Il était écrit tel quel dans la ligne (`patch.completenessScore =
-  //   Math.round(score)`), ce qui permettait de déclarer à 100 % un dossier
-  //   vide dans la même requête que son passage en « prêt à déclarer ». Un
-  //   score de complétude est une MESURE : il se calcule à partir des données
-  //   du dossier, comme `supplierCompleteness()` le fait pour les fournisseurs.
-  //
-  //   Le champ reste accepté dans le corps pour ne pas casser les clients
-  //   existants — mais il est ignoré, et la réponse le dit explicitement
-  //   (`completeness_score_ignore`). Le refuser en 422 aurait rendu illisible
-  //   un écran qui l'envoie encore ; l'ignorer en silence aurait laissé croire
-  //   qu'il a été pris en compte.
-  const scoreRecu = body.completenessScore !== undefined;
+  // C7 (main) expose `completeness_score_ignore` : ici le score reçu est refusé
+  // en amont (409), il n'est donc jamais « ignoré ».
+  const scoreRecu = false;
   if (body.netWeightKg !== undefined) {
     const weight = Number(body.netWeightKg);
     if (!Number.isFinite(weight) || weight < 0) {
@@ -256,37 +262,39 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
     if (!DDS_STATUSES.includes(next as DdsStatus)) {
       return NextResponse.json({ detail: "Statut inconnu" }, { status: 422 });
     }
-    if (next === "DECLARED") {
-      // Refus explicite plutôt qu'un statut vide de sens.
-      return NextResponse.json(
-        {
-          detail:
-            "Le statut « DECLARED » ne peut pas être attribué depuis cette application : " +
-            "il suppose un accusé du système d'information EUDR, qu'aucun composant du " +
-            "produit ne peut obtenir aujourd'hui.",
-        },
-        { status: 409 },
-      );
-    }
+    // Refus explicite des cibles réservées (SUBMITTED, DECLARED, EXPORTED) et des
+    // enchaînements non admis : voir src/lib/eudr/dds-etats.ts.
     const from = current.status as DdsStatus;
-    if (!(TRANSITIONS[from] ?? []).includes(next as DdsStatus)) {
-      return NextResponse.json(
-        { detail: `Transition refusée : « ${from} » → « ${next} » n'est pas un enchaînement admis.` },
-        { status: 409 },
-      );
+    const verdict = verifierTransitionManuelle(from, next as DdsStatus);
+    if (!verdict.admise) {
+      return NextResponse.json({ detail: verdict.motif }, { status: 409 });
     }
-    // ⚠️ C7 — le cœur de la correction.
-    //
-    //   `TRANSITIONS` était le SEUL filtre : un dossier créé par `POST` —
-    //   aucune parcelle, aucun document, aucune tâche — passait « prêt à
-    //   déclarer » en un clic. Le produit enregistrait une affirmation ; il ne
-    //   constatait rien.
-    //
-    //   Seule la transition VERS `READY_FOR_DECLARATION` est examinée. Les
-    //   autres (retour en revue, archivage, brouillon) ne prétendent rien : les
-    //   soumettre à un examen rendrait impossible de constater un dossier
-    //   incomplet — c'est-à-dire de le corriger.
     if (next === "READY_FOR_DECLARATION") {
+      // ---------------------------------------------------------- P0 : porte de sortie
+      // Le passage à « prêt pour déclaration » exige une revue humaine (le dossier
+      // est en UNDER_REVIEW) ET un moteur sans blocage ni donnée manquante.
+      const charge = await chargerDossier(tx, organizationId, id, aujourdhuiIso());
+      if (!charge) return NextResponse.json({ detail: "Dossier introuvable" }, { status: 404 });
+      const readinessRefuse = charge.resultat.etat !== "READY_FOR_REVIEW";
+      // ⚠️ C7 — le cœur de la correction.
+      //
+      //   `TRANSITIONS` était le SEUL filtre : un dossier créé par `POST` —
+      //   aucune parcelle, aucun document, aucune tâche — passait « prêt à
+      //   déclarer » en un clic. Le produit enregistrait une affirmation ; il ne
+      //   constatait rien.
+      //
+      //   Seule la transition VERS `READY_FOR_DECLARATION` est examinée. Les
+      //   autres (retour en revue, archivage, brouillon) ne prétendent rien : les
+      //   soumettre à un examen rendrait impossible de constater un dossier
+      //   incomplet — c'est-à-dire de le corriger.
+      //
+      // Les deux contrôles vivent dans le même bloc et sont TOUS DEUX évalués
+      // avant de répondre : readiness P0 (moteur sans blocage ni donnée
+      // manquante) et examen C7 (conditions constatées, avec pour chaque manque
+      // l'action à mener). Un refus porte donc toujours `manques` et
+      // `score_calcule` (contrat C7), et `readiness` quand le moteur s'oppose
+      // aussi. Répondre dès le premier refus avait été mesuré (10/11/2026,
+      // parcours bout en bout) : le client recevait un 409 sans manque énuméré.
       const tasks = await tx
         .select()
         .from(complianceTasks)
@@ -294,19 +302,39 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
 
       const examen = await examiner(tx, organizationId, current, tasks, new Date().toISOString().slice(0, 10));
 
-      if (!examen.complet) {
+      if (!examen.complet || readinessRefuse) {
         // 409 et non 422 : la requête est bien formée, c'est l'ÉTAT du dossier
         // qui s'oppose à la transition. Le message énumère les manques, avec
         // pour chacun ce qu'il faut faire — un refus qui n'explique pas se
         // contourne au lieu de se corriger.
+        const manques = [...examen.manques];
+        if (readinessRefuse && examen.complet) {
+          // Le moteur s'oppose alors que l'examen est complet : le refus doit
+          // quand même nommer ce qu'il faut faire, pas seulement l'état.
+          manques.push({
+            code: "MOTEUR_NON_PRET",
+            gravite: "bloquant",
+            detail: charge.resultat.explication,
+            action:
+              "Lever les blocages et compléter les données manquantes listés dans `readiness`, puis relancer l'analyse.",
+          });
+        }
         return NextResponse.json(
           {
             detail:
-              `Dossier non validable : ${examen.manques.length} condition(s) ne sont pas tenues. ` +
-              "Un dossier n'est « prêt à déclarer » que lorsque le produit a pu le constater.",
-            manques: examen.manques,
+              `Dossier non validable : ${manques.length} condition(s) ne sont pas tenues. ` +
+              "Un dossier n'est « prêt à déclarer » que lorsque le produit a pu le constater." +
+              (readinessRefuse
+                ? ` Moteur : état « ${charge.resultat.etat} ». ${charge.resultat.explication}`
+                : ""),
+            manques,
             score_calcule: examen.score,
             base_de_calcul: examen.baseDeCalcul,
+            readiness: {
+              etat: charge.resultat.etat,
+              blocages: charge.resultat.blocages,
+              manquants: charge.resultat.manquants,
+            },
           },
           { status: 409 },
         );
@@ -337,6 +365,8 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
     .where(and(eq(dueDiligenceStatements.id, id), eq(dueDiligenceStatements.organizationId, organizationId)))
     .returning();
   if (!row) return NextResponse.json({ detail: "Dossier introuvable" }, { status: 404 });
+  // Les champs calculés suivent toujours les faits, après chaque modification.
+  await recalculerDossier(tx, organizationId, id, aujourdhuiIso());
 
   await logAction(tx, organizationId, {
     userEmail: session.user.email,
@@ -350,12 +380,16 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("dds:validate")(
     details: { fields: Object.keys(patch).filter((k) => k !== "updatedAt") },
   });
 
+  const relu = await chargerDossier(tx, organizationId, id, aujourdhuiIso());
   return NextResponse.json({
     id: row.id,
     reference: row.reference,
     status: row.status as DdsStatus,
-    riskLevel: row.riskLevel as RiskLevel,
-    completenessScore: row.completenessScore,
+    riskLevel: relu?.dds.riskLevel ?? (row.riskLevel as RiskLevel),
+    completenessScore: relu?.dds.completenessScore ?? row.completenessScore,
+    readiness: relu
+      ? { etat: relu.resultat.etat, blocages: relu.resultat.blocages, manquants: relu.resultat.manquants }
+      : null,
     updatedAt: row.updatedAt.toISOString(),
     transmissionStatus: "NOT_TRANSMITTED",
     // ⚠️ C7 — dit explicitement que le score reçu n'a pas été retenu. Un champ

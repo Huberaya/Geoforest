@@ -94,9 +94,9 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
   const { status, validation, satellite } = result;
   const badge =
     status === "COMPLIANT"
-      ? { text: "CONFORME EUDR", cls: "bg-emerald-600 text-white", icon: "✓" }
+      ? { text: "PAS DE PERTE DÉTECTÉE", cls: "bg-emerald-600 text-white", icon: "✓" }
       : status === "NON_COMPLIANT"
-        ? { text: "NON CONFORME", cls: "bg-red-600 text-white", icon: "✕" }
+        ? { text: "PERTE POST-2020 DÉTECTÉE", cls: "bg-red-600 text-white", icon: "!" }
         : status === "SIMULATED_NON_PROBATIVE"
           ? { text: "ANALYSE SIMULÉE — NON PROBANT", cls: "bg-slate-600 text-white", icon: "⚠" }
           : status === "ANALYSIS_UNAVAILABLE"
@@ -162,7 +162,7 @@ export default function AuditResultCard({ result, error, loading, onExported }: 
           </div>
           <div className="flex flex-wrap gap-2">
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${RISK_STYLES[satellite.country_risk]}`}>
-              Risque pays : {RISK_LABELS[satellite.country_risk]} ({satellite.country_code})
+              Risque pays : {RISK_LABELS[satellite.country_risk]}{satellite.country_code !== "XX" ? ` (${satellite.country_code})` : ""}
             </span>
             {satellite.risk_level === null ? (
               // ⚠️ C6d : une parcelle non analysée n'a pas de niveau de risque.

@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { dbAdmin as db } from "@/db/admin";
 import { users } from "@/db/schema";
 import { logAuditEvent } from "@/lib/audit-log";
+import { clesCadence, consommerFenetre } from "@/lib/auth/cadence-partagee";
 import { checkPasswordPolicy, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { apiError, jsonResponse } from "@/lib/auth/respond";
 import { guard } from "@/lib/auth/guard";
@@ -12,6 +13,10 @@ import { clientIp, issueSession, revokeAllSessions, sessionCookieHeaders } from 
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Changement de mot de passe : 10 par quart d'heure et par compte. */
+const CHANGEMENT_MOT_DE_PASSE_MAX = 10;
+const CHANGEMENT_MOT_DE_PASSE_FENETRE_SECONDES = 15 * 60;
 
 interface PasswordBody {
   currentPassword?: unknown;
@@ -22,7 +27,31 @@ interface PasswordBody {
  * Changement de mot de passe. Révoque toutes les autres sessions de
  * l'utilisateur (incrément de `token_version`) et réémet la session courante.
  */
-export const POST = guard()(async (request: NextRequest, _ctx, { session }) => {
+export const POST = guard()(async (request: NextRequest, _ctx, { session, tx }) => {
+  // ⚠️ La vérification du mot de passe actuel est une comparaison de secret :
+  //   elle se limite en **partagé**, par utilisateur. Sans cela, une instance
+  //   supplémentaire multipliait le nombre d'essais disponibles, et un
+  //   redémarrage remettait le compteur à zéro.
+  // ⚠️ Le compteur est écrit dans la transaction du guard, donc sur la
+  //   connexion applicative : ouvrir une seconde connexion depuis la
+  //   transaction en cours suffirait à immobiliser un serveur qui ne sert
+  //   qu'une connexion à la fois (banc d'essai), et n'apporte rien en
+  //   production. `gf_login_attempts` est accessible au rôle applicatif.
+  const fenetre = await consommerFenetre(tx, {
+    cle: clesCadence.motDePasse(session.user.id),
+    max: CHANGEMENT_MOT_DE_PASSE_MAX,
+    fenetreSecondes: CHANGEMENT_MOT_DE_PASSE_FENETRE_SECONDES,
+  });
+  if (!fenetre.autorise) {
+    const refus = apiError(
+      "rate_limited",
+      "Trop de changements de mot de passe. Réessayez plus tard.",
+      429,
+    );
+    refus.headers.set("Retry-After", String(fenetre.reessayerDans));
+    return refus;
+  }
+
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
   const lecture = await lireCorpsJson(request);
   if (!lecture.ok) return lecture.response;

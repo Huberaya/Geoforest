@@ -36,42 +36,61 @@ function collectPlotItems(input: GeoJsonInput): PlotItem[] {
   }
   const type = input.type;
   if (type === "FeatureCollection") {
-    const features = Array.isArray(input.features) ? (input.features as Record<string, unknown>[]) : [];
+    const features = Array.isArray(input.features) ? (input.features as unknown[]) : [];
+    if (features.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "FeatureCollection vide");
     const items: PlotItem[] = [];
-    features.forEach((f, idx) => {
-      if (f && typeof f === "object" && f.geometry && typeof f.geometry === "object") {
-        items.push({
-          geometry: f.geometry as Record<string, unknown>,
-          properties: (f.properties as Record<string, unknown>) ?? {},
-          featureIndex: idx,
-        });
+    features.forEach((rawFeature, idx) => {
+      if (!rawFeature || typeof rawFeature !== "object" || Array.isArray(rawFeature)) {
+        throw new ExtractionError("INVALID_FEATURE", `Feature #${idx + 1} invalide dans la FeatureCollection`);
       }
+      const f = rawFeature as Record<string, unknown>;
+      if (f.type !== "Feature" || !f.geometry || typeof f.geometry !== "object" || Array.isArray(f.geometry)) {
+        throw new ExtractionError("MISSING_GEOMETRY", `Feature #${idx + 1} sans géométrie GeoJSON valide`);
+      }
+      items.push({
+        geometry: f.geometry as Record<string, unknown>,
+        properties: (f.properties && typeof f.properties === "object" && !Array.isArray(f.properties)
+          ? f.properties as Record<string, unknown>
+          : {}),
+        featureIndex: idx,
+      });
     });
-    if (items.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "FeatureCollection vide");
     return items;
   }
   if (type === "Feature") {
-    const geom = input.geometry as Record<string, unknown> | null | undefined;
-    if (!geom) throw new ExtractionError("MISSING_GEOMETRY", "Feature sans géométrie");
-    return [
-      {
-        geometry: geom,
-        properties: (input.properties as Record<string, unknown>) ?? {},
-        featureIndex: 0,
-      },
-    ];
+    const geom = input.geometry;
+    if (!geom || typeof geom !== "object" || Array.isArray(geom)) {
+      throw new ExtractionError("MISSING_GEOMETRY", "Feature sans géométrie GeoJSON valide");
+    }
+    const properties = input.properties;
+    return [{
+      geometry: geom as Record<string, unknown>,
+      properties: properties && typeof properties === "object" && !Array.isArray(properties)
+        ? properties as Record<string, unknown>
+        : {},
+      featureIndex: 0,
+    }];
   }
   if (type === "GeometryCollection") {
-    const geoms = Array.isArray(input.geometries) ? (input.geometries as Record<string, unknown>[]) : [];
-    if (geoms.length === 0) throw new ExtractionError("EMPTY_COLLECTION", "GeometryCollection vide");
-    return geoms.map((g, idx) => ({ geometry: g, properties: {}, featureIndex: idx }));
+    const rawGeoms = input.geometries;
+    if (!Array.isArray(rawGeoms) || rawGeoms.length === 0) {
+      throw new ExtractionError("EMPTY_COLLECTION", "GeometryCollection vide ou invalide");
+    }
+    return rawGeoms.map((g, idx) => {
+      if (!g || typeof g !== "object" || Array.isArray(g) || typeof (g as Record<string, unknown>).type !== "string") {
+        throw new ExtractionError("INVALID_GEOMETRY", `Géométrie #${idx + 1} invalide dans la GeometryCollection`);
+      }
+      return { geometry: g as Record<string, unknown>, properties: {}, featureIndex: idx };
+    });
   }
   return [{ geometry: input as unknown as Record<string, unknown>, properties: {}, featureIndex: 0 }];
 }
 
 // ---------------------------------------------------------------- Utilitaires numériques
 function isPosition(value: unknown): value is Position {
-  return Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number";
+  // GeoJSON positions contain exactly 2 or 3 finite numeric ordinates.
+  return Array.isArray(value) && (value.length === 2 || value.length === 3)
+    && value.every((ordinate) => typeof ordinate === "number" && Number.isFinite(ordinate));
 }
 
 function* iterPositions(coords: unknown): Generator<Position> {

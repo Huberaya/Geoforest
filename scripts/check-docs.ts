@@ -219,8 +219,11 @@ const securiteBackend = lire(join("docs", "SECURITE-BACKEND.md"));
 const endpointsPy = lire(join("backend", "app", "api", "v1", "endpoints.py"));
 const securityPy = lire(join("backend", "app", "core", "security.py"));
 
-const nbRoutes = (endpointsPy.match(/@router\.(get|post)/g) ?? []).length;
-const nbJetons = (endpointsPy.match(/Depends\(exiger_jeton\)/g) ?? []).length;
+// Les routes de données sont déclarées sur `router_protege` (dépendance héritée
+// par construction) ET portent la dépendance explicite : l'inventaire compte les deux routeurs.
+const nbRoutes = (endpointsPy.match(/@router(?:_protege)?\.(get|post)/g) ?? []).length;
+// La dépendance explicite portée par chaque route (le routeur protégé la porte aussi, par construction).
+const nbJetons = (endpointsPy.match(/_jeton:\s*None\s*=\s*Depends\(exiger_jeton\)/g) ?? []).length;
 verifier(
   "toute route métier du backend exige un jeton",
   // `GET /health` est la seule exception admise.

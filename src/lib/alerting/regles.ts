@@ -100,6 +100,32 @@ export async function sonderBase(): Promise<Composant> {
 }
 
 /**
+ * Sonde l'état de sécurité du schéma — R-05.
+ *
+ * Une base à moitié migrée n'est pas « dégradée » : elle ne doit pas recevoir
+ * de trafic. La sonde relit l'état réel (politiques, révocations, déclencheurs)
+ * à chaque appel, sans cache : un readiness doit refléter l'instant.
+ */
+export async function sonderSchema(): Promise<Composant> {
+  const debut = Date.now();
+  const [{ verifierSchemaSecuriteAvec }, { pool }] = await Promise.all([
+    import("@/db/etat-schema"),
+    import("@/db"),
+  ]);
+  const etat = await verifierSchemaSecuriteAvec(pool);
+  return {
+    nom: "schema",
+    etat: etat.ok ? "ok" : "indisponible",
+    detail: etat.ok
+      ? `Schéma complet : ${etat.mesures.tablesProtegees}/13 tables protégées, ` +
+        `${etat.mesures.politiques} politiques, ${etat.mesures.declencheursJournal} déclencheurs`
+      : `Schéma de sécurité incomplet : ${etat.problemes.map((p) => p.code).join(", ")}`,
+    mesure: { ...etat.mesures, role: etat.role },
+    dureeMs: Date.now() - debut,
+  };
+}
+
+/**
  * Sonde l'espace disque.
  *
  * ⚠️ Le disque qui compte est celui du **répertoire de travail de
@@ -322,9 +348,10 @@ export function sonderApi(): Composant {
 
 /** Interroge tous les composants. */
 export async function sonderTout(): Promise<Composant[]> {
-  return Promise.all([sonderBase(), sonderStockage()]).then(([base, stockage]) => [
+  return Promise.all([sonderBase(), sonderStockage(), sonderSchema()]).then(([base, stockage, schema]) => [
     base,
     stockage,
+    schema,
     sonderDisque(),
     sonderSauvegarde(),
     sonderGfw(),

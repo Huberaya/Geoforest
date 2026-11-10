@@ -1,5 +1,5 @@
 import { auditLogs } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
 
@@ -17,14 +17,20 @@ export const GET = guard("audit:read")(async (request: Request, _ctx, { tx, orga
   const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? "200") || 200, 1), 500);
   const action = url.searchParams.get("action")?.trim();
 
+  // ⚠️ Le filtre `action` s'applique **avant** la limite. Le filtrer en
+  //   mémoire après `.limit(200)` renvoyait, par exemple, zéro ligne sur une
+  //   organisation dont les 200 dernières actions étaient toutes d'un autre
+  //   type — alors que des lignes correspondantes existaient plus haut.
   const rows = await tx
     .select()
     .from(auditLogs)
-    .where(eq(auditLogs.organizationId, organizationId))
+    .where(
+      action
+        ? and(eq(auditLogs.organizationId, organizationId), eq(auditLogs.action, action))
+        : eq(auditLogs.organizationId, organizationId),
+    )
     .orderBy(desc(auditLogs.createdAt))
     .limit(limit);
-
-  const filtered = action ? rows.filter((r) => r.action === action) : rows;
 
   /**
    * ⚠️ P1-10 — l'identité de l'auteur est rendue **complète**, et l'avant /
@@ -36,7 +42,7 @@ export const GET = guard("audit:read")(async (request: Request, _ctx, { tx, orga
    * désormais dans la réponse.
    */
   return NextResponse.json(
-    filtered.map((r) => ({
+    rows.map((r) => ({
       id: r.id,
       userEmail: r.userEmail,
       acteurId: r.acteurId,

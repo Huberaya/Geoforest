@@ -110,7 +110,34 @@ begin
   --   **toutes** les tables, y compris avec `force row level security` —
   --   mesuré sur PostgreSQL 18 le 02/10/2026. Le cloisonnement multi-tenant
   --   serait alors décoratif.
-  execute 'alter role geoforest_app nobypassrls';
+  --
+  -- ⚠️ Mais `alter role … nobypassrls` exige que **l'auteur** de la commande
+  --   porte lui-même `BYPASSRLS`, ou soit superutilisateur — mesuré sur
+  --   PostgreSQL 16.2 le 19/10/2026, sur un rôle de migration propriétaire de
+  --   la base, sans cet attribut :
+  --       ERROR: permission denied to alter role
+  --       DETAIL: Only roles with the BYPASSRLS attribute may change the
+  --               BYPASSRLS attribute.
+  --   L'instruction échouait donc **même quand le rôle applicatif n'avait déjà
+  --   pas l'attribut**, c'est-à-dire dans le cas où il n'y avait rien à faire.
+  --   Comme le script s'exécute en une seule transaction, l'échec annulait
+  --   toute la post-migration — politiques RLS comprises — en laissant le
+  --   schéma migré mais **non cloisonné**, et un simple `exit 1` pour seul
+  --   signal. L'ordre n'est désormais exécuté que s'il y a réellement quelque
+  --   chose à corriger ; l'invariant est ensuite **vérifié**, et son échec est
+  --   franc. La garantie est identique, l'exigence de privilège disparaît.
+  if exists (
+    select 1 from pg_roles where rolname = 'geoforest_app' and rolbypassrls
+  ) then
+    execute 'alter role geoforest_app nobypassrls';
+  end if;
+
+  if exists (
+    select 1 from pg_roles where rolname = 'geoforest_app' and rolbypassrls
+  ) then
+    raise exception
+      'geoforest_app porte encore BYPASSRLS : le cloisonnement serait décoratif.';
+  end if;
 end $$;
 
 -- ⚠️ Le nom de la base était écrit en dur (« app_db »). Le script s'exécute
@@ -146,6 +173,39 @@ grant usage, select on all sequences in schema public to geoforest_app;
 -- la suppression possible sans que personne ne l'ait décidé.
 alter default privileges in schema public grant select, insert, update on tables to geoforest_app;
 alter default privileges in schema public grant usage, select on sequences to geoforest_app;
+
+-- ---------------------------------------------------------------------------
+-- Colonnes d'authentification : hors de portée du rôle applicatif
+-- ---------------------------------------------------------------------------
+-- ⚠️ Défaut constaté le 19/10/2026, en recette PostgreSQL serveur.
+--
+--   `grant select, insert, update on all tables` porte sur la **table** : il
+--   couvre donc toutes ses colonnes, y compris `password_hash`, `mfa_secret`
+--   et `mfa_recovery_codes`. La RLS limitait bien la lecture à l'organisation
+--   courante, mais elle ne limitait pas les **colonnes** : sous le rôle
+--   applicatif, une injection SQL — même accidentelle — dans le contexte d'un
+--   tenant pouvait lire les condensats de mot de passe et les secrets TOTP de
+--   ses propres utilisateurs. C'est la même donnée que celle exposée par
+--   `auth_user_by_email` (V10), à une autre échelle : un tenant au lieu de
+--   tous, mais sans qu'aucun usage légitime ne le justifie.
+--
+--   Aucune requête applicative ne lit ces colonnes avec la connexion de
+--   tenant : l'authentification, le MFA et le changement de mot de passe
+--   passent tous par la connexion d'administration (`src/db/admin.ts`), parce
+--   qu'ils ont lieu avant qu'une organisation ne soit connue. Vérifié par
+--   recherche : chaque `from(users)` du dépôt importe `dbAdmin as db`.
+--
+--   Le privilège de table est donc retiré, puis remplacé par une liste
+--   explicite de colonnes. Une colonne ajoutée plus tard ne sera **pas**
+--   lisible par l'application tant que personne ne l'aura décidé : l'oubli
+--   produit une erreur, pas une fuite. `select * from gf_users` échoue
+--   désormais sous ce rôle — c'est voulu.
+revoke select on gf_users from geoforest_app;
+grant select (
+  id, organization_id, email, name, role, status,
+  created_at, updated_at, password_updated_at, token_version,
+  last_login_at, failed_logins, locked_until
+) on gf_users to geoforest_app;
 
 grant execute on function current_org() to geoforest_app;
 grant execute on function auth_user_by_email(text) to geoforest_app;

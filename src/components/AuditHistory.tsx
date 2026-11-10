@@ -71,7 +71,7 @@ export default function AuditHistory({ audits, loading, selectedId, onSelect }: 
             {audits.map((a) => (
               <tr key={a.audit_id} onClick={() => onSelect(a)} className={`cursor-pointer transition hover:bg-emerald-50/60 ${selectedId === a.audit_id ? "bg-emerald-50" : ""}`}>
                 <td className="whitespace-nowrap px-5 py-2.5 text-slate-600">{new Date(a.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
-                <td className="max-w-[160px] truncate px-3 py-2.5 font-medium text-slate-800">{a.operator_name}</td>
+                <td className="max-w-[160px] truncate px-3 py-2.5 font-medium text-slate-800">{a.operator_name ?? "Non renseigné"}</td>
                 <td className="px-3 py-2.5 text-slate-600">
                   {COMMODITY_LABELS[a.commodity as Commodity]?.split(" (")[0] ?? a.commodity} <span className="font-mono text-slate-400">{a.hs_code}</span>
                 </td>

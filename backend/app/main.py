@@ -8,7 +8,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.endpoints import router as v1_router
+from app.api.v1.endpoints import router as v1_router, router_protege as v1_router_protege
 from app.core.config import settings
 from app.core.database import get_db
 
@@ -53,6 +53,9 @@ async def keep_raw_body(request: Request, call_next):
 # ⚠️ C5 — `allow_origins=["*"]` avec `allow_credentials=True` autorisait
 #   n'importe quelle origine à lire les réponses. Le joker est écarté par
 #   `settings.cors_valides`, et il n'est plus possible d'en configurer un.
+# ⚠️ Méthodes et en-têtes nommés, et non `*` : ce service n'a que quatre
+#   routes de données, toutes en GET ou POST. `Authorization` et `Content-Type`
+#   sont les deux seuls en-têtes dont le client a besoin.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_valides,
@@ -63,6 +66,7 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix=settings.api_v1_prefix)
+app.include_router(v1_router_protege, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health", tags=["system"])

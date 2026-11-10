@@ -22,6 +22,8 @@ const TONES: Record<DdsStatus, string> = {
   RISK_IDENTIFIED: "amber",
   ACTION_REQUIRED: "red",
   READY_FOR_DECLARATION: "green",
+  EXPORTED: "green",
+  SUBMITTED: "grey",
   DECLARED: "green",
   ARCHIVED: "grey",
 };

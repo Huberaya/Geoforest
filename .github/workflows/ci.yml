@@ -1,84 +1,95 @@
 name: CI
 
 on:
+  # Déclencheurs union des deux lignes de travail : `main`, les branches de
+  # session `arena/**`, et les branches historiques `forest/**` / `security/**`.
+  # Aucun déclencheur n'a été retiré.
   push:
     branches:
       - main
+      - "arena/**"
+      - "forest/**"
   pull_request:
     branches:
       - main
+      - "arena/**"
+      - "security/**"
+      - "forest/**"
   workflow_dispatch:
+
+# Moindre privilège : le workflow ne lit que le dépôt.
+permissions:
+  contents: read
 
 concurrency:
   group: geoforest-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # ⚠️ Le build Next.js exige une base configurée : `src/db/admin.ts` refuse de
-  #   s'instancier sans URL. Ce sont des valeurs **factices** — aucun job ne se
-  #   connecte à cette adresse. Si un jour l'un d'eux en dépendait vraiment, il
-  #   échouerait franchement au lieu de réussir par accident.
-  DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
-  DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
-  AUTH_SECRET: ci-secret-de-build-uniquement-non-utilise-en-production
-  # Mot de passe des comptes de démonstration du job de bout en bout. Il n'a de
-  # valeur que sur la base jetable de ce job, détruite avec le runner. Il est
-  # ici en clair parce qu'un runner n'a pas de coffre ; le seed refuse par
-  # ailleurs tout environnement de production et tout hôte non local.
-  SEED_DEMO_PASSWORD: ci-mot-de-passe-de-demonstration-jetable
-
+# ⚠️ Les noms des quatre jobs suivants sont des **contrats** : la règle de
+#   protection de `main` (ruleset 26568220) exige exactement les contextes
+#   « Qualité (types, lint, règles EUDR, dépendances) », « Backend (pytest) »,
+#   « Contrôles SQL (PostgreSQL) » et « Bout en bout (application démarrée,
+#   PostgreSQL) ». Un job renommé ne remonte plus et la fusion reste bloquée
+#   sans message — constaté le 09/11/2026 (PR #11, état BLOCKED). Le test
+#   `scripts/ci/check-workflow.test.cjs` verrouille ces noms.
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. Qualité : ce qui ne dépend ni d'une base ni d'un déploiement.
-  #    ⚠️ Ces contrôles existaient dans le dépôt mais n'étaient **jamais
-  #    exécutés** : une régression de règle EUDR ou de topologie pouvait être
-  #    fusionnée sans que rien ne le signale.
+  # Qualité : typage, lint, tests unitaires, contrôles métier, règles EUDR,
+  # cohérence version/doc, build sans base, audit des dépendances.
+  # Union des étapes de `main` (job « qualite ») et de la branche (« verify »).
   # ---------------------------------------------------------------------------
   qualite:
     name: Qualité (types, lint, règles EUDR, dépendances)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          # Le dépôt est développé sous Node 22 (`@types/node` épinglé en 22).
+          node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci || npm install
+      - name: Install frontend dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Workflow regression tests
+        run: npm run test:ci
 
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Lint (aucune erreur tolérée)
+      - name: Schema drift (schema.ts vs Drizzle journal, no database)
+        run: npm run db:check
+
+      - name: Lint
         run: npm run lint
 
+      # Suite de régression du dépôt (`tests/unit/*.test.ts`) : garde-fou de
+      # schéma, rôle applicatif, identité, cadence, routes, comptes de démo.
+      - name: Unit tests
+        run: npm run test:unit
+
+      # Contrôles hérités de la ligne `integration/` : pool paresseux, identité
+      # du lot A, règles de supervision, topologie, DDS, pack de preuves.
+      - name: Contrôles métier (ligne d'intégration)
+        run: npm run test:controles
+
+      - name: EUDR rules tests
+        run: npm run test:eudr
+
+      # Contrôles repris de `main` (04–05/11/2026, chantiers C1–C3) : cohérence
+      # de la version annoncée par la sonde, garde-fous de l'amorçage, et
+      # cohérence entre les chiffres de la documentation et le code.
       - name: Cohérence de la version et du moteur Node
         run: npm run check:version
-
-      - name: Règles EUDR (GeoJSON, 4 ha, précision, export)
-        run: npm run check:eudr
-
-      - name: Topologie des géométries (référence GEOS)
-        run: npm run check:topologie
-
-      - name: Règles d'exploitation (P1-06)
-        run: npm run check:regles
-
-      - name: Encodages CSV / Latin-1
-        run: npm run check:csv
 
       - name: Garde-fous de l'amorçage de démonstration
         run: npm run check:seed
 
-      # ⚠️ Un document qui affirme « 29/29 tests », « 25 routes » et « CSP
-      #   applicative » alors que tout trois sont faux ne casse aucun build.
-      #   Ce contrôle transforme les affirmations chiffrées en contraintes, et
-      #   échoue quand la documentation et le code divergent.
       - name: Cohérence entre la documentation et le code
         run: npm run check:docs
 
@@ -167,26 +178,13 @@ jobs:
       - name: Procédure de rotation des secrets
         run: npm run check:rotation-secrets
 
-      - name: Vulnérabilités des dépendances de production
-        run: npm run audit:prod
-
+      # Le build s'exécute sans base : c'est la propriété que le pool
+      # d'administration différé garantit.
       - name: Build de production
         run: npm run build
 
-      # ⚠️ But : détecter qu'un build écrit dans un fichier **du produit** —
-      #   un artefact oublié dans le dépôt, un code source régénéré, un
-      #   fichier de configuration réécrit. Ce genre de modification se
-      #   committe un jour par accident et personne ne sait plus d'où elle
-      #   vient.
-      #
-      #   `next-env.d.ts` est volontairement exclu, et c'est une exception
-      #   mesurée, pas une commodité : `next dev` y écrit `./.next/dev/types/`
-      #   et `next build` y écrit `./.next/types/`. Les deux sont légitimes, le
-      #   fichier est généré par Next et porte la mention « should not be
-      #   edited ». Le premier passage de ce contrôle l'a rejeté, à juste titre
-      #   au sens littéral, mais ce n'est pas un défaut du produit. Un contrôle
-      #   qui échoue sur un comportement normal finit désactivé : il est donc
-      #   circonscrit.
+      # Repris de `main` : un build qui écrit dans un fichier du produit finit
+      # commité par accident. `next-env.d.ts` est exclu (généré par Next).
       - name: Le build n'a modifié aucun fichier du produit
         run: |
           set -euo pipefail
@@ -198,6 +196,11 @@ jobs:
             exit 1
           fi
           echo "✅ Aucun fichier du produit modifié par le build."
+
+      # Contrôle des dépendances de production. Les avis portant sur des
+      # outils de développement sont suivis séparément (`npm run audit:dev`).
+      - name: Audit des dépendances de production
+        run: npm run audit:sec
 
   # ---------------------------------------------------------------------------
   # 2. Backend FastAPI (conservé tant que la décision d'architecture n'est pas
@@ -215,10 +218,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -240,9 +243,37 @@ jobs:
           pytest -q --strict-markers
 
   # ---------------------------------------------------------------------------
-  # 3. Contrôles exigeant une vraie base PostgreSQL.
-  #    ⚠️ `check-sql-limits.ts` échouait en local par `AggregateError` faute de
-  #    base : il n'était donc exécutable nulle part. Ici, il l'est.
+  # Contrats de base et contrats HTTP sur PGlite (PostgreSQL embarqué, WASM).
+  # Aucun serveur externe, aucune variable d'environnement, aucun réseau : ce
+  # job vérifie la RLS et les routes sans dépendre de Neon.
+  # ---------------------------------------------------------------------------
+  base-et-http:
+    name: Base de données et contrats HTTP (PGlite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Tests SQL (rôles, RLS, privilèges, cadence, état de schéma)
+        run: npm run test:sql
+
+      - name: Tests HTTP (isolation, authentification, limites, schéma incomplet)
+        run: npm run test:http
+
+  # ---------------------------------------------------------------------------
+  # Contrôles exigeant une vraie base PostgreSQL (repris de `main`, 04/11/2026) :
+  # délais du pool, migrations sur base vierge, dérive schéma/migrations,
+  # idempotence, retour arrière puis remontée. Service jetable du runner.
   # ---------------------------------------------------------------------------
   base:
     name: Contrôles SQL (PostgreSQL)
@@ -262,18 +293,21 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci || npm install
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
 
       - name: Délais du pool réellement appliqués par PostgreSQL
         run: npx tsx scripts/check-sql-limits.ts
@@ -281,10 +315,8 @@ jobs:
       - name: Migrations sur base vierge
         run: npm run db:migrate
 
-      # ⚠️ Une dérive entre `src/db/schema.ts` et `drizzle/` signifie qu'une
-      #   migration a été oubliée : le code attend une colonne que la base n'a
-      #   pas. En production, cela se découvre à la première requête, sous
-      #   forme d'une erreur 500 sans rapport apparent avec la migration.
+      # Une dérive entre `src/db/schema.ts` et `drizzle/` signifie qu'une
+      # migration a été oubliée : en production, erreur 500 à la première requête.
       - name: Aucune dérive entre le schéma et les migrations
         run: npm run check:schema
 
@@ -298,18 +330,11 @@ jobs:
           npm run db:migrate
 
   # ---------------------------------------------------------------------------
-  # 4. Bout en bout : l'application **démarrée**, sur une vraie base.
-  #
-  #    ⚠️ Pourquoi ce job existe, alors que les trois précédents sont verts.
-  #
-  #    Aucun d'eux ne prouve que l'application *démarre*. Mesuré le 04/11/2026 :
-  #    sur une base migrée et un build valide, le serveur a refusé **toutes** ses
-  #    requêtes (500), parce que le contrôle de rôle au démarrage jugeait la
-  #    connexion non conforme. `next build`, `tsc`, les cinq `check:*` et
-  #    `db:migrate` étaient verts. Le défaut était dans le produit, et invisible
-  #    de la CI. Ce job le rend visible : il vérifie les sondes, le contrôle de
-  #    rôle, l'authentification à deux facteurs, un parcours métier réel, et
-  #    l'isolation entre deux organisations.
+  # Bout en bout sur PostgreSQL du runner (repris de `main`, 04/11/2026) :
+  # l'application **démarrée** — sondes, contrôle de rôle au démarrage, 2FA,
+  # parcours métier, isolation entre deux organisations. Mesuré le 04/11 : un
+  # build vert et des migrations vertes n'empêchaient pas un serveur qui
+  # refusait toutes ses requêtes (500).
   # ---------------------------------------------------------------------------
   bout-en-bout:
     name: Bout en bout (application démarrée, PostgreSQL)
@@ -329,33 +354,32 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+      AUTH_SECRET: ci-secret-de-build-uniquement-non-utilise-en-production
+      # Mot de passe des comptes de démonstration : il n'a de valeur que sur la
+      # base jetable de ce job, détruite avec le runner.
+      SEED_DEMO_PASSWORD: ci-mot-de-passe-de-demonstration-jetable
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci || npm install
+      - name: Install dependencies (lockfile strict)
+        run: npm ci
 
       - name: Migrations
         run: npm run db:migrate
 
-      # ⚠️ Le rôle applicatif est créé **sans mot de passe** par la migration
-      #   (décision de sécurité : aucun secret dans un fichier versionné). Le
-      #   banc se connecte avec ce rôle précisément pour que le contrôle de
-      #   démarrage mesure la configuration réelle — un superutilisateur ferait
-      #   refuser le démarrage, ce qui est le comportement voulu.
+      # Le rôle applicatif est créé sans mot de passe par la migration : le
+      # script versionné lui en attribue un, et refuse toute base non jetable.
       - name: Attribuer un mot de passe au rôle applicatif (base jetable)
-        # ⚠️ Un `node -e` écrit directement ici a été la première version de
-        #   cette étape : l'échafaudage de guillemets a échoué au premier
-        #   passage en CI, avec un message qui ne disait rien du problème.
-        #   Un script versionné est relisible, testable en local, et refuse
-        #   de s'exécuter sur une base qui n'est pas déclarée jetable.
         run: npx tsx scripts/ci-mot-de-passe-role.ts
         env:
           GF_BASE_JETABLE: "oui"
@@ -365,7 +389,7 @@ jobs:
         run: npm run build
 
       - name: Bout en bout (démarrage, sondes, auth, parcours, isolation)
-        run: npm run check:e2e:complet
+        run: bash scripts/ci/annoter.sh "bout-en-bout" npm run check:e2e:complet
         env:
           DATABASE_URL: postgresql://geoforest_app:mot-de-passe-jetable-de-ci-pour-le-role@127.0.0.1:5432/ci
           DATABASE_URL_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
@@ -379,3 +403,127 @@ jobs:
         run: |
           echo "— journaux éventuels —"
           ls -la /tmp/gf-stockage 2>/dev/null || true
+
+  # ---------------------------------------------------------------------------
+  # Contrôles HTTP et base sur une branche Neon éphémère : ils modifient et
+  # réinitialisent la base, donc ils ne tournent jamais sur une base partagée.
+  # La branche est créée pour ce run et supprimée en fin de job.
+  # ---------------------------------------------------------------------------
+  database:
+    name: Database & HTTP contracts (Neon branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      NEON_PARENT_BRANCH_ID: ${{ secrets.NEON_PARENT_BRANCH_ID }}
+      E2E_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies (lockfile strict)
+        run: npm ci
+
+      - name: Create ephemeral Neon branch
+        run: npx tsx scripts/ci/neon-branche.ts creer
+
+      - name: Apply migrations on the test branch
+        run: npm run db:migrate
+
+      - name: Set application role password (test branch only)
+        run: npx tsx scripts/ci/neon-branche.ts role-app
+
+      - name: Database controls
+        run: npm run test:db
+
+      - name: Reset demo accounts (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Start production server
+        run: |
+          set -euo pipefail
+          nohup npx next start -p 3000 -H 127.0.0.1 > "$RUNNER_TEMP/next.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/next.pid"
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/next.log"
+          exit 1
+
+      - name: End-to-end journey
+        run: bash scripts/ci/annoter.sh "e2e" npm run test:e2e
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Cross-tenant HTTP controls
+        run: bash scripts/ci/annoter.sh "cross-tenant" npm run test:cross-tenant
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      # Lot A : la route d'export réelle répond-elle 422 sans identité ?
+      # Un test de la fonction pure ne le prouve pas (garde, statut, format).
+      - name: Export identity HTTP controls
+        run: bash scripts/ci/annoter.sh "export-identite:http" npm run test:export-identite:http
+
+      - name: Reset demo accounts before HTTP controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Supplier journey HTTP controls
+        run: bash scripts/ci/annoter.sh "fournisseur:http" npm run test:fournisseur:http
+
+      # Suites HTTP historiques maintenues hors CI jusqu'ici : elles tournent
+      # uniquement sur la branche Neon éphémère, avec comptes réinitialisés.
+      - name: Reset demo accounts before DDS state-machine controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: DDS state-machine HTTP controls
+        run: bash scripts/ci/annoter.sh "dds-etats:http" npm run test:dds-etats:http
+
+      - name: Reset demo accounts before evidence-pack controls (test branch only)
+        run: npm run seed:auth -- --reset
+
+      - name: Evidence-pack HTTP controls
+        run: bash scripts/ci/annoter.sh "evidence:http" npm run test:evidence:http
+
+      # La preuve RLS en base lit les lignes créées par TOUS les parcours HTTP
+      # précédents (plots, fournisseurs, DDS, documents, journal) et échoue
+      # volontairement si elle est vacueuse : elle vient donc en dernier.
+      # Run 40930475126 (29/10/2026) : cette étape a échoué sans journal
+      # exploitable ; ses échecs sont désormais relayés en annotations.
+      - name: Cross-tenant database RLS controls
+        run: bash scripts/ci/annoter.sh "cross-tenant:rls" npm run test:cross-tenant:rls
+
+      - name: Stop production server
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/next.pid" ]; then kill "$(cat "$RUNNER_TEMP/next.pid")" || true; fi
+
+      # Journaux complets des suites (écrits par scripts/ci/annoter.sh) et du
+      # serveur : les annotations sont plafonnées à 10 erreurs par étape.
+      - name: Archive suite logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journaux-neon-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/journaux/
+            ${{ runner.temp }}/next.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Delete ephemeral Neon branch
+        if: always()
+        run: npx tsx scripts/ci/neon-branche.ts supprimer

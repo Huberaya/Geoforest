@@ -69,6 +69,12 @@ function attenteMaxMs(): number {
   return Number.isFinite(brut) && brut >= 0 ? Math.floor(brut) : 5_000;
 }
 
+/**
+ * Routes dont la réponse ne doit jamais être mémorisée : elle contient un secret à usage
+ * unique (chantier 6, lien d'invitation fournisseur).
+ */
+const ROUTES_SANS_MEMOIRE: ReadonlySet<string> = new Set(["/api/v1/suppliers/:id/invitation"]);
+
 export function methodeProtegee(methode: string): boolean {
   return METHODES_PROTEGEES.has(methode.toUpperCase());
 }
@@ -347,7 +353,11 @@ export async function avecIdempotence(params: {
     throw erreur;
   }
 
-  const corps = reponse.ok ? await corpsPourMemoire(reponse) : null;
+  // Chantier 6 : une réponse qui porte un secret à usage unique (lien d'invitation) n'est
+  // jamais mémorisée : le jeton ne doit pas être conservé en base, ni rejoué à une requête
+  // identique. La clé est libérée, et une nouvelle requête produit un nouveau secret.
+  const memorisable = !ROUTES_SANS_MEMOIRE.has(route);
+  const corps = reponse.ok && memorisable ? await corpsPourMemoire(reponse) : null;
 
   if (reponse.ok && corps !== null) {
     await withTenant(organizationId, (tx) =>
@@ -377,7 +387,7 @@ export async function avecIdempotence(params: {
     // ⚠️ Rien n'a été écrit : la place est rendue pour qu'un nouvel essai
     //   avec la même clé puisse aboutir.
     await liberer(organizationId, portee, cle);
-    if (reponse.ok && corps === null) {
+    if (reponse.ok && corps === null && memorisable) {
       journal.warn("idempotence.reponse_trop_volumineuse", { route, portee });
     }
   }

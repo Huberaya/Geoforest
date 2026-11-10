@@ -4,6 +4,9 @@ import { DOCUMENT_CATEGORIES, type ComplianceDocument, type DocumentCategory } f
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { can } from "@/lib/auth/roles";
+import { perimetreFournisseur } from "@/lib/auth/perimetre";
+import type { TenantTx } from "@/lib/tenant";
 import { actionSuppression, logAction } from "@/lib/api/audit-log";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +55,27 @@ function toDocument(row: typeof documents.$inferSelect): ComplianceDocument {
   };
 }
 
+/**
+ * Périmètre fournisseur (chantier 6) : une pièce n'est accessible que si elle est
+ * rattachée à la fiche producteur du compte. Sinon : même réponse qu'une pièce
+ * inexistante (pas d'oracle d'existence).
+ */
+async function pieceDansPerimetre(
+  tx: TenantTx,
+  organizationId: string,
+  id: string,
+  perimetre: string,
+): Promise<boolean> {
+  const [dans] = await tx
+    .select({ id: documents.id })
+    .from(documents)
+    .where(
+      and(eq(documents.id, id), eq(documents.organizationId, organizationId), eq(documents.supplierId, perimetre)),
+    )
+    .limit(1);
+  return Boolean(dans);
+}
+
 export const GET = guard<{ params: Promise<{ id: string }> }>("document:read")(async (
   _request: Request,
   context,
@@ -77,6 +101,11 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("document:write"
 ): Promise<Response> => {
   const { id } = await context.params;
   if (!UUID_PATTERN.test(id)) return NextResponse.json({ detail: "Document introuvable" }, { status: 404 });
+
+  const perimetre = perimetreFournisseur(session);
+  if (perimetre && !(await pieceDansPerimetre(tx, organizationId, id, perimetre))) {
+    return NextResponse.json({ detail: "Document introuvable" }, { status: 404 });
+  }
 
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
   const lecture = await lireCorpsJson(request);
@@ -104,15 +133,49 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("document:write"
     patch.expiryDate = expiry || null;
   }
   if (body.status !== undefined) {
-    if (!["VALID", "EXPIRED", "TO_VERIFY", "REJECTED"].includes(str(body.status))) {
+    // Le statut d'une pièce relève de la conformité : un fournisseur ne le modifie jamais.
+    if (perimetre) {
+      return NextResponse.json({ detail: "Le statut d'une pièce est réservé à la conformité." }, { status: 403 });
+    }
+    const nouveau = str(body.status);
+    if (!["VALID", "EXPIRED", "TO_VERIFY", "REJECTED"].includes(nouveau)) {
       return NextResponse.json({ detail: "Statut invalide" }, { status: 422 });
     }
-    patch.status = str(body.status);
+    // ------------------------------------------------------- P0 (recette 2026-10-08)
+    // « VALID » est une certification de conformité, pas une saisie. Avant ce
+    // correctif, tout détenteur de document:write — dont le rôle fournisseur —
+    // pouvait se valider lui-même, y compris pour une pièce sans fichier : le
+    // moteur de readiness l'aurait comptée comme preuve.
+    if (nouveau === "VALID") {
+      if (!can(session.user.role, "dds:validate")) {
+        return NextResponse.json(
+          { detail: "Seule la conformité peut valider une pièce justificative." },
+          { status: 403 },
+        );
+      }
+      const [piece] = await tx
+        .select({ storageKey: documents.storageKey, sha256: documents.sha256, scanStatus: documents.scanStatus })
+        .from(documents)
+        .where(and(eq(documents.id, id), eq(documents.organizationId, organizationId)))
+        .limit(1);
+      if (!piece) return NextResponse.json({ detail: "Document introuvable" }, { status: 404 });
+      if (!piece.storageKey || !piece.sha256) {
+        return NextResponse.json(
+          { detail: "Validation refusée : aucune pièce n'est déposée (fichier et condensat SHA-256 requis)." },
+          { status: 422 },
+        );
+      }
+      if (piece.scanStatus === "INFECTED") {
+        return NextResponse.json({ detail: "Validation refusée : la pièce est signalée infectée." }, { status: 422 });
+      }
+    }
+    patch.status = nouveau;
   }
   if (body.notes !== undefined) patch.notes = str(body.notes) || null;
   if (body.supplierId !== undefined) {
     const sid = str(body.supplierId);
     if (sid) {
+      if (perimetre && sid !== perimetre) return NextResponse.json({ detail: "Fournisseur introuvable" }, { status: 404 });
       const [owner] = await tx
         .select({ id: suppliers.id })
         .from(suppliers)
@@ -130,7 +193,11 @@ export const PATCH = guard<{ params: Promise<{ id: string }> }>("document:write"
       const [owner] = await tx
         .select({ id: plots.id })
         .from(plots)
-        .where(and(eq(plots.id, pid), eq(plots.organizationId, organizationId)))
+        .where(
+          perimetre
+            ? and(eq(plots.id, pid), eq(plots.organizationId, organizationId), eq(plots.supplierId, perimetre))
+            : and(eq(plots.id, pid), eq(plots.organizationId, organizationId)),
+        )
         .limit(1);
       if (!owner) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
       patch.plotId = pid;
@@ -181,6 +248,11 @@ export const DELETE = guard<{ params: Promise<{ id: string }> }>("document:write
 ): Promise<Response> => {
   const { id } = await context.params;
   if (!UUID_PATTERN.test(id)) return NextResponse.json({ detail: "Document introuvable" }, { status: 404 });
+
+  const perimetre = perimetreFournisseur(session);
+  if (perimetre && !(await pieceDansPerimetre(tx, organizationId, id, perimetre))) {
+    return NextResponse.json({ detail: "Document introuvable" }, { status: 404 });
+  }
 
   // ------------------------------------------------------------------ P1-10
   // ⚠️ La fiche est marquée, et **la pièce est conservée**.

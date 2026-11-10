@@ -103,8 +103,34 @@ export async function exporterDonneesOrganisation(
   //
   //   L'énumération est donc la garde : une colonne ajoutée demain à `gf_users`
   //   ne sera pas exportée tant que quelqu'un ne l'aura pas ajoutée ici.
+  //
+  //   Et la projection se fait DANS la requête, pas après : sous le rôle
+  //   applicatif, `gf_users` n'est lisible que colonne par colonne
+  //   (`scripts/sql/post-migrate/010_row_level_security.sql` retire le
+  //   privilège de table et n'accorde qu'une liste explicite, sans
+  //   `password_hash`, `mfa_secret`, `invitation_token_hash`…). Un `select()`
+  //   complet suivi d'un filtrage en mémoire échouait donc en `permission
+  //   denied` — mesuré le 10/11/2026 sur le parcours bout en bout (HTTP 500).
+  //   Ne demander que ce que l'on exporte est la seule forme compatible avec
+  //   une base qui refuse de livrer les secrets, quel que soit le code.
+  //   (`tx.select` est appelé SUR `tx`, pas détaché : la méthode lit sa
+  //   session dans `this`.)
+  const selectionner = (champs: Record<string, unknown>) =>
+    (tx as unknown as {
+      select: (c: Record<string, unknown>) => { from: (t: never) => { where: (c: unknown) => Promise<unknown[]> } };
+    }).select(champs);
   const utilisateurs = (
-    await lire(users as never, eq(users.organizationId, organizationId))
+    await selectionner({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      status: users.status,
+      createdAt: users.createdAt,
+      lastLoginAt: users.lastLoginAt,
+    })
+      .from(users as never)
+      .where(eq(users.organizationId, organizationId))
   ).map((u) => {
     const r = u as Record<string, unknown>;
     return {

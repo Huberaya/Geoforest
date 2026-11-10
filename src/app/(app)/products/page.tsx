@@ -12,7 +12,9 @@ export default function ProductsPage() {
     sku: "",
     commodity: "cocoa" as Commodity,
     hsCode: "1801",
-    countryOfOrigin: "CI",
+    // P0 — pas de pays pré-rempli : l'origine d'un produit est une
+    // déclaration, pas une valeur par défaut de formulaire.
+    countryOfOrigin: "",
     annualVolumeKg: 100000,
   });
 
@@ -49,7 +51,7 @@ export default function ProductsPage() {
           sku: "",
           commodity: "cocoa",
           hsCode: "1801",
-          countryOfOrigin: "CI",
+          countryOfOrigin: "",
           annualVolumeKg: 100000,
         });
         void fetchProducts();
@@ -157,7 +159,7 @@ export default function ProductsPage() {
                   <td className="px-4 py-3.5">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-800">
                       <span>{p.countryOfOrigin === "CI" ? "🇨🇮" : p.countryOfOrigin === "ID" ? "🇮🇩" : p.countryOfOrigin === "BR" ? "🇧🇷" : p.countryOfOrigin === "CO" ? "🇨🇴" : "🌐"}</span>
-                      <span>{p.countryOfOrigin}</span>
+                      <span>{p.countryOfOrigin ?? "non renseigné"}</span>
                     </span>
                   </td>
                   <td className="px-4 py-3.5 font-semibold text-slate-900">

@@ -5,7 +5,8 @@ COPY package*.json ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 COPY . .
 # DATABASE_URL factice au build : les routes sont dynamiques, aucune connexion n'est ouverte à la compilation.
-ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/app_db
+# P0 (recette 2026-10-08) : aucune URL de base ni identifiant dans l'image.
+# DATABASE_URL et DATABASE_URL_ADMIN sont fournies à l'exécution.
 RUN npm run build
 
 FROM node:20-alpine AS runner

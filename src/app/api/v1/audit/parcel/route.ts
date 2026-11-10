@@ -1,6 +1,5 @@
 import { lireCorpsJson } from "@/lib/api/body";
-import { parcelAudits, plots } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { dueDiligenceStatements, parcelAudits, plots } from "@/db/schema";
 import { logAction } from "@/lib/api/audit-log";
 import { validateGeometry } from "@/lib/eudr/gis-validator";
 import { checkDeforestationRisk } from "@/lib/eudr/satellite-checker";
@@ -17,34 +16,85 @@ import {
 } from "@/lib/eudr/types";
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/auth/guard";
+import { eoriValide, nomValide, paysValide } from "@/lib/eudr/identite-operateur";
+import { and, eq, isNull } from "drizzle-orm";
+import { aujourdhuiIso, recalculerDossier } from "@/lib/eudr/readiness-db";
+import { estFige } from "@/lib/eudr/dds-etats";
+import type { DdsStatus } from "@/lib/eudr/types";
 
 export const dynamic = "force-dynamic";
 
-const EORI_PATTERN = /^[A-Z]{2}[A-Z0-9]{1,15}$/;
-/** Même motif que les autres routes : un UUID mal formé est un 422, pas un 500. */
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ANONYMOUS_OPERATOR: OperatorInfo = { name: "Opérateur non renseigné", eori: "XX0000000000000", country: "XX" };
 
-function badRequest(detail: string, status = 422): NextResponse {
-  return NextResponse.json({ detail }, { status });
+function badRequest(
+  detail: string,
+  status = 422,
+  code?: string,
+  details?: unknown,
+): NextResponse {
+  // Un refus d'identité porte un code stable : le client doit pouvoir le
+  // distinguer d'une erreur de forme sans analyser une phrase.
+  return NextResponse.json(
+    code ? { detail, error: { code, message: detail, details } } : { detail },
+    { status },
+  );
 }
 
-function parseOperator(raw: unknown): { operator: OperatorInfo } | { error: string } {
-  if (raw === null || raw === undefined) return { operator: ANONYMOUS_OPERATOR };
-  if (typeof raw !== "object") return { error: "operator doit être un objet" };
+/**
+ * Lot A — l'opérateur absent reste absent.
+ *
+ * ⚠️ Cette fonction renvoyait `ANONYMOUS_OPERATOR`
+ * (`"Opérateur non renseigné"` / `XX0000000000000` / `XX`), qui était ensuite
+ * persisté tel quel. Le dossier devenait alors **indiscernable** d'un dossier
+ * dont l'opérateur est réellement connu, et partait en déclaration.
+ * `null` est désormais la seule représentation de l'absence.
+ */
+function parseOperator(
+  raw: unknown,
+):
+  | { operator: OperatorInfo | null }
+  | { error: string; details: { manquants: string[]; invalides: string[] } } {
+  if (raw === null || raw === undefined) return { operator: null };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return {
+      error: "operator doit être un objet",
+      details: { manquants: [], invalides: ["operator"] },
+    };
+  }
   const o = raw as Record<string, unknown>;
   const name = typeof o.name === "string" ? o.name.trim() : "";
-  if (name.length < 2 || name.length > 200) return { error: "operator.name : 2 à 200 caractères requis" };
   const eori = typeof o.eori === "string" ? o.eori.replace(/\s+/g, "").toUpperCase() : "";
-  if (!EORI_PATTERN.test(eori)) {
-    return { error: "EORI invalide : format attendu = code pays ISO (2 lettres) + 1 à 15 caractères alphanumériques" };
+  const countryBrut = typeof o.country === "string" ? o.country.trim().toUpperCase() : "";
+
+  // Chaque champ est classé, pas deviné : un champ vide est *manquant*, un
+  // champ renseigné mais inexploitable est *invalide*. Le pays reste facultatif
+  // (colonne nullable) ; s'il est fourni, `XX` et les codes à trois lettres sont
+  // refusés plutôt que stockés puis présentés comme réels.
+  const manquants: string[] = [];
+  const invalides: string[] = [];
+  if (!name) manquants.push("name");
+  else if (!nomValide(name)) invalides.push("name");
+  if (!eori) manquants.push("eori");
+  else if (!eoriValide(eori)) invalides.push("eori");
+  if (countryBrut !== "" && !paysValide(countryBrut)) invalides.push("country");
+
+  if (manquants.length > 0 || invalides.length > 0) {
+    return {
+      error:
+        "Identité opérateur incomplète ou fictive : nom réel (2 à 200 caractères) et EORI " +
+        "au format pays + 1 à 15 alphanumériques sont requis ; le pays, s'il est fourni, " +
+        "doit être un code ISO à deux lettres. Une identité absente doit rester absente, " +
+        "jamais être remplacée par une valeur de remplissage.",
+      details: { manquants, invalides },
+    };
   }
-  const country = typeof o.country === "string" && o.country.trim().length === 2 ? o.country.trim().toUpperCase() : eori.slice(0, 2);
+
   return {
     operator: {
       name,
       eori,
-      country,
+      // `null` = pays non déclaré. Aucune déduction ici : le préfixe de l'EORI
+      // est utilisé à l'export, à titre de fait attaché à l'identifiant.
+      country: countryBrut === "" ? null : countryBrut,
       address: typeof o.address === "string" ? o.address.trim().slice(0, 300) : null,
       email: typeof o.email === "string" ? o.email.trim().slice(0, 200) : null,
     },
@@ -75,8 +125,26 @@ function parseProducteur(raw: unknown): { producer: { name: string | null; count
   const name = typeof o.name === "string" ? o.name.trim() : "";
   if (name.length < 2 || name.length > 200) return { error: "producer.name : 2 à 200 caractères requis" };
   const rawCountry = typeof o.country === "string" ? o.country.trim().toUpperCase() : "";
-  if (!/^[A-Z]{2}$/.test(rawCountry)) return { error: "producer.country : code pays ISO à 2 lettres requis" };
+  if (!paysValide(rawCountry)) {
+    return { error: "producer.country : code pays ISO à 2 lettres requis (XX interdit)" };
+  }
   return { producer: { name, country: rawCountry } };
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * P0 (recette 2026-10-08) — statut de la parcelle DÉDUIT de l'analyse.
+ *
+ * Une analyse non probante ne pose jamais COMPLIANT : la parcelle reste PENDING
+ * (aucun verdict), et son risque reprend celui de l'analyse. La parcelle suit la
+ * dernière analyse rattachée ; l'historique complet reste dans parcel_audits.
+ */
+function statutParcelle(status: AuditStatus): string {
+  if (status === "COMPLIANT") return "COMPLIANT";
+  if (status === "NON_COMPLIANT") return "NON_COMPLIANT";
+  if (status === "INVALID_GEOMETRY") return "INVALID_GEOMETRY";
+  return "PENDING";
 }
 
 /**
@@ -100,11 +168,16 @@ function summaryText(status: AuditStatus, validation: GeometryValidationResult, 
     return `Résultat simulé, non probant : aucune donnée satellite n'a été consultée. Ce dossier ne peut pas servir de preuve de conformité (parcelle de ${area} ha).`;
   }
   if (status === "NON_COMPLIANT" && satellite) {
-    return `NON CONFORME EUDR : déforestation détectée en ${satellite.loss_year} (après le 31/12/2020) sur une parcelle de ${area} ha.`;
+    return `ALERTE : perte de couvert post-2020 détectée en ${satellite.loss_year} sur une parcelle de ${area} ha. Ce signal requiert une revue humaine ; il ne détermine pas à lui seul la cause ni la qualification juridique de déforestation.`;
   }
-  // ⚠️ On n'arrive ici que si l'analyse est probante : le statut COMPLIANT
-  //   n'est posé que dans ce cas. Toute autre situation est traitée plus haut.
-  return `CONFORME EUDR : aucune déforestation post-2020 détectée (parcelle de ${area} ha, risque ${satellite?.risk_level}, confiance ${Math.round((satellite?.confidence_score ?? 0) * 100)} %).`;
+  // Une analyse satellite renseigne un indicateur de couvert forestier, pas
+  // l'ensemble des obligations EUDR. Ne jamais présenter ce seul indicateur
+  // comme une décision juridique de conformité.
+  const confidence = satellite?.confidence_score;
+  const confidenceText = confidence === null || confidence === undefined
+    ? ""
+    : `, confiance estimée ${Math.round(confidence * 100)} %`;
+  return `Aucune perte de couvert post-2020 détectée par l'analyse satellite (parcelle de ${area} ha, risque ${satellite?.risk_level}${confidenceText}). Ce résultat ne suffit pas, à lui seul, à établir la conformité EUDR complète.`;
 }
 
 export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, organizationId, session }): Promise<NextResponse> => {
@@ -131,38 +204,56 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
   if (declaredArea !== null && (!Number.isFinite(declaredArea) || declaredArea < 0)) return badRequest("declared_area_ha doit être ≥ 0");
 
   const parsedOperator = parseOperator(body.operator);
-  if ("error" in parsedOperator) return badRequest(parsedOperator.error);
+  if ("error" in parsedOperator) {
+    return badRequest(parsedOperator.error, 422, "OPERATOR_IDENTITY_MISSING", parsedOperator.details);
+  }
   const operator = parsedOperator.operator;
   const parsedProducer = parseProducteur(body.producer);
   if ("error" in parsedProducer) return badRequest(parsedProducer.error);
+  // `same_as_operator` recopie une identité **qui existe**. Sans opérateur
+  // déclaré, il n'y a rien à recopier : le producteur reste inconnu plutôt que
+  // de se voir attribuer une identité de synthèse.
   const producer =
-    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true
-      ? { name: operator.name, country: operator.country }
+    (body.producer as Record<string, unknown> | null | undefined)?.same_as_operator === true && operator !== null
+      ? { name: operator.name, country: operator.country ?? null }
       : parsedProducer.producer;
   const parcelReference = typeof body.parcel_reference === "string" ? body.parcel_reference.slice(0, 100) : null;
 
-  // ⚠️ C7 — la parcelle sur laquelle porte l'analyse.
-  //
-  //   Avant la migration 0008, seul `parcel_reference` existait : du texte
-  //   libre. Rien ne rattachait une analyse à une parcelle enregistrée, donc
-  //   rien ne permettait à un dossier de diligence de savoir ce qui avait été
-  //   analysé — et un validateur de dossier ne pouvait examiner un lien
-  //   inexistant.
-  //
-  //   La parcelle est vérifiée comme appartenant à l'organisation de la
-  //   session. La clé étrangère composite le garantit déjà en base ; le
-  //   contrôle ici évite un 500 là où un 422 explique ce qui ne va pas.
-  const plotId = typeof body.plot_id === "string" ? body.plot_id.trim() : "";
-  if (plotId !== "") {
-    if (!UUID_PATTERN.test(plotId)) return badRequest("plot_id invalide (UUID attendu)");
+  // P0 (recette 2026-10-08) — rattachements optionnels, vérifiés dans le tenant
+  // AVANT l'appel satellite : une référence étrangère ou inexistante échoue ici,
+  // sans consommer d'analyse ni créer de ligne orpheline.
+  const plotIdBrut = typeof body.plot_id === "string" && body.plot_id.trim() !== "" ? body.plot_id.trim() : null;
+  const ddsIdBrut =
+    typeof body.due_diligence_id === "string" && body.due_diligence_id.trim() !== "" ? body.due_diligence_id.trim() : null;
+  if (plotIdBrut !== null && !UUID_PATTERN.test(plotIdBrut)) return badRequest("plot_id invalide");
+  if (ddsIdBrut !== null && !UUID_PATTERN.test(ddsIdBrut)) return badRequest("due_diligence_id invalide");
+  if (plotIdBrut) {
     const [parcelle] = await tx
       .select({ id: plots.id })
       .from(plots)
-      .where(and(eq(plots.id, plotId), eq(plots.organizationId, organizationId)))
+      .where(and(eq(plots.id, plotIdBrut), eq(plots.organizationId, organizationId), isNull(plots.deletedAt)))
       .limit(1);
-    // 404 et non 403 : répondre « interdit » confirmerait l'existence de la
-    // parcelle d'une autre organisation.
     if (!parcelle) return NextResponse.json({ detail: "Parcelle introuvable" }, { status: 404 });
+  }
+  if (ddsIdBrut) {
+    const [dossier] = await tx
+      .select({ id: dueDiligenceStatements.id, status: dueDiligenceStatements.status })
+      .from(dueDiligenceStatements)
+      .where(
+        and(
+          eq(dueDiligenceStatements.id, ddsIdBrut),
+          eq(dueDiligenceStatements.organizationId, organizationId),
+          isNull(dueDiligenceStatements.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!dossier) return NextResponse.json({ detail: "Dossier introuvable" }, { status: 404 });
+    if (estFige(dossier.status as DdsStatus)) {
+      return NextResponse.json(
+        { detail: "Dossier figé : repassez-le en revue avant de lui rattacher une analyse." },
+        { status: 409 },
+      );
+    }
   }
 
   const validation = validateGeometry(geojson as GeoJsonInput, {
@@ -197,10 +288,13 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
       .insert(parcelAudits)
       .values({
         organizationId,
-        operatorName: operator.name,
-        operatorEori: operator.eori,
-        operatorCountry: operator.country ?? "FR",
-        operatorAddress: operator.address ?? null,
+        // Lot A — aucune identité de remplissage : `null` reste `null`.
+        // `operator.country ?? "FR"` fabriquait un pays d'activité (`FR`) pour
+        // tout opérateur qui n'en déclarait pas — un pays inventé, silencieux.
+        operatorName: operator?.name ?? null,
+        operatorEori: operator?.eori ?? null,
+        operatorCountry: operator?.country ?? null,
+        operatorAddress: operator?.address ?? null,
         // Nullables : un producteur inconnu reste inconnu, il n'est pas
         // remplacé par l'opérateur.
         producerName: producer.name,
@@ -209,7 +303,6 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         hsCode,
         harvestDate,
         parcelReference,
-        plotId: plotId === "" ? null : plotId,
         geometry: validation.normalized_geometry ?? geojson,
         geometryType: validation.geometry_type ?? "Unknown",
         areaHa: validation.area_ha,
@@ -252,12 +345,35 @@ export const POST = guard("analysis:run")(async (request: Request, _ctx, { tx, o
         status,
         validation,
         satellite,
+        plotId: plotIdBrut || null,
+        dueDiligenceId: ddsIdBrut || null,
       })
       .returning({ id: parcelAudits.id, createdAt: parcelAudits.createdAt });
 
     if (row) {
       rowId = row.id;
       createdAt = row.createdAt;
+    }
+
+    // Le registre de parcelles suit le verdict : sans cette écriture, la parcelle
+    // restait « PENDING » indéfiniment, quelle que soit l'analyse faite.
+    if (plotIdBrut) {
+      await tx
+        .update(plots)
+        .set({
+          status: statutParcelle(status),
+          // C6d (main) : sans niveau établi par l'analyse, on n'écrit rien —
+          // « HIGH » par défaut inventait une classification. La colonne du
+          // registre est NOT NULL : la valeur existante est conservée.
+          ...(satellite?.risk_level ? { riskLevel: satellite.risk_level } : {}),
+          lossYear: status === "NON_COMPLIANT" ? (satellite?.loss_year ?? null) : null,
+          confidenceScore: satellite?.confidence_score ?? null,
+          lastAuditAt: createdAt,
+        })
+        .where(and(eq(plots.id, plotIdBrut), eq(plots.organizationId, organizationId)));
+    }
+    if (ddsIdBrut) {
+      await recalculerDossier(tx, organizationId, ddsIdBrut, aujourdhuiIso());
     }
   } catch (err) {
     // P0-07 : un audit qui n'est pas enregistré ne peut pas être rendu comme

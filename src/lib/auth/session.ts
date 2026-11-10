@@ -2,10 +2,10 @@ import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { dbAdmin as db } from "@/db/admin";
-import { loginAttempts, organizations, sessions, users } from "@/db/schema";
+import { organizations, sessions, users } from "@/db/schema";
 import type { Permission } from "./roles";
 import { can, mfaRequiredFor } from "./roles";
 import {
@@ -23,6 +23,9 @@ import {
 } from "./constants";
 import { signAccessToken, signMfaTicket, verifyAccessToken, verifyMfaTicket } from "./tokens";
 import type { AccessClaims, MfaTicketClaims } from "./tokens";
+import { adresseClient } from "@/lib/rate-limit";
+import { consommerJetonRefresh, revoquerFamille } from "./refresh-consommation";
+import { consommerFenetre, reinitialiserFenetre } from "./cadence-partagee";
 
 export type { MfaTicketClaims };
 
@@ -37,6 +40,8 @@ export interface AuthenticatedUser {
   organizationName: string | null;
   mfa: boolean;
   tokenVersion: number;
+  /** Fiche producteur rattachée (rôle `supplier` uniquement). Lue en base à chaque requête. */
+  supplierId: string | null;
 }
 
 export interface Session {
@@ -87,6 +92,7 @@ export async function getSession(): Promise<Session | null> {
       organizationName: organizations.name,
       tokenVersion: users.tokenVersion,
       lockedUntil: users.lockedUntil,
+      supplierId: users.supplierId,
     })
     .from(users)
     .leftJoin(organizations, eq(organizations.id, users.organizationId))
@@ -109,6 +115,7 @@ export async function getSession(): Promise<Session | null> {
       organizationName: row.organizationName ?? null,
       mfa: claims.mfa,
       tokenVersion: row.tokenVersion,
+      supplierId: row.supplierId ?? null,
     },
     claims,
   };
@@ -279,19 +286,24 @@ export async function rotateRefreshToken(
 ): Promise<RotateResult | null> {
   const hash = hashToken(refreshToken);
 
-  const rows = await db.select().from(sessions).where(eq(sessions.refreshTokenHash, hash)).limit(1);
-  const current = rows[0];
-  if (!current) return null;
-
-  if (current.revokedAt) {
-    // Jeton déjà consommé ⇒ vol probable : on révoque toute la famille.
-    await db
-      .update(sessions)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(sessions.familyId, current.familyId), isNull(sessions.revokedAt)));
+  // ⚠️ La consommation est atomique : une seule requête peut faire passer le
+  //   jeton de « actif » à « consommé ». Deux rejeux simultanés ne peuvent donc
+  //   plus obtenir chacun une session (cf. `refresh-consommation.ts`).
+  const current = await consommerJetonRefresh(db, hash);
+  if (!current) {
+    // Distinguer un rejeu d'un jeton simplement inconnu ou expiré : seul un
+    // jeton existant **et déjà révoqué** signale un vol probable.
+    const rows = await db
+      .select({ familyId: sessions.familyId, revokedAt: sessions.revokedAt })
+      .from(sessions)
+      .where(eq(sessions.refreshTokenHash, hash))
+      .limit(1);
+    const existante = rows[0];
+    if (existante?.revokedAt) {
+      await revoquerFamille(db, existante.familyId);
+    }
     return null;
   }
-  if (current.expiresAt.getTime() < Date.now()) return null;
 
   const userRows = await db
     .select({
@@ -320,9 +332,11 @@ export async function rotateRefreshToken(
     familyId: current.familyId,
   });
 
+  // `revoked_at` et `last_used_at` ont déjà été posés par la consommation
+  // atomique ; il ne reste que le lien vers la session qui remplace celle-ci.
   await db
     .update(sessions)
-    .set({ revokedAt: new Date(), replacedBy: issued.sessionId, lastUsedAt: new Date() })
+    .set({ replacedBy: issued.sessionId })
     .where(eq(sessions.id, current.id));
 
   return { user, issued, remember };
@@ -357,38 +371,25 @@ export function windowKeyFor(ip: string | null, email: string): string {
   return `${ip ?? "unknown"}|${email.trim().toLowerCase()}`;
 }
 
-/** Fenêtre glissante persistante : au-delà du plafond, on refuse sans toucher au compte. */
+/**
+ * Fenêtre glissante **partagée** : au-delà du plafond, on refuse sans toucher
+ * au compte.
+ *
+ * ⚠️ Le décompte passe par `consommerFenetre` (transaction + verrou
+ *   consultatif). L'ancienne version lisait puis écrivait en deux temps : deux
+ *   connexions simultanées pouvaient, soit créer deux fenêtres pour la même
+ *   clé (aucune contrainte d'unicité sur `window_key`), soit écrire le même
+ *   compteur, si bien que la limite ne se déclenchait pas là où elle devait.
+ */
 export async function registerLoginFailure(
   windowKey: string,
 ): Promise<{ blocked: boolean; retryAfterSeconds: number }> {
-  const now = new Date();
-  const windowStart = new Date(Date.now() - LOGIN_WINDOW_MINUTES * 60_000);
-
-  const rows = await db
-    .select()
-    .from(loginAttempts)
-    .where(and(eq(loginAttempts.windowKey, windowKey), gt(loginAttempts.lastAttemptAt, windowStart)))
-    .limit(1);
-
-  const existing = rows[0];
-
-  if (!existing) {
-    await db
-      .insert(loginAttempts)
-      .values({ windowKey, attempts: 1, firstAttemptAt: now, lastAttemptAt: now });
-    return { blocked: false, retryAfterSeconds: 0 };
-  }
-
-  const attempts = existing.attempts + 1;
-  await db
-    .update(loginAttempts)
-    .set({ attempts, lastAttemptAt: now })
-    .where(eq(loginAttempts.id, existing.id));
-
-  if (attempts < LOGIN_WINDOW_MAX_ATTEMPTS) return { blocked: false, retryAfterSeconds: 0 };
-
-  const retryAt = existing.firstAttemptAt.getTime() + LOGIN_WINDOW_MINUTES * 60_000;
-  return { blocked: true, retryAfterSeconds: Math.max(1, Math.ceil((retryAt - Date.now()) / 1000)) };
+  const consommation = await consommerFenetre(db, {
+    cle: windowKey,
+    max: LOGIN_WINDOW_MAX_ATTEMPTS,
+    fenetreSecondes: LOGIN_WINDOW_MINUTES * 60,
+  });
+  return { blocked: !consommation.autorise, retryAfterSeconds: consommation.reessayerDans };
 }
 
 /**
@@ -406,11 +407,7 @@ export async function registerLoginFailure(
  * de `scripts/purge-retention.ts`, seul habilité à supprimer.
  */
 export async function clearLoginFailures(windowKey: string): Promise<void> {
-  const maintenant = new Date();
-  await db
-    .update(loginAttempts)
-    .set({ attempts: 0, firstAttemptAt: maintenant, lastAttemptAt: maintenant })
-    .where(eq(loginAttempts.windowKey, windowKey));
+  await reinitialiserFenetre(db, windowKey);
 }
 
 /** Verrouillage du compte après MAX_FAILED_LOGINS échecs consécutifs. */
@@ -441,8 +438,15 @@ export async function resetAccountFailures(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 }
 
+/**
+ * Adresse IP du client, pour le journal et les fenêtres de connexion.
+ *
+ * ⚠️ La lecture de `X-Forwarded-For` est centralisée dans `adresseClient`
+ *   (droite → gauche, nombre de mandataires déclaré). La dupliquer ici avait
+ *   produit deux règles différentes : les quotas lisaient la dernière entrée,
+ *   le journal la première — donc deux adresses pour une même requête.
+ */
 export function clientIp(headers: Headers): string | null {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() ?? null;
-  return headers.get("x-real-ip");
+  const ip = adresseClient(headers);
+  return ip === "inconnue" ? null : ip;
 }

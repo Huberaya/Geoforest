@@ -87,9 +87,9 @@ export default function PlotDetailPage({ params }: { params: Promise<{ id: strin
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Analyses rattachées</h2>
           {plot.audits.length === 0 ? (
             <p className="text-xs leading-relaxed text-slate-500">
-              {plot.audits_linked_by === "aucune_référence"
-                ? "Cette parcelle n'a pas de référence : les audits ne peuvent donc pas lui être rattachés. Renseignez une référence puis relancez une analyse."
-                : "Aucun audit enregistré pour cette référence de parcelle."}
+              {plot.audits_linked_by === "reference"
+                ? "Aucune analyse rattachée à cette parcelle (rattachement par référence, analyses antérieures)."
+                : "Aucune analyse rattachée à cette parcelle. Lancez l'analyse depuis la parcelle pour la rattacher."}
             </p>
           ) : (
             <ul className="space-y-2">

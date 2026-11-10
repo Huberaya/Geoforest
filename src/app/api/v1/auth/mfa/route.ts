@@ -1,3 +1,4 @@
+import { exigerSchemaOuReponse } from "@/lib/api/schema-error";
 import { lireCorpsJson } from "@/lib/api/body";
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -16,10 +17,12 @@ import {
   clientIp,
   issueSession,
   readMfaTicket,
+  registerAccountFailure,
   resetAccountFailures,
   sessionCookieHeaders,
   windowKeyFor,
 } from "@/lib/auth/session";
+import { clesCadence, consommerFenetre } from "@/lib/auth/cadence-partagee";
 import { MFA_COOKIE } from "@/lib/auth/constants";
 import { verifyTotp } from "@/lib/auth/totp";
 
@@ -33,8 +36,33 @@ function hashRecoveryCode(code: string): string {
 /**
  * Validation du second facteur (TOTP) — étape finale de la connexion.
  * Traite aussi la première activation (secret en attente) et les codes de secours.
+ *
+ * La fenêtre ci-dessous est **partagée** par toutes les instances : elle borne
+ * les essais par adresse, là où le verrouillage de compte les borne par compte.
  */
+const MFA_MAX = 60;
+const MFA_FENETRE_SECONDES = 60;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const schema = await exigerSchemaOuReponse();
+  if (schema) return schema;
+
+  // ⚠️ Le verrouillage de compte borne déjà les essais **par compte** ; cette
+  //   fenêtre, partagée par toutes les instances, borne les essais **par
+  //   adresse** — c'est-à-dire une campagne qui essaierait un code sur des
+  //   milliers de comptes, que le verrou par compte ne verrait jamais.
+  const ip = clientIp(request.headers);
+  const fenetre = await consommerFenetre(db, {
+    cle: clesCadence.secondFacteur(ip),
+    max: MFA_MAX,
+    fenetreSecondes: MFA_FENETRE_SECONDES,
+  });
+  if (!fenetre.autorise) {
+    const refus = apiError("rate_limited", "Trop de tentatives. Réessayez plus tard.", 429);
+    refus.headers.set("Retry-After", String(fenetre.reessayerDans));
+    return refus;
+  }
+
   // P1-07 — lecture bornée : taille, profondeur et longueur des champs.
   const lecture = await lireCorpsJson(request);
   if (!lecture.ok) return lecture.response;
@@ -59,7 +87,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return apiError("invalid_credentials", "Session invalide.", 401);
   }
 
-  const ip = clientIp(request.headers);
+  // ⚠️ Le verrouillage de compte couvre aussi le second facteur. Sans ce
+  //   contrôle, un code TOTP à six chiffres pouvait être essayé sans limite
+  //   dès lors que le mot de passe était connu : la route ne comptait pas les
+  //   échecs et le login remettait le compteur à zéro avant la MFA.
+  if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+    const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
+    return apiError(
+      "account_locked",
+      `Compte verrouillé après plusieurs échecs. Réessayez dans ${minutes} minute(s).`,
+      423,
+    );
+  }
+
   const userAgent = request.headers.get("user-agent");
   const secret = ticket.pendingSecret ?? user.mfaSecret;
 
@@ -83,6 +123,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   if (!valid) {
+    // ⚠️ Un code refusé compte comme un échec de compte, au même titre qu'un
+    //   mot de passe faux : c'est ce qui borne l'essai exhaustif du TOTP.
+    await registerAccountFailure(user.id);
     // ⚠️ P1-06 — un code TOTP refusé est l'événement de sécurité le plus
     //   révélateur : le mot de passe était bon, le second facteur ne l'était
     //   pas. Le journaliser permet de repérer une tentative avant qu'elle ne

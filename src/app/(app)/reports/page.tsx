@@ -19,7 +19,9 @@ const DDS_LABELS: Record<string, string> = {
   RISK_IDENTIFIED: "Risque identifié",
   ACTION_REQUIRED: "Action requise",
   READY_FOR_DECLARATION: "Prêt à déclarer",
-  DECLARED: "Déclaré",
+  EXPORTED: "Brouillon exporté (non transmis)",
+  SUBMITTED: "Soumission officielle (non disponible)",
+  DECLARED: "Déclaration officielle (non disponible)",
   ARCHIVED: "Archivé",
 };
 
