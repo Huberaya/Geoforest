@@ -200,9 +200,12 @@ L'ordre de mise en service ci-dessous n'est donc pas facultatif.
 L'adaptateur disque écrit sous `GF_STORAGE_DIR` (ou `var/storage`). Sur
 l'hébergeur, le système de fichiers est en **lecture seule** : la création du
 répertoire échoue (`ENOENT … mkdir '/var/task/var'`). Le composant `stockage`
-passe alors `indisponible`, composant critique ⇒ `/api/health` répond **503**.
-C'est voulu : un dépôt qui rendrait « OK » sans rien conserver ferait croire à
-une preuve archivée qui n'existe pas.
+passe alors `indisponible` : `/api/health` reste **200** avec un état
+`degraded` (le processus répond), tandis que `/api/ready` répond **503** et
+refuse de déclarer l'instance apte à recevoir des dépôts. C'est voulu : un
+contrôle de vivacité ne doit pas redémarrer en boucle une instance à cause
+d'une dépendance externe ; la readiness empêche, elle, d'accepter une preuve
+qui ne serait pas conservée.
 
 ⚠️ Pointer `GF_STORAGE_DIR` vers `/tmp` a été écarté. Le système de fichiers
 temporaire est insaisissable : l'écriture réussirait, le téléchargement
