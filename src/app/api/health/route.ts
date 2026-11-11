@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { verifierRoleApplication } from "@/db/controle-role";
-import { sonderTout, type EtatComposant } from "@/lib/alerting/regles";
+import { sonderTout } from "@/lib/alerting/regles";
+import { composantCritique, evaluerSante } from "@/lib/alerting/health";
 import { journal } from "@/lib/observability/journal";
 import { VERSION_APPLICATION } from "@/lib/version";
 import { disponibiliteSecondes, noterJauges } from "@/lib/observability/metriques";
@@ -24,9 +25,6 @@ export const dynamic = "force-dynamic";
  * GF_HEALTH_STRICT=1 conserve le comportement opérationnel strict : tout état
  * dégradé provoque aussi un HTTP 503.
  */
-
-/** Dépendances dont l'indisponibilité rend le processus non fonctionnel. */
-const CRITIQUES = new Set(["base", "schema"]);
 
 export async function GET() {
   const debut = Date.now();
@@ -54,25 +52,8 @@ export async function GET() {
     });
   }
 
-  const critiquesEnPanne = composants.filter(
-    (c) => CRITIQUES.has(c.nom) && c.etat === "indisponible",
-  );
-  // Une dépendance non critique indisponible reste visible comme dégradation.
-  // En particulier, le stockage bloque /api/ready, pas la vivacité /api/health.
-  const degrades = composants.filter(
-    (c) =>
-      c.etat === "degrade" ||
-      c.etat === "non_configure" ||
-      (!CRITIQUES.has(c.nom) && c.etat === "indisponible"),
-  );
-  const indisponible = critiquesEnPanne.length > 0;
-  const degrade = !indisponible && degrades.length > 0;
-
-  const statut: EtatComposant | "healthy" | "degraded" | "unavailable" = indisponible
-    ? "unavailable"
-    : degrade
-      ? "degraded"
-      : "healthy";
+  const evaluation = evaluerSante(composants, process.env.GF_HEALTH_STRICT === "1");
+  const { critiquesEnPanne, degrades, indisponible, degrade, statut, codeHttp } = evaluation;
 
   noterJauges("sante", statut === "healthy" ? 1 : statut === "degraded" ? 0.5 : 0);
   if (indisponible) {
@@ -85,9 +66,6 @@ export async function GET() {
     });
   }
 
-  const strict = process.env.GF_HEALTH_STRICT === "1";
-  const codeHttp = indisponible || (strict && degrade) ? 503 : 200;
-
   return NextResponse.json(
     {
       status: statut,
@@ -98,7 +76,7 @@ export async function GET() {
       composants: composants.map((c) => ({
         nom: c.nom,
         etat: c.etat,
-        critique: CRITIQUES.has(c.nom),
+        critique: composantCritique(c.nom),
         detail: c.detail,
         mesures: c.mesure,
         dureeMs: c.dureeMs,
@@ -110,6 +88,6 @@ export async function GET() {
           ? "Instance vivante mais dégradée : consulter les alertes et /api/ready avant de lui confier du trafic."
           : null,
     },
-    { status: codeHttp, headers: indisponible ? { "Retry-After": "10" } : undefined },
+    { status: codeHttp, headers: codeHttp === 503 ? { "Retry-After": "10" } : undefined },
   );
 }
