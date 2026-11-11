@@ -49,11 +49,12 @@ describe("sonde de vivacité /api/health", () => {
     const ancienneAdmin = process.env.DATABASE_URL_ADMIN;
     process.env.GF_DATABASE_URL = "postgresql://geoforest_app:app@localhost/neondb";
     process.env.DATABASE_URL = "postgresql://neondb_owner:owner@localhost/neondb";
-    process.env.DATABASE_URL_ADMIN = "postgresql://neondb_owner:owner@localhost/neondb";
+    delete process.env.DATABASE_URL_ADMIN;
     try {
       const separation = comparerConnexions();
       assert.equal(separation.roleApplicatif, "geoforest_app");
       assert.equal(separation.roleAdministration, "neondb_owner");
+      assert.equal(separation.adminDeclare, false);
       assert.equal(separation.memeRole, false);
     } finally {
       if (ancienOverride === undefined) delete process.env.GF_DATABASE_URL;
