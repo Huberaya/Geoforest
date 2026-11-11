@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { verifierRoleApplication } from "@/db/controle-role";
 import { sonderTout, type EtatComposant } from "@/lib/alerting/regles";
 import { journal } from "@/lib/observability/journal";
 import { VERSION_APPLICATION } from "@/lib/version";
@@ -9,51 +8,36 @@ import { disponibiliteSecondes, noterJauges } from "@/lib/observability/metrique
 export const dynamic = "force-dynamic";
 
 /**
- * Sonde de vivacité.
+ * Sonde de vivacité et diagnostic synthétique.
  *
- * P0-07 : une base injoignable n'est pas un état « dégradé » renvoyé en 200.
- * Le service est **indisponible** et le dit, afin qu'un supervisionnaire, un
- * équilibreur de charge ou un orchestrateur retire l'instance du pool au lieu
- * de continuer à lui confier des écritures qui ne seraient pas persistées.
+ * La disponibilité du processus ne doit pas être confondue avec son aptitude
+ * à recevoir du trafic :
+ * - /api/health indique si le processus répond et expose l'état des composants.
+ * - /api/ready vérifie les dépendances nécessaires aux écritures durables et
+ *   renvoie 503 si la base, le schéma ou le stockage des pièces est indisponible.
  *
- * ⚠️ P1-06 — « dégradé » et « indisponible » ne se confondent pas, et les
- *   traiter de la même façon aggraverait la panne. Une instance dont la base
- *   est tombée ne peut plus rien servir : **503**, elle sort du pool. Une
- *   instance dont la sauvegarde a du retard rend encore un service correct :
- *   la sortir du pool transformerait un incident mineur en interruption. Elle
- *   répond donc **200 « degraded »** et c'est une **alerte** qui est émise —
- *   l'outil adapté.
+ * Le stockage défaillant est donc signalé comme dégradé ici (HTTP 200), mais
+ * reste bloquant dans /api/ready (HTTP 503). Cela évite de redémarrer en boucle
+ * une instance dont le seul problème est une dépendance externe à réparer.
  *
- *   `GF_HEALTH_STRICT=1` met « dégradé » à 503 également, pour les
- *   déploiements qui préfèrent retirer l'instance au moindre doute.
+ * GF_HEALTH_STRICT=1 conserve le comportement opérationnel strict : tout état
+ * dégradé provoque aussi un HTTP 503.
  */
 
-/** Composants sans lesquels l'instance ne peut pas servir. */
-const CRITIQUES = new Set(["base", "stockage", "schema"]);
+/** Dépendances dont l'indisponibilité rend le processus non fonctionnel. */
+const CRITIQUES = new Set(["base", "schema"]);
 
 export async function GET() {
   const debut = Date.now();
   const composants = await sonderTout();
 
-  // P1-10b — le rôle de connexion est sondé comme un composant à part entière.
-  //
-  // ⚠️ Un rôle qui contourne la RLS ne provoque aucune erreur ailleurs : les
-  //   pages s'affichent, les écritures réussissent, rien ne distingue une
-  //   application cloisonnée d'une application qui voit toutes les
-  //   organisations. La sonde est le seul endroit où cette mesure est faite en
-  //   continu — `src/instrumentation.ts` la fait une fois, au démarrage.
+  // Le rôle applicatif reste contrôlé en continu : un rôle qui contourne la RLS
+  // est un risque de sécurité, même si les requêtes SQL réussissent.
   const debutRole = Date.now();
   const role = await verifierRoleApplication().catch(() => null);
   if (role) {
     composants.push({
       nom: "role_base",
-      // ⚠️ « degrade » et pas « indisponible », et le piège est dans le modèle
-      //   de cette sonde : un composant qui n'est pas dans `CRITIQUES` et qui
-      //   est marqué « indisponible » ne remonte ni dans `alertes` ni dans le
-      //   statut global — il serait invisible. Constaté à l'exécution le
-      //   02/10/2026. « degrade » émet l'alerte et dégrade le statut ; un
-      //   déploiement qui préfère retirer l'instance du pool dispose de
-      //   `GF_HEALTH_STRICT=1`, qui met « degrade » à 503.
       etat: role.ok ? "ok" : "degrade",
       detail: role.ok
         ? `Rôle « ${role.role} » : RLS appliquée, aucun droit de destruction`
@@ -72,7 +56,14 @@ export async function GET() {
   const critiquesEnPanne = composants.filter(
     (c) => CRITIQUES.has(c.nom) && c.etat === "indisponible",
   );
-  const degrades = composants.filter((c) => c.etat === "degrade" || c.etat === "non_configure");
+  // Une dépendance non critique indisponible reste visible comme dégradation.
+  // En particulier, le stockage bloque /api/ready, pas la vivacité /api/health.
+  const degrades = composants.filter(
+    (c) =>
+      c.etat === "degrade" ||
+      c.etat === "non_configure" ||
+      (!CRITIQUES.has(c.nom) && c.etat === "indisponible"),
+  );
   const indisponible = critiquesEnPanne.length > 0;
   const degrade = !indisponible && degrades.length > 0;
 
@@ -87,6 +78,10 @@ export async function GET() {
     journal.error("sante.indisponible", {
       composants: critiquesEnPanne.map((c) => `${c.nom}: ${c.detail}`),
     });
+  } else if (degrade) {
+    journal.warn("sante.degradee", {
+      composants: degrades.map((c) => `${c.nom}: ${c.detail}`),
+    });
   }
 
   const strict = process.env.GF_HEALTH_STRICT === "1";
@@ -95,15 +90,7 @@ export async function GET() {
   return NextResponse.json(
     {
       status: statut,
-      // ⚠️ `uptime_seconds` est celui du **processus**, pas du service : après
-      // un redéploiement il repart de zéro alors que le service n'a jamais
-      // cessé d'être rendu par une autre instance. Le dire évite de prendre
-      // une mesure locale pour une disponibilité globale.
       uptime_seconds: disponibiliteSecondes(),
-      // ⚠️ Ni `npm_package_version` (absent sous `next start`) ni une variable
-      //   `env` de next.config.ts (mesurée sans effet sur ce build) : une
-      //   constante versionnée, que la CI compare à package.json. Détail et
-      //   mesure dans src/lib/version.ts.
       version: VERSION_APPLICATION,
       environnement: process.env.NODE_ENV ?? "development",
       dureeMs: Date.now() - debut,
@@ -115,12 +102,11 @@ export async function GET() {
         mesures: c.mesure,
         dureeMs: c.dureeMs,
       })),
-      // Ce qui ne va pas, en clair, pour qui lit la sonde à la main.
       alertes: [...critiquesEnPanne, ...degrades].map((c) => `${c.nom} : ${c.detail}`),
       notice: indisponible
-        ? "Instance à retirer du pool : un composant critique est indisponible."
+        ? "Instance à retirer du pool : une dépendance critique est indisponible."
         : degrade
-          ? "Instance dégradée mais serviable : une alerte est émise, l'instance reste dans le pool."
+          ? "Instance vivante mais dégradée : consulter les alertes et /api/ready avant de lui confier du trafic."
           : null,
     },
     { status: codeHttp, headers: indisponible ? { "Retry-After": "10" } : undefined },
