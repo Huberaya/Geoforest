@@ -76,6 +76,10 @@ describe("R-05 — schéma incomplet : refus de servir", () => {
   });
 
   it("reste vivante si le stockage est indisponible, mais readiness refuse le trafic", async () => {
+    // Le test précédent a volontairement retiré une politique RLS.
+    // Réinitialiser le schéma pour isoler le scénario de stockage.
+    await restaurerPolitique(banc);
+
     const ancienDossier = process.env.GF_STORAGE_DIR;
     const ancienneConfigS3 = process.env.S3_BUCKET;
     const ancienStrict = process.env.GF_HEALTH_STRICT;
@@ -108,6 +112,9 @@ describe("R-05 — schéma incomplet : refus de servir", () => {
   });
 
   it("déclare la sonde de disponibilité non prête, avec le composant schema", async () => {
+    // Ce scénario doit contrôler explicitement un schéma incomplet.
+    await retirerPolitique(banc);
+
     const ready = await banc.clientHttp().json<{
       ready?: boolean;
       composants?: Array<{ nom?: string; etat?: string; detail?: string }>;
