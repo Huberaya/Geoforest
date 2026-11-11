@@ -46,7 +46,7 @@ describe("R-05 — schéma incomplet : refus de servir", () => {
   before(async () => {
     // Le serveur Next est un processus enfant : sa configuration est copiée
     // au démarrage. La panne de stockage doit donc être injectée avant lui.
-    process.env.GF_STORAGE_DIR = "/proc/geoforest-health-test/storage";
+    process.env.GF_STORAGE_DIR = "/dev/null/geoforest-health-test/storage";
     delete process.env.S3_BUCKET;
     banc = await demarrerBanc();
   });
