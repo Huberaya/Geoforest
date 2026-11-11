@@ -125,7 +125,6 @@ async function retirerAccesTablesHorsDepot(): Promise<void> {
         let setOptionTemporaire = false;
         let optionsInitiales: {
           admin_option: boolean;
-          inherit_option: boolean;
           set_option: boolean;
         } | undefined;
 
@@ -138,10 +137,9 @@ async function retirerAccesTablesHorsDepot(): Promise<void> {
           if (!capacite[0]?.peut_set) {
             const { rows: membership } = await client.query<{
               admin_option: boolean;
-              inherit_option: boolean;
               set_option: boolean;
             }>(
-              `select am.admin_option, am.inherit_option, am.set_option
+              `select am.admin_option, am.set_option
                  from pg_auth_members am
                  join pg_roles r_granted on r_granted.oid = am.roleid
                  join pg_roles r_member on r_member.oid = am.member
@@ -157,9 +155,10 @@ async function retirerAccesTablesHorsDepot(): Promise<void> {
               );
             }
 
+            // Sur une appartenance existante, omettre ADMIN et INHERIT conserve
+            // leurs valeurs exactes ; seule l'option SET est temporairement activée.
             await client.query(
-              `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)}
-                 with admin true, inherit ${optionsInitiales.inherit_option ? "true" : "false"}, set true`,
+              `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set true`,
             );
             setOptionTemporaire = true;
           }
@@ -185,11 +184,10 @@ async function retirerAccesTablesHorsDepot(): Promise<void> {
             await client.query("reset role");
           }
           if (setOptionTemporaire && optionsInitiales) {
+            // Omettre ADMIN et INHERIT les conserve ; seul SET revient à sa
+            // valeur initiale (false, puisque la branche temporaire l'a constaté).
             await client.query(
-              `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)}
-                 with admin ${optionsInitiales.admin_option ? "true" : "false"},
-                      inherit ${optionsInitiales.inherit_option ? "true" : "false"},
-                      set ${optionsInitiales.set_option ? "true" : "false"}`,
+              `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set false`,
             );
           }
         }
