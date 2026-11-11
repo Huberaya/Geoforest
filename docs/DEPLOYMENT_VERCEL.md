@@ -13,14 +13,14 @@ Le projet est configuré selon le modèle **Vercel Multi-Services** :
 
 | Variable | Description | Exemple / Valeur |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | Connexion **applicative** : rôle `geoforest_app`, soumis à la RLS — voir §3 | `postgresql://geoforest_app:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
+| `GF_DATABASE_URL` | Surcharge optionnelle et prioritaire de la connexion applicative, notamment pour une branche Preview dédiée | URL Neon du rôle `geoforest_app` |\n| `DATABASE_URL` | Connexion **applicative** de repli : rôle `geoforest_app`, soumis à la RLS — voir §3 | `postgresql://geoforest_app:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
 | `DATABASE_URL_ADMIN` | Connexion **d'administration** : rôle propriétaire, migrations et purge uniquement | `postgresql://neondb_owner:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
 | `NEXT_PUBLIC_APP_URL` | URL publique de l'application | `https://geoforest-trace.vercel.app` |
 | `GFW_API_KEY` | *(Optionnel)* Clé d'API Global Forest Watch live | `gfw_live_key_xxx` (Repli automatique sur moteur déterministe) |
 
 ---
 
-## 3. Rôle applicatif : deux connexions, jamais une seule
+`src/db/index.ts` utilise `GF_DATABASE_URL` lorsqu’elle est définie, puis `DATABASE_URL` en repli. Cette surcharge permet de conserver une variable `DATABASE_URL` gérée par une intégration Vercel tout en affectant une URL applicative restreinte à une branche Preview précise. `DATABASE_URL_ADMIN` reste indépendant et n’est jamais remplacé par cette surcharge.\n\n## 3. Rôle applicatif : deux connexions, jamais une seule
 
 ⚠️ **C'est le point qui décide du cloisonnement multi-tenant.** Brancher
 l'URL fournie par l'hébergeur dans `DATABASE_URL` donne une application qui
