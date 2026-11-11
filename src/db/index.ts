@@ -44,7 +44,7 @@ import { paresseux } from "./paresseux";
  * seuls les modules sont évalués, et plus aucun pool n'y est construit.
  */
 const BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
-const URL_ABSENTE = !process.env.DATABASE_URL;
+// Une variable dédiée permet de surcharger une URL injectée par une intégration\n// sans modifier sa configuration partagée. DATABASE_URL reste le repli standard.\nconst URL_APPLICATION = process.env.GF_DATABASE_URL ?? process.env.DATABASE_URL;\nconst URL_ABSENTE = !URL_APPLICATION;
 
 // P0 (recette 2026-10-08) — aucun repli vers un identifiant par défaut.
 // L'ancien repli `postgres:postgres` faisait tourner l'application avec un
@@ -62,7 +62,7 @@ const globalForDb = globalThis as typeof globalThis & {
 };
 
 function creerPool(): Pool {
-  const url = process.env.DATABASE_URL;
+  const url = URL_APPLICATION;
   if (!url) {
     // Message volontairement tourné vers la cause : l'appelant doit lire
     // « DATABASE_URL », pas « ECONNREFUSED 127.0.0.1:1 ».
