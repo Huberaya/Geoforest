@@ -181,7 +181,7 @@ export async function demarrerBanc(): Promise<Banc> {
       GF_LOG_FILE: "off",
       // R-05 : les tests doivent observer un changement de schéma immédiat.
       GF_SCHEMA_TTL_MS: "0",
-      GF_STORAGE_DIR: "/tmp/geoforest-http-storage",
+      GF_STORAGE_DIR: process.env.GF_STORAGE_DIR ?? "/tmp/geoforest-http-storage",
       NEXT_TELEMETRY_DISABLED: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
