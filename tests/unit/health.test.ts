@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { composantCritique, evaluerSante } from "../../src/lib/alerting/health";
 import type { Composant } from "../../src/lib/alerting/regles";
+import { comparerConnexions } from "../../src/db/controle-role";
 
 function composant(nom: string, etat: Composant["etat"]): Composant {
   return { nom, etat, detail: "test", mesure: {}, dureeMs: 1 };
@@ -42,4 +43,26 @@ describe("sonde de vivacité /api/health", () => {
     assert.equal(evaluation.codeHttp, 503);
     assert.equal(evaluation.statut, "degraded");
   });
+  it("privilégie GF_DATABASE_URL pour mesurer le rôle applicatif effectif", () => {
+    const ancienOverride = process.env.GF_DATABASE_URL;
+    const ancienneUrl = process.env.DATABASE_URL;
+    const ancienneAdmin = process.env.DATABASE_URL_ADMIN;
+    process.env.GF_DATABASE_URL = "postgresql://geoforest_app:app@localhost/neondb";
+    process.env.DATABASE_URL = "postgresql://neondb_owner:owner@localhost/neondb";
+    process.env.DATABASE_URL_ADMIN = "postgresql://neondb_owner:owner@localhost/neondb";
+    try {
+      const separation = comparerConnexions();
+      assert.equal(separation.roleApplicatif, "geoforest_app");
+      assert.equal(separation.roleAdministration, "neondb_owner");
+      assert.equal(separation.memeRole, false);
+    } finally {
+      if (ancienOverride === undefined) delete process.env.GF_DATABASE_URL;
+      else process.env.GF_DATABASE_URL = ancienOverride;
+      if (ancienneUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = ancienneUrl;
+      if (ancienneAdmin === undefined) delete process.env.DATABASE_URL_ADMIN;
+      else process.env.DATABASE_URL_ADMIN = ancienneAdmin;
+    }
+  });
+
 });
