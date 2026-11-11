@@ -271,7 +271,7 @@ export function comparerConnexions(): SeparationConnexions {
   const urlApp = process.env.GF_DATABASE_URL ?? process.env.DATABASE_URL ?? null;
   // ⚠️ Même repli que `src/db/admin.ts` : c'est ce repli qu'il s'agit de
   //   détecter, il doit donc être reproduit ici à l'identique.
-  const urlAdmin = process.env.DATABASE_URL_ADMIN ?? urlApp;
+  const urlAdmin = process.env.DATABASE_URL_ADMIN ?? process.env.DATABASE_URL ?? null;
 
   function role(url: string | null): string | null {
     if (!url) return null;
