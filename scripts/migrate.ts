@@ -122,11 +122,14 @@ async function retirerAccesTablesHorsDepot(): Promise<void> {
     await client.query("begin");
     try {
       for (const [proprietaire, tables] of groupes) {
-        let setOptionTemporaire = false;
-        let optionsInitiales: {
+        let appartenanceTemporaireCreee = false;
+        let appartenanceExistanteModifiee = false;
+        let membershipsAvant: Array<{
+          grantor_name: string;
           admin_option: boolean;
+          inherit_option: boolean;
           set_option: boolean;
-        } | undefined;
+        }> = [];
 
         if (proprietaire !== roleAdmin) {
           const { rows: capacite } = await client.query<{ peut_set: boolean }>(
@@ -136,31 +139,48 @@ async function retirerAccesTablesHorsDepot(): Promise<void> {
 
           if (!capacite[0]?.peut_set) {
             const { rows: membership } = await client.query<{
+              grantor_name: string;
               admin_option: boolean;
+              inherit_option: boolean;
               set_option: boolean;
             }>(
-              `select am.admin_option, am.set_option
+              `select grantor.rolname as grantor_name,
+                      am.admin_option, am.inherit_option, am.set_option
                  from pg_auth_members am
                  join pg_roles r_granted on r_granted.oid = am.roleid
                  join pg_roles r_member on r_member.oid = am.member
+                 join pg_roles grantor on grantor.oid = am.grantor
                 where r_granted.rolname = $1
-                  and r_member.rolname = $2`,
+                  and r_member.rolname = $2
+                order by grantor.rolname`,
               [proprietaire, roleAdmin],
             );
-            optionsInitiales = membership[0];
+            membershipsAvant = membership;
 
-            if (!optionsInitiales?.admin_option) {
+            const appartenancePropre = membership.find(
+              (m) => m.grantor_name === roleAdmin,
+            );
+
+            if (appartenancePropre?.admin_option && !appartenancePropre.set_option) {
+              // Une appartenance déjà accordée par ce rôle peut être modifiée,
+              // puis restaurée en ne changeant que SET.
+              await client.query(
+                `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set true`,
+              );
+              appartenanceExistanteModifiee = true;
+            } else if (membership.some((m) => m.admin_option)) {
+              // Si l'appartenance initiale vient d'un rôle supérieur (ex.
+              // cloud_admin), créer une ligne temporaire distincte. La révoquer
+              // ensuite évite de tenter de réattribuer ADMIN au grantor initial.
+              await client.query(
+                `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set true`,
+              );
+              appartenanceTemporaireCreee = true;
+            } else {
               throw new Error(
                 `Révocation impossible sur ${tables.join(", ")} : ${roleAdmin} ne peut pas assumer le propriétaire ${proprietaire}`,
               );
             }
-
-            // Sur une appartenance existante, omettre ADMIN et INHERIT conserve
-            // leurs valeurs exactes ; seule l'option SET est temporairement activée.
-            await client.query(
-              `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set true`,
-            );
-            setOptionTemporaire = true;
           }
 
           await client.query(`set role ${citerIdentifiant(proprietaire)}`);
@@ -183,12 +203,51 @@ async function retirerAccesTablesHorsDepot(): Promise<void> {
           if (proprietaire !== roleAdmin) {
             await client.query("reset role");
           }
-          if (setOptionTemporaire && optionsInitiales) {
-            // Omettre ADMIN et INHERIT les conserve ; seul SET revient à sa
-            // valeur initiale (false, puisque la branche temporaire l'a constaté).
+
+          if (appartenanceTemporaireCreee) {
+            // Révoque uniquement la ligne temporaire accordée par roleAdmin ;
+            // l'appartenance d'origine (grantor cloud_admin) reste intacte.
+            await client.query(
+              `revoke ${citerIdentifiant(proprietaire)} from ${citerIdentifiant(roleAdmin)}`,
+            );
+          } else if (appartenanceExistanteModifiee) {
             await client.query(
               `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set false`,
             );
+          }
+
+          if (appartenanceTemporaireCreee || appartenanceExistanteModifiee) {
+            const { rows: membershipApres } = await client.query<{
+              grantor_name: string;
+              admin_option: boolean;
+              inherit_option: boolean;
+              set_option: boolean;
+            }>(
+              `select grantor.rolname as grantor_name,
+                      am.admin_option, am.inherit_option, am.set_option
+                 from pg_auth_members am
+                 join pg_roles r_granted on r_granted.oid = am.roleid
+                 join pg_roles r_member on r_member.oid = am.member
+                 join pg_roles grantor on grantor.oid = am.grantor
+                where r_granted.rolname = $1
+                  and r_member.rolname = $2
+                order by grantor.rolname`,
+              [proprietaire, roleAdmin],
+            );
+            if (JSON.stringify(membershipApres) !== JSON.stringify(membershipsAvant)) {
+              throw new Error(
+                `Les options d'appartenance à ${proprietaire} n'ont pas été restaurées à l'identique pour ${roleAdmin}`,
+              );
+            }
+            const { rows: capaciteApres } = await client.query<{ peut_set: boolean }>(
+              "select pg_has_role(current_user, $1, 'SET') as peut_set",
+              [proprietaire],
+            );
+            if (capaciteApres[0]?.peut_set) {
+              throw new Error(
+                `L'option SET reste active après restauration pour ${roleAdmin} → ${proprietaire}`,
+              );
+            }
           }
         }
       }
