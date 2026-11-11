@@ -21,7 +21,9 @@ Le projet est configuré selon le modèle **Vercel Multi-Services** :
 
 ---
 
-`src/db/index.ts` utilise `GF_DATABASE_URL` lorsqu’elle est définie, puis `DATABASE_URL` en repli. Cette surcharge permet de conserver une variable `DATABASE_URL` gérée par une intégration Vercel tout en affectant une URL applicative restreinte à une branche Preview précise. `DATABASE_URL_ADMIN` reste indépendant et n’est jamais remplacé par cette surcharge.\n\n## 3. Rôle applicatif : deux connexions, jamais une seule
+`src/db/index.ts` utilise `GF_DATABASE_URL` lorsqu’elle est définie, puis `DATABASE_URL` en repli. Cette surcharge permet de conserver une variable `DATABASE_URL` gérée par une intégration Vercel tout en affectant une URL applicative restreinte à une branche Preview précise. `DATABASE_URL_ADMIN` reste indépendant et n’est jamais remplacé par cette surcharge.
+
+## 3. Rôle applicatif : deux connexions, jamais une seule
 
 ⚠️ **C'est le point qui décide du cloisonnement multi-tenant.** Brancher
 l'URL fournie par l'hébergeur dans `DATABASE_URL` donne une application qui
