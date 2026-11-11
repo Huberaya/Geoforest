@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { verifierRoleApplication } from "@/db/controle-role";
 import { sonderTout, type EtatComposant } from "@/lib/alerting/regles";
 import { journal } from "@/lib/observability/journal";
 import { VERSION_APPLICATION } from "@/lib/version";
