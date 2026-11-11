@@ -30,8 +30,11 @@ config({ path: ".env.local" });
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Pool } from "pg";
+import { getTableName, is } from "drizzle-orm";
+import { PgTable } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import * as schema from "../src/db/schema";
 
 const MIGRATIONS_FOLDER = "drizzle";
 const POST_MIGRATE_FOLDER = "scripts/sql/post-migrate";
@@ -43,6 +46,258 @@ const POST_MIGRATE_FOLDER = "scripts/sql/post-migrate";
  * Toute autre table non protégée est une anomalie bloquante.
  */
 const EXCLUES_RLS = ["gf_sessions", "gf_login_attempts"];
+
+/** Tables réellement déclarées par le produit ; un préfixe gf_ ne suffit pas. */
+const TABLES_DU_DEPOT = new Set(
+  Object.values(schema)
+    .filter((v) => is(v, PgTable))
+    .map((t) => getTableName(t as PgTable)),
+);
+
+function citerIdentifiant(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Retire les droits de geoforest_app sur les tables tenant qui ne sont pas
+ * déclarées par le dépôt. Les ACL historiques sont détenues par plusieurs
+ * rôles : la révocation doit être faite par le propriétaire/grantor.
+ *
+ * Si le rôle d'administration dispose d'ADMIN OPTION mais pas de SET OPTION,
+ * le SET OPTION est activé temporairement, puis restauré dans la même
+ * transaction. Aucune appartenance temporaire ne subsiste après succès.
+ * Un grant PUBLIC ou une délégation impossible provoque un échec explicite.
+ */
+async function retirerAccesTablesHorsDepot(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const { rows: cibles } = await client.query<{
+      table_name: string;
+      owner_name: string;
+    }>(
+      `select c.relname as table_name,
+              pg_get_userbyid(c.relowner) as owner_name
+         from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+          and exists (
+            select 1 from pg_attribute a
+             where a.attrelid = c.oid
+               and a.attname = 'organization_id'
+               and not a.attisdropped
+          )
+          and not (c.relname = any($1::text[]))
+          and (
+            has_table_privilege('geoforest_app', c.oid, 'SELECT')
+            or has_table_privilege('geoforest_app', c.oid, 'INSERT')
+            or has_table_privilege('geoforest_app', c.oid, 'UPDATE')
+            or has_table_privilege('geoforest_app', c.oid, 'DELETE')
+            or has_table_privilege('geoforest_app', c.oid, 'TRUNCATE')
+            or has_table_privilege('geoforest_app', c.oid, 'REFERENCES')
+            or has_table_privilege('geoforest_app', c.oid, 'TRIGGER')
+          )
+        order by owner_name, table_name`,
+      [Array.from(TABLES_DU_DEPOT)],
+    );
+
+    if (cibles.length === 0) {
+      console.log("  · ACL hors dépôt : aucun accès applicatif résiduel sur les tables tenant étrangères");
+      return;
+    }
+
+    const { rows: identite } = await client.query<{ role: string }>(
+      "select current_user as role",
+    );
+    const roleAdmin = identite[0]?.role;
+    if (!roleAdmin) throw new Error("Impossible d'identifier le rôle d'administration");
+
+    const groupes = new Map<string, string[]>();
+    for (const cible of cibles) {
+      const liste = groupes.get(cible.owner_name) ?? [];
+      liste.push(cible.table_name);
+      groupes.set(cible.owner_name, liste);
+    }
+
+    await client.query("begin");
+    try {
+      for (const [proprietaire, tables] of groupes) {
+        let appartenanceTemporaireCreee = false;
+        let appartenanceExistanteModifiee = false;
+        let membershipsAvant: Array<{
+          grantor_name: string;
+          admin_option: boolean;
+          inherit_option: boolean;
+          set_option: boolean;
+        }> = [];
+
+        if (proprietaire !== roleAdmin) {
+          const { rows: capacite } = await client.query<{ peut_set: boolean }>(
+            "select pg_has_role(current_user, $1, 'SET') as peut_set",
+            [proprietaire],
+          );
+
+          if (!capacite[0]?.peut_set) {
+            const { rows: membership } = await client.query<{
+              grantor_name: string;
+              admin_option: boolean;
+              inherit_option: boolean;
+              set_option: boolean;
+            }>(
+              `select grantor.rolname as grantor_name,
+                      am.admin_option, am.inherit_option, am.set_option
+                 from pg_auth_members am
+                 join pg_roles r_granted on r_granted.oid = am.roleid
+                 join pg_roles r_member on r_member.oid = am.member
+                 join pg_roles grantor on grantor.oid = am.grantor
+                where r_granted.rolname = $1
+                  and r_member.rolname = $2
+                order by grantor.rolname`,
+              [proprietaire, roleAdmin],
+            );
+            membershipsAvant = membership;
+
+            const appartenancePropre = membership.find(
+              (m) => m.grantor_name === roleAdmin,
+            );
+
+            if (appartenancePropre?.admin_option && !appartenancePropre.set_option) {
+              // Une appartenance déjà accordée par ce rôle peut être modifiée,
+              // puis restaurée en ne changeant que SET.
+              await client.query(
+                `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set true`,
+              );
+              appartenanceExistanteModifiee = true;
+            } else if (membership.some((m) => m.admin_option)) {
+              // Si l'appartenance initiale vient d'un rôle supérieur (ex.
+              // cloud_admin), créer une ligne temporaire distincte. La révoquer
+              // ensuite évite de tenter de réattribuer ADMIN au grantor initial.
+              await client.query(
+                `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set true`,
+              );
+              appartenanceTemporaireCreee = true;
+            } else {
+              throw new Error(
+                `Révocation impossible sur ${tables.join(", ")} : ${roleAdmin} ne peut pas assumer le propriétaire ${proprietaire}`,
+              );
+            }
+          }
+
+          await client.query(`set role ${citerIdentifiant(proprietaire)}`);
+        }
+
+        try {
+          await client.query(
+            "alter default privileges in schema public revoke all on tables from geoforest_app",
+          );
+          await client.query(
+            "alter default privileges in schema public revoke all on sequences from geoforest_app",
+          );
+
+          for (const table of tables) {
+            await client.query(
+              `revoke all privileges on table "public".${citerIdentifiant(table)} from geoforest_app`,
+            );
+          }
+        } finally {
+          if (proprietaire !== roleAdmin) {
+            await client.query("reset role");
+          }
+
+          if (appartenanceTemporaireCreee) {
+            // Révoque uniquement la ligne temporaire accordée par roleAdmin ;
+            // l'appartenance d'origine (grantor cloud_admin) reste intacte.
+            await client.query(
+              `revoke ${citerIdentifiant(proprietaire)} from ${citerIdentifiant(roleAdmin)}`,
+            );
+          } else if (appartenanceExistanteModifiee) {
+            await client.query(
+              `grant ${citerIdentifiant(proprietaire)} to ${citerIdentifiant(roleAdmin)} with set false`,
+            );
+          }
+
+          if (appartenanceTemporaireCreee || appartenanceExistanteModifiee) {
+            const { rows: membershipApres } = await client.query<{
+              grantor_name: string;
+              admin_option: boolean;
+              inherit_option: boolean;
+              set_option: boolean;
+            }>(
+              `select grantor.rolname as grantor_name,
+                      am.admin_option, am.inherit_option, am.set_option
+                 from pg_auth_members am
+                 join pg_roles r_granted on r_granted.oid = am.roleid
+                 join pg_roles r_member on r_member.oid = am.member
+                 join pg_roles grantor on grantor.oid = am.grantor
+                where r_granted.rolname = $1
+                  and r_member.rolname = $2
+                order by grantor.rolname`,
+              [proprietaire, roleAdmin],
+            );
+            if (JSON.stringify(membershipApres) !== JSON.stringify(membershipsAvant)) {
+              throw new Error(
+                `Les options d'appartenance à ${proprietaire} n'ont pas été restaurées à l'identique pour ${roleAdmin}`,
+              );
+            }
+            const { rows: capaciteApres } = await client.query<{ peut_set: boolean }>(
+              "select pg_has_role(current_user, $1, 'SET') as peut_set",
+              [proprietaire],
+            );
+            if (capaciteApres[0]?.peut_set) {
+              throw new Error(
+                `L'option SET reste active après restauration pour ${roleAdmin} → ${proprietaire}`,
+              );
+            }
+          }
+        }
+      }
+
+      const { rows: residuels } = await client.query<{ table_name: string; owner_name: string }>(
+        `select c.relname as table_name,
+                pg_get_userbyid(c.relowner) as owner_name
+           from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public'
+            and c.relkind in ('r', 'p')
+            and exists (
+              select 1 from pg_attribute a
+               where a.attrelid = c.oid
+                 and a.attname = 'organization_id'
+                 and not a.attisdropped
+            )
+            and not (c.relname = any($1::text[]))
+            and (
+              has_table_privilege('geoforest_app', c.oid, 'SELECT')
+              or has_table_privilege('geoforest_app', c.oid, 'INSERT')
+              or has_table_privilege('geoforest_app', c.oid, 'UPDATE')
+              or has_table_privilege('geoforest_app', c.oid, 'DELETE')
+              or has_table_privilege('geoforest_app', c.oid, 'TRUNCATE')
+              or has_table_privilege('geoforest_app', c.oid, 'REFERENCES')
+              or has_table_privilege('geoforest_app', c.oid, 'TRIGGER')
+            )
+          order by c.relname`,
+        [Array.from(TABLES_DU_DEPOT)],
+      );
+
+      if (residuels.length > 0) {
+        throw new Error(
+          `Accès résiduels à des tables tenant hors dépôt (grant PUBLIC ou rôle hérité) : ${residuels.map((r) => `${r.table_name} [${r.owner_name}]`).join(", ")}`,
+        );
+      }
+
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+
+    console.log(
+      `  · ACL hors dépôt : ${cibles.length} table(s) nettoyée(s) sous ${groupes.size} rôle(s) propriétaire(s) ; options SET restaurées`,
+    );
+  } finally {
+    client.release();
+  }
+}
 
 const url = process.env.DATABASE_URL_ADMIN ?? process.env.DATABASE_URL;
 if (!url) {
@@ -257,6 +512,11 @@ async function main(): Promise<void> {
   await verifierCoherenceRegistre(apres.length);
 
   await appliquerPostMigration();
+
+  // Les tables héritées peuvent avoir été créées par d'autres rôles.
+  // Leur accès est retiré sous l'identité de leur propriétaire, sans toucher
+  // aux données ni aux politiques des objets étrangers.
+  await retirerAccesTablesHorsDepot();
 
   await verifierCloisonnement();
   console.log("✅ Schéma à jour et cloisonnement vérifié.");

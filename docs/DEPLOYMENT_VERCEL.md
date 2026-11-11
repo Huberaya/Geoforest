@@ -13,12 +13,15 @@ Le projet est configuré selon le modèle **Vercel Multi-Services** :
 
 | Variable | Description | Exemple / Valeur |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | Connexion **applicative** : rôle `geoforest_app`, soumis à la RLS — voir §3 | `postgresql://geoforest_app:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
+| `GF_DATABASE_URL` | Surcharge optionnelle et prioritaire de la connexion applicative, notamment pour une branche Preview dédiée | URL Neon du rôle `geoforest_app` |
+| `DATABASE_URL` | Connexion **applicative** de repli : rôle `geoforest_app`, soumis à la RLS — voir §3 | `postgresql://geoforest_app:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
 | `DATABASE_URL_ADMIN` | Connexion **d'administration** : rôle propriétaire, migrations et purge uniquement | `postgresql://neondb_owner:…@ep-xyz-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
 | `NEXT_PUBLIC_APP_URL` | URL publique de l'application | `https://geoforest-trace.vercel.app` |
 | `GFW_API_KEY` | *(Optionnel)* Clé d'API Global Forest Watch live | `gfw_live_key_xxx` (Repli automatique sur moteur déterministe) |
 
 ---
+
+`src/db/index.ts` utilise `GF_DATABASE_URL` lorsqu’elle est définie, puis `DATABASE_URL` en repli. Cette surcharge permet de conserver une variable `DATABASE_URL` gérée par une intégration Vercel tout en affectant une URL applicative restreinte à une branche Preview précise. `DATABASE_URL_ADMIN` reste indépendant et n’est jamais remplacé par cette surcharge.
 
 ## 3. Rôle applicatif : deux connexions, jamais une seule
 
@@ -200,9 +203,12 @@ L'ordre de mise en service ci-dessous n'est donc pas facultatif.
 L'adaptateur disque écrit sous `GF_STORAGE_DIR` (ou `var/storage`). Sur
 l'hébergeur, le système de fichiers est en **lecture seule** : la création du
 répertoire échoue (`ENOENT … mkdir '/var/task/var'`). Le composant `stockage`
-passe alors `indisponible`, composant critique ⇒ `/api/health` répond **503**.
-C'est voulu : un dépôt qui rendrait « OK » sans rien conserver ferait croire à
-une preuve archivée qui n'existe pas.
+passe alors `indisponible` : `/api/health` reste **200** avec un état
+`degraded` (le processus répond), tandis que `/api/ready` répond **503** et
+refuse de déclarer l'instance apte à recevoir des dépôts. C'est voulu : un
+contrôle de vivacité ne doit pas redémarrer en boucle une instance à cause
+d'une dépendance externe ; la readiness empêche, elle, d'accepter une preuve
+qui ne serait pas conservée.
 
 ⚠️ Pointer `GF_STORAGE_DIR` vers `/tmp` a été écarté. Le système de fichiers
 temporaire est insaisissable : l'écriture réussirait, le téléchargement

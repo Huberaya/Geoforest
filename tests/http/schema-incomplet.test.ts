@@ -40,12 +40,23 @@ async function restaurerPolitique(banc: Banc): Promise<void> {
 describe("R-05 — schéma incomplet : refus de servir", () => {
   let banc: Banc;
 
+  const ancienDossierGlobal = process.env.GF_STORAGE_DIR;
+  const ancienneConfigS3Globale = process.env.S3_BUCKET;
+
   before(async () => {
+    // Le serveur Next est un processus enfant : sa configuration est copiée
+    // au démarrage. La panne de stockage doit donc être injectée avant lui.
+    process.env.GF_STORAGE_DIR = "/dev/null/geoforest-health-test/storage";
+    delete process.env.S3_BUCKET;
     banc = await demarrerBanc();
   });
 
   after(async () => {
     await banc?.arreter();
+    if (ancienDossierGlobal === undefined) delete process.env.GF_STORAGE_DIR;
+    else process.env.GF_STORAGE_DIR = ancienDossierGlobal;
+    if (ancienneConfigS3Globale === undefined) delete process.env.S3_BUCKET;
+    else process.env.S3_BUCKET = ancienneConfigS3Globale;
   });
 
   it("sert normalement quand le schéma est complet", async () => {
@@ -75,7 +86,30 @@ describe("R-05 — schéma incomplet : refus de servir", () => {
     );
   });
 
+  it("reste vivante si le stockage est indisponible, mais readiness refuse le trafic", async () => {
+    // Le test précédent a volontairement retiré une politique RLS.
+    // Réinitialiser le schéma pour isoler le scénario de stockage.
+    await restaurerPolitique(banc);
+
+    const health = await banc.clientHttp().json<{
+      status?: string;
+      composants?: Array<{ nom?: string; etat?: string; critique?: boolean }>;
+    }>("/api/health");
+    assert.equal(health.statut, 200);
+    assert.equal(health.corps.status, "degraded");
+    const stockage = health.corps.composants?.find((c) => c.nom === "stockage");
+    assert.equal(stockage?.etat, "indisponible");
+    assert.equal(stockage?.critique, false);
+
+    const ready = await banc.clientHttp().json<{ ready?: boolean }>("/api/ready");
+    assert.equal(ready.statut, 503);
+    assert.equal(ready.corps.ready, false);
+  });
+
   it("déclare la sonde de disponibilité non prête, avec le composant schema", async () => {
+    // Ce scénario doit contrôler explicitement un schéma incomplet.
+    await retirerPolitique(banc);
+
     const ready = await banc.clientHttp().json<{
       ready?: boolean;
       composants?: Array<{ nom?: string; etat?: string; detail?: string }>;

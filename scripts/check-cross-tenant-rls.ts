@@ -51,6 +51,22 @@ const TABLES_DU_DEPOT = new Set(
     .map((t) => getTableName(t as PgTable)),
 );
 
+/** Tables tenant attendues : les tables gf_* étrangères ne sont pas adoptées par convention de nommage. */
+const TABLES_TENANT_ATTENDUES = new Set([
+  "gf_users",
+  "gf_idempotence",
+  "gf_suppliers",
+  "gf_products",
+  "gf_shipments",
+  "gf_plots",
+  "gf_documents",
+  "gf_document_versions",
+  "gf_due_diligence_statements",
+  "gf_compliance_tasks",
+  "gf_audit_logs",
+  "parcel_audits",
+]);
+
 const SLUG_A = "geoforest-agro";
 const SLUG_B = "demo-tenant-b";
 
@@ -158,14 +174,13 @@ async function main(): Promise<void> {
     // parente, des tables héritées (hors migrations du dépôt) portent
     // `organization_id` ; elles sont contrôlées plus bas selon leur invariant.
     check(
-      "tables tenant du dépôt identifiées",
-      tablesOrg.length >= 10,
-      `${tablesOrg.length} tables : ${tablesOrg.join(", ")}${vuesOrg.length ? ` · vues : ${vuesOrg.join(", ")}` : ""}`,
-    );
-    check(
-      "toute table du dépôt portant organization_id est connue du schéma Drizzle",
-      tablesOrg.length === toutesTablesOrg.filter((t) => t.startsWith("gf_") || t === "parcel_audits").length,
-      tablesEtrangeres.filter((t) => t.startsWith("gf_")).join(", ") || "aucune table gf_* hors schéma",
+      "couverture complète des tables tenant déclarées par le dépôt",
+      tablesOrg.length === TABLES_TENANT_ATTENDUES.size &&
+        [...TABLES_TENANT_ATTENDUES].every(
+          (t) => TABLES_DU_DEPOT.has(t) && tablesOrg.includes(t),
+        ) &&
+        tablesOrg.every((t) => TABLES_TENANT_ATTENDUES.has(t)),
+      `attendues=${TABLES_TENANT_ATTENDUES.size} · présentes=${tablesOrg.length} · ${tablesOrg.join(", ")}`,
     );
 
     section("Tables étrangères au dépôt portant organization_id : inaccessibles au rôle applicatif");
