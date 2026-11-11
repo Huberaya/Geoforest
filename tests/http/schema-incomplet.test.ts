@@ -75,6 +75,38 @@ describe("R-05 — schéma incomplet : refus de servir", () => {
     );
   });
 
+  it("reste vivante si le stockage est indisponible, mais readiness refuse le trafic", async () => {
+    const ancienDossier = process.env.GF_STORAGE_DIR;
+    const ancienneConfigS3 = process.env.S3_BUCKET;
+    const ancienStrict = process.env.GF_HEALTH_STRICT;
+    process.env.GF_STORAGE_DIR = "/proc/geoforest-health-test/storage";
+    delete process.env.S3_BUCKET;
+    delete process.env.GF_HEALTH_STRICT;
+
+    try {
+      const health = await banc.clientHttp().json<{
+        status?: string;
+        composants?: Array<{ nom?: string; etat?: string; critique?: boolean }>;
+      }>("/api/health");
+      assert.equal(health.statut, 200);
+      assert.equal(health.corps.status, "degraded");
+      const stockage = health.corps.composants?.find((c) => c.nom === "stockage");
+      assert.equal(stockage?.etat, "indisponible");
+      assert.equal(stockage?.critique, false);
+
+      const ready = await banc.clientHttp().json<{ ready?: boolean }>("/api/ready");
+      assert.equal(ready.statut, 503);
+      assert.equal(ready.corps.ready, false);
+    } finally {
+      if (ancienDossier === undefined) delete process.env.GF_STORAGE_DIR;
+      else process.env.GF_STORAGE_DIR = ancienDossier;
+      if (ancienneConfigS3 === undefined) delete process.env.S3_BUCKET;
+      else process.env.S3_BUCKET = ancienneConfigS3;
+      if (ancienStrict === undefined) delete process.env.GF_HEALTH_STRICT;
+      else process.env.GF_HEALTH_STRICT = ancienStrict;
+    }
+  });
+
   it("déclare la sonde de disponibilité non prête, avec le composant schema", async () => {
     const ready = await banc.clientHttp().json<{
       ready?: boolean;
