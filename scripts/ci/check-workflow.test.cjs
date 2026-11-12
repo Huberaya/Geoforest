@@ -99,3 +99,65 @@ test('backup/restore workflow cannot receive Neon credentials from feature branc
   const checkout = job.steps.find(s => s.name === 'Récupérer le dépôt');
   assert.equal(checkout.with['persist-credentials'], false);
 });
+
+
+const neonSecretNames = ['NEON_API_KEY', 'NEON_PROJECT_ID', 'NEON_PARENT_BRANCH_ID'];
+const privilegedWorkflows = [
+  { path: '.github/workflows/ci.yml', document: workflow, jobName: 'database' },
+  {
+    path: '.github/workflows/backup-restore-proof.yml',
+    document: yaml.load(readFileSync('.github/workflows/backup-restore-proof.yml', 'utf8')),
+    jobName: 'restore-proof',
+  },
+];
+
+function collectStrings(value, output = []) {
+  if (typeof value === 'string') output.push(value);
+  else if (Array.isArray(value)) value.forEach(item => collectStrings(item, output));
+  else if (value && typeof value === 'object') Object.values(value).forEach(item => collectStrings(item, output));
+  return output;
+}
+
+test('no privileged Neon workflow uses pull_request_target or checks out PR-controlled refs', () => {
+  for (const { document, jobName } of privilegedWorkflows) {
+    assert.ok(!Object.hasOwn(document.on, 'pull_request_target'), 'pull_request_target is forbidden');
+    const job = document.jobs[jobName];
+    for (const step of job.steps) {
+      if (String(step.uses || '').startsWith('actions/checkout@')) {
+        const ref = step.with?.ref;
+        assert.ok(!ref, 'privileged checkout must use the workflow commit, never an explicit PR ref');
+        assert.equal(step.with?.['persist-credentials'], false);
+      }
+    }
+  }
+});
+
+test('every Neon secret reference is confined to the main-only neon-ci job', () => {
+  for (const { document, jobName } of privilegedWorkflows) {
+    const privilegedJob = document.jobs[jobName];
+    assert.equal(privilegedJob.if, "github.ref == 'refs/heads/main'");
+    assert.equal(privilegedJob.environment, 'neon-ci');
+    const allJobs = Object.entries(document.jobs);
+    for (const [name, job] of allJobs) {
+      const references = collectStrings(job).filter(value =>
+        neonSecretNames.some(secret => value.includes(`secrets.${secret}`)));
+      if (references.length) {
+        assert.equal(name, jobName, `Neon secret reference found in unprotected job ${name}`);
+        for (const secret of neonSecretNames) {
+          assert.ok(references.some(value => value.includes(`secrets.${secret}`)),
+            `missing expected secret reference ${secret}`);
+        }
+      }
+    }
+  }
+});
+
+test('privileged workflows cannot grant write permissions or run from PR events', () => {
+  for (const { document, jobName } of privilegedWorkflows) {
+    assert.deepEqual(document.permissions, { contents: 'read' });
+    assert.ok(!Object.hasOwn(document.on, 'pull_request'));
+    assert.ok(!Object.hasOwn(document.on, 'pull_request_target'));
+    const job = document.jobs[jobName];
+    assert.ok(!job.permissions || Object.values(job.permissions).every(value => value === 'read' || value === 'none'));
+  }
+});
