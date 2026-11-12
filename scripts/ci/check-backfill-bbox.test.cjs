@@ -37,6 +37,6 @@ test('dry-run calculates every BBOX before its no-write branch, and UPDATE is gu
   const dryRun = source.indexOf('if (essai)', bboxCalculation);
   const update = source.indexOf('UPDATE gf_plots', dryRun);
   assert.ok(bboxCalculation >= 0 && dryRun > bboxCalculation && update > dryRun);
-  assert.match(source, /if \(essai\)[\\s\\S]*?continue;[\\s\\S]*?UPDATE gf_plots/);
+  assert.match(source, /if \(essai\)[\s\S]*?continue;[\s\S]*?UPDATE gf_plots/);
   assert.match(source, /Aucune écriture effectuée/);
 });
