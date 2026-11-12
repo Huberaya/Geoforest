@@ -300,7 +300,7 @@ async function main(): Promise<void> {
     check(
       "gf_marquer_suppression fixe un search_path explicite sans pg_temp",
       Array.isArray(suppressionDefiner?.configuration)
-        && suppressionDefiner.configuration.some((v: string) => v.includes("search_path=public, pg_catalog")),
+        && suppressionDefiner.configuration.some((v: string) => v.includes("search_path=pg_catalog, public")),
       JSON.stringify(suppressionDefiner?.configuration ?? null),
     );
     section("Tables d'authentification : moindre privilège");
