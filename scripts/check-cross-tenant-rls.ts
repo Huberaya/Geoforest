@@ -229,6 +229,38 @@ async function main(): Promise<void> {
       }
     }
 
+    section("PostGIS : objets de référence en lecture seule");
+    const postgisNoms = ["spatial_ref_sys", "geometry_columns", "geography_columns"];
+    const postgis = await admin.query(
+      `select c.relname as nom,
+              has_table_privilege($1, c.oid, 'SELECT') as peut_lire,
+              has_table_privilege($1, c.oid, 'INSERT') as peut_inserer,
+              has_table_privilege($1, c.oid, 'UPDATE') as peut_modifier,
+              has_table_privilege($1, c.oid, 'DELETE') as peut_supprimer,
+              has_table_privilege($1, c.oid, 'TRUNCATE') as peut_tronquer,
+              has_table_privilege($1, c.oid, 'REFERENCES') as peut_referencer,
+              has_table_privilege($1, c.oid, 'TRIGGER') as peut_declencher
+         from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relname = any($2::text[])
+          and c.relkind in ('r', 'p', 'v', 'm')`,
+      [r0.u, postgisNoms],
+    );
+    for (const nom of postgisNoms) {
+      const objet = postgis.rows.find((r) => r.nom === nom);
+      if (!objet) continue; // PostGIS varie selon la version installée.
+      check(
+        `${nom} : lecture seule pour le rôle applicatif`,
+        objet.peut_lire === true
+          && objet.peut_inserer === false
+          && objet.peut_modifier === false
+          && objet.peut_supprimer === false
+          && objet.peut_tronquer === false
+          && objet.peut_referencer === false
+          && objet.peut_declencher === false,
+        JSON.stringify(objet),
+      );
+    }
     section("Vues portant organization_id : exécutées avec les droits de l'appelant");
     if (vuesOrg.length > 0) {
       const etatVues = await app.query(
