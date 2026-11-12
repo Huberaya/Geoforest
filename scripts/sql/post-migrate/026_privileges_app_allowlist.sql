@@ -136,33 +136,15 @@ $admin_acl$;
 -- PostGIS est fourni par Neon (propriétaire cloud_admin, grantor neon_superuser).
 -- Retirer les droits d'écriture hérités sans casser les lectures de référence :
 -- PUBLIC conserve SELECT sur spatial_ref_sys / geometry_columns / geography_columns.
+-- PostGIS est fourni par Neon (propriétaire cloud_admin, grantor neon_superuser).
+-- Neon interdit SET ROLE vers neon_superuser : les rôles administrateurs
+-- héritent néanmoins de ses privilèges WITH GRANT OPTION. PostgreSQL permet
+-- donc au membre d'effectuer REVOKE, enregistré sous le grantor détenteur.
 DO $postgis_acl$
 DECLARE
   obj record;
-  peut_endosser boolean;
 BEGIN
-  IF to_regrole('neon_superuser') IS NOT NULL AND EXISTS (
-    SELECT 1
-      FROM pg_class c
-      JOIN pg_namespace n ON n.oid = c.relnamespace
-      CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, acldefault(
-        CASE WHEN c.relkind = 'S' THEN 'S'::"char" ELSE 'r'::"char" END,
-        c.relowner
-      ))) a
-     WHERE n.nspname = 'public'
-       AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
-       AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'geoforest_app')
-       AND a.grantor = (SELECT oid FROM pg_roles WHERE rolname = 'neon_superuser')
-  ) THEN
-    SELECT pg_has_role(current_user, 'neon_superuser', 'SET')
-      INTO peut_endosser;
-    IF NOT coalesce(peut_endosser, false) THEN
-      RAISE EXCEPTION
-        'P0 RLS : % ne peut pas révoquer les ACL PostGIS accordées par neon_superuser.',
-        current_user;
-    END IF;
-
-    EXECUTE 'SET ROLE neon_superuser';
+  IF to_regrole('neon_superuser') IS NOT NULL THEN
     FOR obj IN
       SELECT DISTINCT c.relname, c.relkind
         FROM pg_class c
@@ -182,7 +164,6 @@ BEGIN
         EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM geoforest_app', obj.relname);
       END IF;
     END LOOP;
-    EXECUTE 'RESET ROLE';
   END IF;
 END
 $postgis_acl$;
@@ -231,7 +212,8 @@ DECLARE
     'gf_organizations','gf_users','gf_sessions','gf_login_attempts',
     'gf_idempotence','gf_suppliers','gf_products','gf_shipments','gf_plots',
     'gf_documents','gf_document_versions','gf_due_diligence_statements',
-    'gf_compliance_tasks','gf_audit_logs','parcel_audits'
+    'gf_compliance_tasks','gf_audit_logs','parcel_audits',
+    'gf_audit_logs_sequence_seq'
   ];
   fuite record;
 BEGIN
