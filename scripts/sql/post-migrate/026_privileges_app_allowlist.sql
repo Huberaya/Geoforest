@@ -336,6 +336,30 @@ BEGIN
     RAISE EXCEPTION 'P0 RLS : le journal d''audit doit rester strictement append-only.';
   END IF;
 
+  -- Les fonctions SECURITY DEFINER peuvent contourner la RLS : allowlist stricte.
+  IF EXISTS (
+    SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.prosecdef
+       AND p.proname <> 'gf_marquer_suppression'
+       AND has_function_privilege('geoforest_app', p.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : geoforest_app peut exécuter une fonction SECURITY DEFINER hors allowlist.';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname = 'gf_marquer_suppression'
+       AND p.prosecdef
+       AND has_function_privilege('geoforest_app', p.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : fonction SECURITY DEFINER gf_marquer_suppression absente ou inaccessible.';
+  END IF;
+
   IF EXISTS (
     SELECT 1
       FROM pg_default_acl d
