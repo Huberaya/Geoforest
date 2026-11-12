@@ -411,6 +411,11 @@ jobs:
   # ---------------------------------------------------------------------------
   database:
     name: Database & HTTP contracts (Neon branch)
+    # Secret-bearing job: only trusted main code may receive Neon API credentials.
+    # Configure the `neon-ci` environment with required reviewers and store its
+    # Neon secrets there; never expose them to pull_request or feature-branch code.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: neon-ci
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -421,6 +426,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
