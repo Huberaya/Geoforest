@@ -79,3 +79,23 @@ test('Neon job runs every HTTP suite on the test branch, then the RLS proof last
   const stop = workflow.jobs.database.steps.findIndex(s => s.name === 'Stop production server');
   assert.ok(stop > 0 && positions.at(-1) < stop);
 });
+
+
+test('Neon-secret CI job is restricted to main and protected by the neon-ci environment', () => {
+  const job = workflow.jobs.database;
+  assert.equal(job.if, "github.ref == 'refs/heads/main'");
+  assert.equal(job.environment, 'neon-ci');
+  const checkout = job.steps.find(s => s.name === 'Check out source');
+  assert.equal(checkout.with['persist-credentials'], false);
+});
+
+test('backup/restore workflow cannot receive Neon credentials from feature branches or PRs', () => {
+  const backup = yaml.load(readFileSync('.github/workflows/backup-restore-proof.yml', 'utf8'));
+  assert.deepEqual(backup.on.push.branches, ['main']);
+  assert.ok(Object.hasOwn(backup.on, 'workflow_dispatch'));
+  const job = backup.jobs['restore-proof'];
+  assert.equal(job.if, "github.ref == 'refs/heads/main'");
+  assert.equal(job.environment, 'neon-ci');
+  const checkout = job.steps.find(s => s.name === 'Récupérer le dépôt');
+  assert.equal(checkout.with['persist-credentials'], false);
+});
