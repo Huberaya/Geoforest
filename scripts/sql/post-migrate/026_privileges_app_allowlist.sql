@@ -4,10 +4,10 @@
 -- db:migrate, retire les droits des rôles propriétaires sur les objets hérités
 -- et reconstruit une allowlist explicite. Aucune table ni donnée n'est supprimée.
 --
--- Les objets hérités sont détenus par geoforest_migrator. PostgreSQL ne permet
--- pas à neondb_owner de révoquer directement les ACL accordées par ce rôle.
--- On endosse temporairement geoforest_migrator, sans laisser d'appartenance
--- persistante. Les options de membership préexistantes sont préservées.
+-- Les ACL historiques proviennent de plusieurs propriétaires et grantors.
+-- Pour les objets appartenant à geoforest_migrator, neondb_owner endosse
+-- temporairement ce rôle afin de révoquer ses propres ACL. Aucune appartenance
+-- temporaire ne subsiste ; les options de membership préexistantes sont préservées.
 
 DO $membership$
 DECLARE
