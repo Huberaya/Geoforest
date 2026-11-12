@@ -129,12 +129,25 @@ async function main(): Promise<void> {
   try {
     section("Rôle testé");
     const role = await app.query(
-      "select current_user as u, r.rolsuper as super, r.rolbypassrls as bypass from pg_roles r where r.rolname = current_user",
+      "select current_user as u, r.rolsuper as super, r.rolbypassrls as bypass, r.rolcreaterole as create_role, r.rolcreatedb as create_db from pg_roles r where r.rolname = current_user",
     );
     const r0 = role.rows[0];
-    check("le test s'exécute avec le rôle applicatif", r0.u !== "postgres", `rôle=${r0.u}`);
+    check("le test s'exécute avec le rôle applicatif", r0.u === "geoforest_app", `rôle=${r0.u}`);
     check("rôle non superutilisateur", r0.super === false);
     check("rôle sans BYPASSRLS", r0.bypass === false);
+    check("rôle sans CREATEROLE", r0.create_role === false);
+    check("rôle sans CREATEDB", r0.create_db === false);
+
+    const roleAdmin = await admin.query(
+      `select
+         (select count(*) from pg_auth_members where member = (select oid from pg_roles where rolname = 'geoforest_app')) as memberships,
+         (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relowner = (select oid from pg_roles where rolname = 'geoforest_app')) as owned_objects,
+         has_schema_privilege('geoforest_app', 'public', 'CREATE') as public_create`,
+    );
+    const roleAdminRow = roleAdmin.rows[0];
+    check("aucune appartenance héritée pour geoforest_app", Number(roleAdminRow.memberships) === 0, String(roleAdminRow.memberships));
+    check("aucun objet public détenu par geoforest_app", Number(roleAdminRow.owned_objects) === 0, String(roleAdminRow.owned_objects));
+    check("CREATE refusé sur public", roleAdminRow.public_create === false);
 
     section("Couverture : toute table portant organization_id est sous RLS");
     // ⚠️ `information_schema.columns` liste aussi les **vues**. Depuis `025`,
@@ -153,34 +166,57 @@ async function main(): Promise<void> {
     //   disparaissait de l'inventaire après `revoke all`).
     const cols = await admin.query(
       `select c.relname as table_name,
-              case c.relkind when 'v' then 'VIEW' else 'BASE TABLE' end as table_type
-         from pg_attribute a
-         join pg_class c on c.oid = a.attrelid
+              case c.relkind when 'v' then 'VIEW' else 'BASE TABLE' end as table_type,
+              exists (
+                select 1 from pg_attribute a
+                 where a.attrelid = c.oid and a.attname = 'organization_id'
+                   and not a.attisdropped
+              ) as has_organization_id
+         from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and a.attname = 'organization_id' and not a.attisdropped
-          and c.relkind in ('r', 'p', 'v')
+        where n.nspname = 'public' and c.relkind in ('r', 'p', 'v')
+          -- Les objets PostGIS sont fournis par l'extension, pas par le dépôt.
+          and not exists (
+            select 1 from pg_depend d
+             where d.classid = 'pg_class'::regclass and d.objid = c.oid
+               and d.refclassid = 'pg_extension'::regclass and d.deptype = 'e'
+          )
         order by 1`,
     );
-    const toutesTablesOrg = cols.rows
+    const toutesTables = cols.rows
       .filter((r) => r.table_type === "BASE TABLE")
       .map((r) => r.table_name as string);
+    const toutesTablesOrg = cols.rows
+      .filter((r) => r.table_type === "BASE TABLE" && r.has_organization_id)
+      .map((r) => r.table_name as string);
     const tablesOrg = toutesTablesOrg.filter((t) => TABLES_DU_DEPOT.has(t));
-    const tablesEtrangeres = toutesTablesOrg.filter((t) => !TABLES_DU_DEPOT.has(t));
+    // Toutes les tables étrangères sont contrôlées, pas seulement celles qui
+    // portent organization_id : une table héritée sans colonne tenant ne doit
+    // pas davantage être accessible au rôle applicatif.
+    const tablesEtrangeres = toutesTables.filter((t) => !TABLES_DU_DEPOT.has(t));
     const vuesOrg = cols.rows
-      .filter((r) => r.table_type === "VIEW")
+      .filter((r) => r.table_type === "VIEW" && r.has_organization_id)
       .map((r) => r.table_name as string);
     const tablesOrgAvecOrgs = [...tablesOrg, "gf_organizations"];
     // L'inventaire est affiché en clair : sur une branche Neon dérivée d'une
     // parente, des tables héritées (hors migrations du dépôt) portent
     // `organization_id` ; elles sont contrôlées plus bas selon leur invariant.
     check(
+      "tables tenant du dépôt identifiées",
+      tablesOrg.length >= 10,
+      `${tablesOrg.length} tables : ${tablesOrg.join(", ")}${vuesOrg.length ? ` · vues : ${vuesOrg.join(", ")}` : ""}`,
+    );
+    const tablesTenantAttendues = [...TABLES_TENANT_ATTENDUES];
+    const tablesTenantAbsentes = tablesTenantAttendues.filter(
+      (t) => !TABLES_DU_DEPOT.has(t) || !toutesTablesOrg.includes(t),
+    );
+    const tablesTenantInattendues = tablesOrg.filter((t) => !TABLES_TENANT_ATTENDUES.has(t));
+    check(
       "couverture complète des tables tenant déclarées par le dépôt",
-      tablesOrg.length === TABLES_TENANT_ATTENDUES.size &&
-        [...TABLES_TENANT_ATTENDUES].every(
-          (t) => TABLES_DU_DEPOT.has(t) && tablesOrg.includes(t),
-        ) &&
-        tablesOrg.every((t) => TABLES_TENANT_ATTENDUES.has(t)),
-      `attendues=${TABLES_TENANT_ATTENDUES.size} · présentes=${tablesOrg.length} · ${tablesOrg.join(", ")}`,
+      tablesTenantAbsentes.length === 0
+        && tablesTenantInattendues.length === 0
+        && tablesOrg.length === TABLES_TENANT_ATTENDUES.size,
+      `attendues=${tablesTenantAttendues.length} · présentes=${tablesOrg.length} · absentes=${tablesTenantAbsentes.join(", ") || "aucune"} · inattendues=${tablesTenantInattendues.join(", ") || "aucune"}`,
     );
 
     section("Tables étrangères au dépôt portant organization_id : inaccessibles au rôle applicatif");
@@ -225,6 +261,110 @@ async function main(): Promise<void> {
       }
     }
 
+    section("PostGIS : objets de référence en lecture seule");
+    const postgisNoms = ["spatial_ref_sys", "geometry_columns", "geography_columns"];
+    const postgis = await admin.query(
+      `select c.relname as nom,
+              has_table_privilege($1, c.oid, 'SELECT') as peut_lire,
+              has_table_privilege($1, c.oid, 'INSERT') as peut_inserer,
+              has_table_privilege($1, c.oid, 'UPDATE') as peut_modifier,
+              has_table_privilege($1, c.oid, 'DELETE') as peut_supprimer,
+              has_table_privilege($1, c.oid, 'TRUNCATE') as peut_tronquer,
+              has_table_privilege($1, c.oid, 'REFERENCES') as peut_referencer,
+              has_table_privilege($1, c.oid, 'TRIGGER') as peut_declencher
+         from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relname = any($2::text[])
+          and c.relkind in ('r', 'p', 'v', 'm')`,
+      [r0.u, postgisNoms],
+    );
+    for (const nom of postgisNoms) {
+      const objet = postgis.rows.find((r) => r.nom === nom);
+      if (!objet) continue; // PostGIS varie selon la version installée.
+      check(
+        `${nom} : lecture seule pour le rôle applicatif`,
+        objet.peut_lire === true
+          && objet.peut_inserer === false
+          && objet.peut_modifier === false
+          && objet.peut_supprimer === false
+          && objet.peut_tronquer === false
+          && objet.peut_referencer === false
+          && objet.peut_declencher === false,
+        JSON.stringify(objet),
+      );
+    }
+    section("Fonctions SECURITY DEFINER : allowlist explicite");
+    const fonctionsDefiner = await admin.query(
+      `select p.proname as nom, p.proconfig as configuration,
+              has_function_privilege($1, p.oid, 'EXECUTE') as appelant_peut_executer
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.prosecdef
+        order by p.proname`,
+      [r0.u],
+    );
+    const accessiblesDefiner = fonctionsDefiner.rows.filter((r) => r.appelant_peut_executer);
+    check(
+      "seule gf_marquer_suppression est exécutable par le rôle applicatif parmi les SECURITY DEFINER",
+      accessiblesDefiner.length === 1 && accessiblesDefiner[0].nom === "gf_marquer_suppression",
+      JSON.stringify(accessiblesDefiner),
+    );
+    const suppressionDefiner = accessiblesDefiner[0];
+    const suppressionConfiguration = suppressionDefiner?.configuration;
+    check(
+      "gf_marquer_suppression fixe un search_path explicite sans pg_temp",
+      Array.isArray(suppressionConfiguration)
+        && suppressionConfiguration.some((v: string) => v.includes("search_path=pg_catalog, public")),
+      JSON.stringify(suppressionConfiguration ?? null),
+    );
+    section("Tables d'authentification : moindre privilège");
+    const auth = await admin.query(
+      `select
+         has_table_privilege($1, 'public.gf_sessions', 'SELECT') as sessions_select,
+         has_table_privilege($1, 'public.gf_sessions', 'INSERT') as sessions_insert,
+         has_table_privilege($1, 'public.gf_sessions', 'UPDATE') as sessions_update,
+         has_table_privilege($1, 'public.gf_sessions', 'DELETE') as sessions_delete,
+         has_table_privilege($1, 'public.gf_login_attempts', 'SELECT') as cadence_select_table,
+         has_table_privilege($1, 'public.gf_login_attempts', 'INSERT') as cadence_insert_table,
+         has_table_privilege($1, 'public.gf_login_attempts', 'UPDATE') as cadence_update_table,
+         has_column_privilege($1, 'public.gf_login_attempts', 'id', 'SELECT') as cadence_id_select,
+         has_column_privilege($1, 'public.gf_login_attempts', 'window_key', 'UPDATE') as cadence_key_update,
+         has_column_privilege($1, 'public.gf_login_attempts', 'window_key', 'SELECT') as cadence_key_select,
+         has_column_privilege($1, 'public.gf_login_attempts', 'attempts', 'UPDATE') as cadence_attempts_update`,
+      [r0.u],
+    );
+    const authAcl = auth.rows[0];
+    check(
+      "gf_sessions : aucun droit pour le rôle applicatif",
+      authAcl.sessions_select === false && authAcl.sessions_insert === false
+        && authAcl.sessions_update === false && authAcl.sessions_delete === false,
+      JSON.stringify(authAcl),
+    );
+    check(
+      "gf_login_attempts : aucun privilège table-level",
+      authAcl.cadence_select_table === false && authAcl.cadence_insert_table === false
+        && authAcl.cadence_update_table === false,
+      JSON.stringify(authAcl),
+    );
+    check(
+      "gf_login_attempts : droits limités aux colonnes du compteur",
+      authAcl.cadence_id_select === false && authAcl.cadence_key_update === false
+        && authAcl.cadence_key_select === true && authAcl.cadence_attempts_update === true,
+      JSON.stringify(authAcl),
+    );
+    const sondeAuth = await app.connect();
+    try {
+      await sondeAuth.query("begin");
+      const sessionsLecture = await tenter(sondeAuth, "select * from gf_sessions limit 1");
+      check("gf_sessions : lecture refusée au rôle applicatif (42501)", !sessionsLecture.ok && sessionsLecture.code === "42501");
+      const cadenceLarge = await tenter(sondeAuth, "select * from gf_login_attempts limit 1");
+      check("gf_login_attempts : SELECT * refusé (colonnes non autorisées)", !cadenceLarge.ok && cadenceLarge.code === "42501");
+      const cadenceCiblee = await tenter(sondeAuth, "select window_key, attempts, first_attempt_at, last_attempt_at from gf_login_attempts limit 1");
+      check("gf_login_attempts : lecture des seules colonnes nécessaires autorisée", cadenceCiblee.ok);
+      await sondeAuth.query("rollback");
+    } finally {
+      sondeAuth.release();
+    }
     section("Vues portant organization_id : exécutées avec les droits de l'appelant");
     if (vuesOrg.length > 0) {
       const etatVues = await app.query(
