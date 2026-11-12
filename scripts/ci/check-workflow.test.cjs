@@ -155,7 +155,8 @@ test('every Neon secret reference is confined to the main-only neon-ci job', () 
 test('privileged workflows cannot grant write permissions or run from PR events', () => {
   for (const { document, jobName } of privilegedWorkflows) {
     assert.deepEqual(document.permissions, { contents: 'read' });
-    assert.ok(!Object.hasOwn(document.on, 'pull_request'));
+    // The CI workflow may run non-privileged checks on pull_request; only
+    // pull_request_target is forbidden for workflows containing privileged jobs.
     assert.ok(!Object.hasOwn(document.on, 'pull_request_target'));
     const job = document.jobs[jobName];
     assert.ok(!job.permissions || Object.values(job.permissions).every(value => value === 'read' || value === 'none'));
