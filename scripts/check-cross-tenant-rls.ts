@@ -297,11 +297,12 @@ async function main(): Promise<void> {
       JSON.stringify(accessiblesDefiner),
     );
     const suppressionDefiner = accessiblesDefiner[0];
+    const suppressionConfiguration = suppressionDefiner?.configuration;
     check(
       "gf_marquer_suppression fixe un search_path explicite sans pg_temp",
-      Array.isArray(suppressionDefiner?.configuration)
-        && suppressionDefiner.configuration.some((v: string) => v.includes("search_path=pg_catalog, public")),
-      JSON.stringify(suppressionDefiner?.configuration ?? null),
+      Array.isArray(suppressionConfiguration)
+        && suppressionConfiguration.some((v: string) => v.includes("search_path=pg_catalog, public")),
+      JSON.stringify(suppressionConfiguration ?? null),
     );
     section("Tables d'authentification : moindre privilège");
     const auth = await admin.query(
