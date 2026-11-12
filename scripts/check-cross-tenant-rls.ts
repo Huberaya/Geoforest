@@ -280,6 +280,54 @@ async function main(): Promise<void> {
         JSON.stringify(objet),
       );
     }
+    section("Tables d'authentification : moindre privilège");
+    const auth = await admin.query(
+      `select
+         has_table_privilege($1, 'public.gf_sessions', 'SELECT') as sessions_select,
+         has_table_privilege($1, 'public.gf_sessions', 'INSERT') as sessions_insert,
+         has_table_privilege($1, 'public.gf_sessions', 'UPDATE') as sessions_update,
+         has_table_privilege($1, 'public.gf_sessions', 'DELETE') as sessions_delete,
+         has_table_privilege($1, 'public.gf_login_attempts', 'SELECT') as cadence_select_table,
+         has_table_privilege($1, 'public.gf_login_attempts', 'INSERT') as cadence_insert_table,
+         has_table_privilege($1, 'public.gf_login_attempts', 'UPDATE') as cadence_update_table,
+         has_column_privilege($1, 'public.gf_login_attempts', 'id', 'SELECT') as cadence_id_select,
+         has_column_privilege($1, 'public.gf_login_attempts', 'window_key', 'UPDATE') as cadence_key_update,
+         has_column_privilege($1, 'public.gf_login_attempts', 'window_key', 'SELECT') as cadence_key_select,
+         has_column_privilege($1, 'public.gf_login_attempts', 'attempts', 'UPDATE') as cadence_attempts_update`,
+      [r0.u],
+    );
+    const authAcl = auth.rows[0];
+    check(
+      "gf_sessions : aucun droit pour le rôle applicatif",
+      authAcl.sessions_select === false && authAcl.sessions_insert === false
+        && authAcl.sessions_update === false && authAcl.sessions_delete === false,
+      JSON.stringify(authAcl),
+    );
+    check(
+      "gf_login_attempts : aucun privilège table-level",
+      authAcl.cadence_select_table === false && authAcl.cadence_insert_table === false
+        && authAcl.cadence_update_table === false,
+      JSON.stringify(authAcl),
+    );
+    check(
+      "gf_login_attempts : droits limités aux colonnes du compteur",
+      authAcl.cadence_id_select === false && authAcl.cadence_key_update === false
+        && authAcl.cadence_key_select === true && authAcl.cadence_attempts_update === true,
+      JSON.stringify(authAcl),
+    );
+    const sondeAuth = await app.connect();
+    try {
+      await sondeAuth.query("begin");
+      const sessionsLecture = await tenter(sondeAuth, "select * from gf_sessions limit 1");
+      check("gf_sessions : lecture refusée au rôle applicatif (42501)", !sessionsLecture.ok && sessionsLecture.code === "42501");
+      const cadenceLarge = await tenter(sondeAuth, "select * from gf_login_attempts limit 1");
+      check("gf_login_attempts : SELECT * refusé (colonnes non autorisées)", !cadenceLarge.ok && cadenceLarge.code === "42501");
+      const cadenceCiblee = await tenter(sondeAuth, "select window_key, attempts, first_attempt_at, last_attempt_at from gf_login_attempts limit 1");
+      check("gf_login_attempts : lecture des seules colonnes nécessaires autorisée", cadenceCiblee.ok);
+      await sondeAuth.query("rollback");
+    } finally {
+      sondeAuth.release();
+    }
     section("Vues portant organization_id : exécutées avec les droits de l'appelant");
     if (vuesOrg.length > 0) {
       const etatVues = await app.query(
