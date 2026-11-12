@@ -212,6 +212,10 @@ GRANT USAGE, SELECT ON SEQUENCE gf_audit_logs_sequence_seq TO geoforest_app;
 -- La vue de reprise reste consultable, mais non modifiable.
 GRANT SELECT ON v_parcel_audits_identite TO geoforest_app;
 
+-- Fonction SECURITY DEFINER de suppression logique : catalogue avant schéma applicatif.
+ALTER FUNCTION public.gf_marquer_suppression(regclass, uuid, text)
+  SET search_path = pg_catalog, public;
+
 -- Assertions bloquantes : un défaut de privilège fait échouer db:migrate.
 DO $assertions$
 DECLARE
