@@ -280,6 +280,29 @@ async function main(): Promise<void> {
         JSON.stringify(objet),
       );
     }
+    section("Fonctions SECURITY DEFINER : allowlist explicite");
+    const fonctionsDefiner = await admin.query(
+      `select p.proname as nom, p.proconfig as configuration,
+              has_function_privilege($1, p.oid, 'EXECUTE') as appelant_peut_executer
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.prosecdef
+        order by p.proname`,
+      [r0.u],
+    );
+    const accessiblesDefiner = fonctionsDefiner.rows.filter((r) => r.appelant_peut_executer);
+    check(
+      "seule gf_marquer_suppression est exécutable par le rôle applicatif parmi les SECURITY DEFINER",
+      accessiblesDefiner.length === 1 && accessiblesDefiner[0].nom === "gf_marquer_suppression",
+      JSON.stringify(accessiblesDefiner),
+    );
+    const suppressionDefiner = accessiblesDefiner[0];
+    check(
+      "gf_marquer_suppression fixe un search_path explicite sans pg_temp",
+      Array.isArray(suppressionDefiner?.configuration)
+        && suppressionDefiner.configuration.some((v: string) => v.includes("search_path=public, pg_catalog")),
+      JSON.stringify(suppressionDefiner?.configuration ?? null),
+    );
     section("Tables d'authentification : moindre privilège");
     const auth = await admin.query(
       `select
