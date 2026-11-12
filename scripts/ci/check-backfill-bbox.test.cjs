@@ -36,5 +36,8 @@ test('dry-run exits before any UPDATE statement', () => {
   const dryRun = source.indexOf('if (essai)');
   const update = source.indexOf('UPDATE gf_plots');
   assert.ok(dryRun >= 0 && update > dryRun);
-  assert.match(source, /Aucune écriture/);
+  const bboxCalculation = source.indexOf('bboxDeGeometrie(ligne.geometry)', dryRun);
+  assert.ok(bboxCalculation > dryRun && bboxCalculation < update,
+    'dry-run must calculate each BBOX before reaching the UPDATE statement');
+  assert.match(source, /Aucune écriture effectuée/);
 });
