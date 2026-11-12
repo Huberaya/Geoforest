@@ -137,7 +137,7 @@ test('no privileged Neon workflow uses pull_request_target or checks out PR-cont
 // Checking the entire secrets context, rather than specific spellings, also covers
 // bracket notation and toJSON(secrets). Reusable jobs could inherit caller secrets.
 function hasSecretsExpression(value) {
-  return collectStrings(value).some(text => /\\$\\{\\{[\\s\\S]*?\\bsecrets\\b[\\s\\S]*?\\}\\}/i.test(text));
+  return collectStrings(value).some(text => /\$\{\{[\s\S]*?\bsecrets\b[\s\S]*?\}\}/i.test(text));
 }
 
 test('workflow events are allowlisted and Neon secrets are confined to privileged jobs', () => {
