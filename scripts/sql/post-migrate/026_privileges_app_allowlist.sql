@@ -136,7 +136,6 @@ $admin_acl$;
 -- PostGIS est fourni par Neon (propriétaire cloud_admin, grantor neon_superuser).
 -- Retirer les droits d'écriture hérités sans casser les lectures de référence :
 -- PUBLIC conserve SELECT sur spatial_ref_sys / geometry_columns / geography_columns.
--- PostGIS est fourni par Neon (propriétaire cloud_admin, grantor neon_superuser).
 -- Neon interdit SET ROLE vers neon_superuser : les rôles administrateurs
 -- héritent néanmoins de ses privilèges WITH GRANT OPTION. PostgreSQL permet
 -- donc au membre d'effectuer REVOKE, enregistré sous le grantor détenteur.
@@ -273,6 +272,10 @@ BEGIN
   IF has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'SELECT')
      OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'INSERT')
      OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'UPDATE')
+     OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'DELETE')
+     OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'TRUNCATE')
+     OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'REFERENCES')
+     OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'TRIGGER')
      OR has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'id', 'SELECT')
      OR has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'id', 'INSERT')
      OR has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'window_key', 'UPDATE') THEN
@@ -319,6 +322,12 @@ BEGIN
     RAISE EXCEPTION 'P0 RLS : geography_columns doit être en lecture seule.';
   END IF;
 
+  IF NOT has_sequence_privilege('geoforest_app', 'public.gf_audit_logs_sequence_seq', 'USAGE')
+     OR NOT has_sequence_privilege('geoforest_app', 'public.gf_audit_logs_sequence_seq', 'SELECT')
+     OR has_sequence_privilege('geoforest_app', 'public.gf_audit_logs_sequence_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'P0 RLS : la séquence du journal doit être USAGE/SELECT uniquement.';
+  END IF;
+
   IF has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'UPDATE')
      OR has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'DELETE')
      OR has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'TRUNCATE') THEN
@@ -328,10 +337,8 @@ BEGIN
   IF EXISTS (
     SELECT 1
       FROM pg_default_acl d
-      JOIN pg_roles r ON r.oid = d.defaclrole
       JOIN pg_namespace n ON n.oid = d.defaclnamespace
      WHERE n.nspname = 'public'
-       AND r.rolname IN (current_user, 'geoforest_migrator')
        AND d.defaclacl::text LIKE '%geoforest_app%'
   ) THEN
     RAISE EXCEPTION 'P0 RLS : un privilège par défaut accorde encore des droits à geoforest_app.';
