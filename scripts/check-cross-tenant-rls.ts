@@ -153,34 +153,57 @@ async function main(): Promise<void> {
     //   disparaissait de l'inventaire après `revoke all`).
     const cols = await admin.query(
       `select c.relname as table_name,
-              case c.relkind when 'v' then 'VIEW' else 'BASE TABLE' end as table_type
-         from pg_attribute a
-         join pg_class c on c.oid = a.attrelid
+              case c.relkind when 'v' then 'VIEW' else 'BASE TABLE' end as table_type,
+              exists (
+                select 1 from pg_attribute a
+                 where a.attrelid = c.oid and a.attname = 'organization_id'
+                   and not a.attisdropped
+              ) as has_organization_id
+         from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and a.attname = 'organization_id' and not a.attisdropped
-          and c.relkind in ('r', 'p', 'v')
+        where n.nspname = 'public' and c.relkind in ('r', 'p', 'v')
+          -- Les objets PostGIS sont fournis par l'extension, pas par le dépôt.
+          and not exists (
+            select 1 from pg_depend d
+             where d.classid = 'pg_class'::regclass and d.objid = c.oid
+               and d.refclassid = 'pg_extension'::regclass and d.deptype = 'e'
+          )
         order by 1`,
     );
-    const toutesTablesOrg = cols.rows
+    const toutesTables = cols.rows
       .filter((r) => r.table_type === "BASE TABLE")
       .map((r) => r.table_name as string);
+    const toutesTablesOrg = cols.rows
+      .filter((r) => r.table_type === "BASE TABLE" && r.has_organization_id)
+      .map((r) => r.table_name as string);
     const tablesOrg = toutesTablesOrg.filter((t) => TABLES_DU_DEPOT.has(t));
-    const tablesEtrangeres = toutesTablesOrg.filter((t) => !TABLES_DU_DEPOT.has(t));
+    // Toutes les tables étrangères sont contrôlées, pas seulement celles qui
+    // portent organization_id : une table héritée sans colonne tenant ne doit
+    // pas davantage être accessible au rôle applicatif.
+    const tablesEtrangeres = toutesTables.filter((t) => !TABLES_DU_DEPOT.has(t));
     const vuesOrg = cols.rows
-      .filter((r) => r.table_type === "VIEW")
+      .filter((r) => r.table_type === "VIEW" && r.has_organization_id)
       .map((r) => r.table_name as string);
     const tablesOrgAvecOrgs = [...tablesOrg, "gf_organizations"];
     // L'inventaire est affiché en clair : sur une branche Neon dérivée d'une
     // parente, des tables héritées (hors migrations du dépôt) portent
     // `organization_id` ; elles sont contrôlées plus bas selon leur invariant.
     check(
+      "tables tenant du dépôt identifiées",
+      tablesOrg.length >= 10,
+      `${tablesOrg.length} tables : ${tablesOrg.join(", ")}${vuesOrg.length ? ` · vues : ${vuesOrg.join(", ")}` : ""}`,
+    );
+    const tablesTenantAttendues = [...TABLES_TENANT_ATTENDUES];
+    const tablesTenantAbsentes = tablesTenantAttendues.filter(
+      (t) => !TABLES_DU_DEPOT.has(t) || !toutesTablesOrg.includes(t),
+    );
+    const tablesTenantInattendues = tablesOrg.filter((t) => !TABLES_TENANT_ATTENDUES.has(t));
+    check(
       "couverture complète des tables tenant déclarées par le dépôt",
-      tablesOrg.length === TABLES_TENANT_ATTENDUES.size &&
-        [...TABLES_TENANT_ATTENDUES].every(
-          (t) => TABLES_DU_DEPOT.has(t) && tablesOrg.includes(t),
-        ) &&
-        tablesOrg.every((t) => TABLES_TENANT_ATTENDUES.has(t)),
-      `attendues=${TABLES_TENANT_ATTENDUES.size} · présentes=${tablesOrg.length} · ${tablesOrg.join(", ")}`,
+      tablesTenantAbsentes.length === 0
+        && tablesTenantInattendues.length === 0
+        && tablesOrg.length === TABLES_TENANT_ATTENDUES.size,
+      `attendues=${tablesTenantAttendues.length} · présentes=${tablesOrg.length} · absentes=${tablesTenantAbsentes.join(", ") || "aucune"} · inattendues=${tablesTenantInattendues.join(", ") || "aucune"}`,
     );
 
     section("Tables étrangères au dépôt portant organization_id : inaccessibles au rôle applicatif");
@@ -225,6 +248,38 @@ async function main(): Promise<void> {
       }
     }
 
+    section("PostGIS : objets de référence en lecture seule");
+    const postgisNoms = ["spatial_ref_sys", "geometry_columns", "geography_columns"];
+    const postgis = await admin.query(
+      `select c.relname as nom,
+              has_table_privilege($1, c.oid, 'SELECT') as peut_lire,
+              has_table_privilege($1, c.oid, 'INSERT') as peut_inserer,
+              has_table_privilege($1, c.oid, 'UPDATE') as peut_modifier,
+              has_table_privilege($1, c.oid, 'DELETE') as peut_supprimer,
+              has_table_privilege($1, c.oid, 'TRUNCATE') as peut_tronquer,
+              has_table_privilege($1, c.oid, 'REFERENCES') as peut_referencer,
+              has_table_privilege($1, c.oid, 'TRIGGER') as peut_declencher
+         from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relname = any($2::text[])
+          and c.relkind in ('r', 'p', 'v', 'm')`,
+      [r0.u, postgisNoms],
+    );
+    for (const nom of postgisNoms) {
+      const objet = postgis.rows.find((r) => r.nom === nom);
+      if (!objet) continue; // PostGIS varie selon la version installée.
+      check(
+        `${nom} : lecture seule pour le rôle applicatif`,
+        objet.peut_lire === true
+          && objet.peut_inserer === false
+          && objet.peut_modifier === false
+          && objet.peut_supprimer === false
+          && objet.peut_tronquer === false
+          && objet.peut_referencer === false
+          && objet.peut_declencher === false,
+        JSON.stringify(objet),
+      );
+    }
     section("Vues portant organization_id : exécutées avec les droits de l'appelant");
     if (vuesOrg.length > 0) {
       const etatVues = await app.query(
