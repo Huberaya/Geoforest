@@ -129,12 +129,25 @@ async function main(): Promise<void> {
   try {
     section("Rôle testé");
     const role = await app.query(
-      "select current_user as u, r.rolsuper as super, r.rolbypassrls as bypass from pg_roles r where r.rolname = current_user",
+      "select current_user as u, r.rolsuper as super, r.rolbypassrls as bypass, r.rolcreaterole as create_role, r.rolcreatedb as create_db from pg_roles r where r.rolname = current_user",
     );
     const r0 = role.rows[0];
-    check("le test s'exécute avec le rôle applicatif", r0.u !== "postgres", `rôle=${r0.u}`);
+    check("le test s'exécute avec le rôle applicatif", r0.u === "geoforest_app", `rôle=${r0.u}`);
     check("rôle non superutilisateur", r0.super === false);
     check("rôle sans BYPASSRLS", r0.bypass === false);
+    check("rôle sans CREATEROLE", r0.create_role === false);
+    check("rôle sans CREATEDB", r0.create_db === false);
+
+    const roleAdmin = await admin.query(
+      `select
+         (select count(*) from pg_auth_members where member = (select oid from pg_roles where rolname = 'geoforest_app')) as memberships,
+         (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relowner = (select oid from pg_roles where rolname = 'geoforest_app')) as owned_objects,
+         has_schema_privilege('geoforest_app', 'public', 'CREATE') as public_create`,
+    );
+    const roleAdminRow = roleAdmin.rows[0];
+    check("aucune appartenance héritée pour geoforest_app", Number(roleAdminRow.memberships) === 0, String(roleAdminRow.memberships));
+    check("aucun objet public détenu par geoforest_app", Number(roleAdminRow.owned_objects) === 0, String(roleAdminRow.owned_objects));
+    check("CREATE refusé sur public", roleAdminRow.public_create === false);
 
     section("Couverture : toute table portant organization_id est sous RLS");
     // ⚠️ `information_schema.columns` liste aussi les **vues**. Depuis `025`,
