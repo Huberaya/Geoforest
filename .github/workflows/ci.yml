@@ -414,7 +414,7 @@ jobs:
     # Secret-bearing job: only trusted main code may receive Neon API credentials.
     # Configure the `neon-ci` environment with required reviewers and store its
     # Neon secrets there; never expose them to pull_request or feature-branch code.
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: neon-ci
     runs-on: ubuntu-24.04
     timeout-minutes: 45
