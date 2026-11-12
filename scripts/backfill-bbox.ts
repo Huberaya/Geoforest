@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     let dernier: string | null = null;
 
     for (;;) {
-      const page = await pool.query<{ id: string; geometry: unknown }>(
+      const page: { rows: Array<{ id: string; geometry: unknown }> } = await pool.query<{ id: string; geometry: unknown }>(
         `SELECT id, geometry
            FROM gf_plots
           WHERE (${recalculer
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
       );
       if (page.rows.length === 0) break;
 
-      for (const ligne of page.rows) {
+      for (const ligne of page.rows as Array<{ id: string; geometry: unknown }>) {
         lues += 1;
         dernier = ligne.id;
         const bbox = bboxDeGeometrie(ligne.geometry);
