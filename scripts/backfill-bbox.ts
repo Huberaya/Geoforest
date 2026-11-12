@@ -63,11 +63,6 @@ async function main(): Promise<void> {
     const attendu = Number(total.rows[0]?.n ?? "0");
     console.log(`Parcelles à traiter : ${attendu}${recalculer ? " (recalcul complet)" : " (au moins une borne manquante)"}`);
 
-    if (essai) {
-      console.log(`[ESSAI] Aucune écriture. ${attendu} ligne(s) seraient examinées.`);
-      return;
-    }
-
     let lues = 0;
     let remplies = 0;
     let sansSurface = 0;
@@ -96,6 +91,11 @@ async function main(): Promise<void> {
           continue;
         }
 
+        if (essai) {
+          remplies += 1; // nombre de géométries calculables, sans écriture
+          continue;
+        }
+
         const update = await pool.query<{ id: string }>(
           `UPDATE gf_plots
               SET bbox_min_lon = $2, bbox_min_lat = $3,
@@ -110,6 +110,15 @@ async function main(): Promise<void> {
         remplies += update.rowCount ?? update.rows.length;
       }
       if (page.rows.length < LOT) break;
+    }
+
+    if (essai) {
+      console.log(`[ESSAI] Calculs BBOX possibles : ${remplies} · sans surface : ${sansSurface} · lignes examinées : ${lues}`);
+      if (lues !== attendu || remplies + sansSurface !== lues) {
+        throw new Error("Essai non concluant : les compteurs ne concordent pas.");
+      }
+      console.log("✅ Essai terminé, aucune écriture effectuée.");
+      return;
     }
 
     const restant = await pool.query<{ n: string }>(
