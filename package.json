@@ -29,7 +29,7 @@
     "typecheck": "tsc --noEmit",
     "test:evidence:http": "tsx --conditions=react-server scripts/check-evidence-pack-http.ts",
     "verifier:pack": "tsx scripts/verifier-pack.ts",
-    "test:ci": "node --test scripts/ci/check-workflow.test.cjs",
+    "test:ci": "node --test scripts/ci/*.test.cjs",
     "recette:postgres": "bash scripts/recette/postgresql-recette.sh",
     "test:http": "NODE_OPTIONS=--conditions=react-server tsx --test --test-concurrency=1 tests/http/*.test.ts",
     "test:securite": "npm run test:unit && npm run test:sql && npm run test:http",
