@@ -52,7 +52,7 @@ C'est le défaut le plus probable de cette mise en production, et il est silenci
 
 | Vérification | Résultat |
 |---|---|
-| RLS sur les tables métier | **13/13**, y compris `parcel_audits` (0007/0008) et `gf_document_versions`. Les deux seules exceptions (`gf_sessions`, `gf_login_attempts`) sont **documentées et justifiées** : elles ne sont lues par aucune route. |
+| RLS sur les tables métier | **13/13**, y compris `parcel_audits` (0007/0008) et `gf_document_versions`. `gf_sessions` et `gf_login_attempts` restent hors RLS car ce sont des tables d'authentification globales, utilisées avant le contexte d'organisation : `gf_sessions` est réservée à `dbAdmin` ; `gf_login_attempts` ne donne au rôle applicatif que les droits sur `window_key`, `attempts`, `first_attempt_at` et `last_attempt_at`, nécessaires au compteur atomique. Les tests vérifient ces droits effectifs. |
 | Rattachement inter-organisations via `parcel_audits.plot_id` | **Fermé.** La clé étrangère est **composite** `(plot_id, organization_id) → gf_plots(id, organization_id)`. Une organisation ne peut pas référencer la parcelle d'une autre. |
 | Rattachement inter-organisations via `gf_documents.plot_id` | **Fermé**, par la contrainte composite `fk_gf_documents_plot_tenant`. Vérifié par tentative d'insertion réelle : refusée. |
 | Double clé étrangère sur `gf_documents.plot_id` | **Constatée** : une FK simple (`plot_id → plots.id`) et une FK composite coexistent. La composite rattrape la simple, donc **pas de faille** — mais la simple est redondante et pourrait un jour être choisie à la place de l'autre. Signalée, non corrigée : la retirer demanderait une nouvelle migration et la retirer n'apporte aucune sécurité supplémentaire. |
