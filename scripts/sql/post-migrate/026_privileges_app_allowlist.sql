@@ -133,6 +133,60 @@ BEGIN
 END
 $admin_acl$;
 
+-- PostGIS est fourni par Neon (propriétaire cloud_admin, grantor neon_superuser).
+-- Retirer les droits d'écriture hérités sans casser les lectures de référence :
+-- PUBLIC conserve SELECT sur spatial_ref_sys / geometry_columns / geography_columns.
+DO $postgis_acl$
+DECLARE
+  obj record;
+  peut_endosser boolean;
+BEGIN
+  IF to_regrole('neon_superuser') IS NOT NULL AND EXISTS (
+    SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, acldefault(
+        CASE WHEN c.relkind = 'S' THEN 'S'::"char" ELSE 'r'::"char" END,
+        c.relowner
+      ))) a
+     WHERE n.nspname = 'public'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
+       AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'geoforest_app')
+       AND a.grantor = (SELECT oid FROM pg_roles WHERE rolname = 'neon_superuser')
+  ) THEN
+    SELECT pg_has_role(current_user, 'neon_superuser', 'SET')
+      INTO peut_endosser;
+    IF NOT coalesce(peut_endosser, false) THEN
+      RAISE EXCEPTION
+        'P0 RLS : % ne peut pas révoquer les ACL PostGIS accordées par neon_superuser.',
+        current_user;
+    END IF;
+
+    EXECUTE 'SET ROLE neon_superuser';
+    FOR obj IN
+      SELECT DISTINCT c.relname, c.relkind
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, acldefault(
+          CASE WHEN c.relkind = 'S' THEN 'S'::"char" ELSE 'r'::"char" END,
+          c.relowner
+        ))) a
+       WHERE n.nspname = 'public'
+         AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
+         AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'geoforest_app')
+         AND a.grantor = (SELECT oid FROM pg_roles WHERE rolname = 'neon_superuser')
+    LOOP
+      IF obj.relkind = 'S' THEN
+        EXECUTE format('REVOKE ALL PRIVILEGES ON SEQUENCE %I FROM geoforest_app', obj.relname);
+      ELSE
+        EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %I FROM geoforest_app', obj.relname);
+      END IF;
+    END LOOP;
+    EXECUTE 'RESET ROLE';
+  END IF;
+END
+$postgis_acl$;
+
 GRANT USAGE ON SCHEMA public TO geoforest_app;
 REVOKE CREATE ON SCHEMA public FROM geoforest_app;
 
@@ -184,18 +238,20 @@ BEGIN
   SELECT c.relname INTO fuite
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public'
-     AND c.relkind IN ('r', 'p', 'v', 'm')
-     AND c.relowner IN (
-       (SELECT oid FROM pg_roles WHERE rolname = current_user),
-       (SELECT oid FROM pg_roles WHERE rolname = 'geoforest_migrator')
+     AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
+     AND NOT (
+       c.relname = ANY(allowlist)
+       OR c.relname = 'v_parcel_audits_identite'
+       OR c.relname IN ('spatial_ref_sys', 'geometry_columns', 'geography_columns')
      )
-     AND NOT (c.relname = ANY(allowlist) OR c.relname = 'v_parcel_audits_identite')
      AND (
        has_table_privilege('geoforest_app', c.oid, 'SELECT')
        OR has_table_privilege('geoforest_app', c.oid, 'INSERT')
        OR has_table_privilege('geoforest_app', c.oid, 'UPDATE')
        OR has_table_privilege('geoforest_app', c.oid, 'DELETE')
        OR has_table_privilege('geoforest_app', c.oid, 'TRUNCATE')
+       OR has_table_privilege('geoforest_app', c.oid, 'REFERENCES')
+       OR has_table_privilege('geoforest_app', c.oid, 'TRIGGER')
      )
    LIMIT 1;
 
@@ -214,6 +270,33 @@ BEGIN
   IF NOT has_column_privilege('geoforest_app', 'public.gf_users', 'email', 'SELECT') THEN
     RAISE EXCEPTION 'P0 RLS : gf_users.email doit rester lisible.';
   END IF;
+  -- Les objets de référence PostGIS peuvent rester lisibles, jamais modifiables.
+  IF to_regclass('public.spatial_ref_sys') IS NOT NULL AND (
+    NOT has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'SELECT')
+    OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'INSERT')
+    OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'UPDATE')
+    OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'DELETE')
+    OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'TRUNCATE')
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : spatial_ref_sys doit être en lecture seule.';
+  END IF;
+  IF to_regclass('public.geometry_columns') IS NOT NULL AND (
+    NOT has_table_privilege('geoforest_app', 'public.geometry_columns', 'SELECT')
+    OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'INSERT')
+    OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'UPDATE')
+    OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'DELETE')
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : geometry_columns doit être en lecture seule.';
+  END IF;
+  IF to_regclass('public.geography_columns') IS NOT NULL AND (
+    NOT has_table_privilege('geoforest_app', 'public.geography_columns', 'SELECT')
+    OR has_table_privilege('geoforest_app', 'public.geography_columns', 'INSERT')
+    OR has_table_privilege('geoforest_app', 'public.geography_columns', 'UPDATE')
+    OR has_table_privilege('geoforest_app', 'public.geography_columns', 'DELETE')
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : geography_columns doit être en lecture seule.';
+  END IF;
+
   IF has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'UPDATE')
      OR has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'DELETE')
      OR has_table_privilege('geoforest_app', 'public.gf_audit_logs', 'TRUNCATE') THEN
