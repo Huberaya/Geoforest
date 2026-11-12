@@ -264,7 +264,9 @@ BEGIN
      OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'INSERT')
      OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'UPDATE')
      OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'DELETE')
-     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'TRUNCATE') THEN
+     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'TRUNCATE')
+     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'REFERENCES')
+     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'TRIGGER') THEN
     RAISE EXCEPTION 'P0 RLS : gf_sessions doit rester inaccessible au rôle applicatif.';
   END IF;
 
