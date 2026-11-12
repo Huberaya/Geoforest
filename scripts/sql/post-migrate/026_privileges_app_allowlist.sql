@@ -171,11 +171,12 @@ $postgis_acl$;
 GRANT USAGE ON SCHEMA public TO geoforest_app;
 REVOKE CREATE ON SCHEMA public FROM geoforest_app;
 
--- Allowlist explicite : 14 tables, SELECT/INSERT/UPDATE, jamais DELETE/TRUNCATE.
+-- Allowlist explicite : 14 tables métier, SELECT/INSERT/UPDATE, jamais DELETE/TRUNCATE.
+-- gf_sessions reste exclusivement accessible à la connexion d'administration :
+-- tous les usages applicatifs passent par dbAdmin. gf_login_attempts est global
+-- (hors RLS), mais ses droits sont limités aux quatre colonnes du compteur.
 GRANT SELECT, INSERT, UPDATE ON
   gf_organizations,
-  gf_sessions,
-  gf_login_attempts,
   gf_idempotence,
   gf_suppliers,
   gf_products,
@@ -187,6 +188,13 @@ GRANT SELECT, INSERT, UPDATE ON
   gf_document_versions,
   parcel_audits
 TO geoforest_app;
+
+-- Cadence globale de connexion : droits limités aux colonnes strictement utilisées.
+REVOKE ALL PRIVILEGES ON gf_login_attempts FROM geoforest_app;
+GRANT SELECT (window_key, attempts, first_attempt_at, last_attempt_at),
+      INSERT (window_key, attempts, first_attempt_at, last_attempt_at),
+      UPDATE (attempts, first_attempt_at, last_attempt_at)
+  ON gf_login_attempts TO geoforest_app;
 
 -- Le journal est append-only : ne jamais réaccorder UPDATE après 020.
 GRANT SELECT, INSERT ON gf_audit_logs TO geoforest_app;
@@ -209,7 +217,7 @@ GRANT SELECT ON v_parcel_audits_identite TO geoforest_app;
 DO $assertions$
 DECLARE
   allowlist text[] := ARRAY[
-    'gf_organizations','gf_users','gf_sessions','gf_login_attempts',
+    'gf_organizations','gf_users','gf_login_attempts',
     'gf_idempotence','gf_suppliers','gf_products','gf_shipments','gf_plots',
     'gf_documents','gf_document_versions','gf_due_diligence_statements',
     'gf_compliance_tasks','gf_audit_logs','parcel_audits',
@@ -252,6 +260,38 @@ BEGIN
   IF NOT has_column_privilege('geoforest_app', 'public.gf_users', 'email', 'SELECT') THEN
     RAISE EXCEPTION 'P0 RLS : gf_users.email doit rester lisible.';
   END IF;
+  -- Les sessions ne sont utilisées que par la connexion d'administration.
+  IF has_table_privilege('geoforest_app', 'public.gf_sessions', 'SELECT')
+     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'INSERT')
+     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'UPDATE')
+     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'DELETE')
+     OR has_table_privilege('geoforest_app', 'public.gf_sessions', 'TRUNCATE') THEN
+    RAISE EXCEPTION 'P0 RLS : gf_sessions doit rester inaccessible au rôle applicatif.';
+  END IF;
+
+  -- Le compteur global n'expose que les colonnes nécessaires à l'UPSERT atomique.
+  IF has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'SELECT')
+     OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'INSERT')
+     OR has_table_privilege('geoforest_app', 'public.gf_login_attempts', 'UPDATE')
+     OR has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'id', 'SELECT')
+     OR has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'id', 'INSERT')
+     OR has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'window_key', 'UPDATE') THEN
+    RAISE EXCEPTION 'P0 RLS : gf_login_attempts expose des droits plus larges que les colonnes du compteur.';
+  END IF;
+  IF NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'window_key', 'SELECT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'window_key', 'INSERT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'attempts', 'SELECT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'attempts', 'INSERT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'attempts', 'UPDATE')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'first_attempt_at', 'SELECT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'first_attempt_at', 'INSERT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'first_attempt_at', 'UPDATE')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'last_attempt_at', 'SELECT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'last_attempt_at', 'INSERT')
+     OR NOT has_column_privilege('geoforest_app', 'public.gf_login_attempts', 'last_attempt_at', 'UPDATE') THEN
+    RAISE EXCEPTION 'P0 RLS : les droits minimaux de cadence sont incomplets.';
+  END IF;
+
   -- Les objets de référence PostGIS peuvent rester lisibles, jamais modifiables.
   IF to_regclass('public.spatial_ref_sys') IS NOT NULL AND (
     NOT has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'SELECT')
