@@ -228,6 +228,36 @@ DECLARE
   ];
   fuite record;
 BEGIN
+  -- Le rôle applicatif ne doit ni contourner RLS, ni hériter d'un rôle privilégié,
+  -- ni posséder des objets du schéma public (ownership = contournement RLS).
+  IF EXISTS (
+    SELECT 1 FROM pg_roles
+     WHERE rolname = 'geoforest_app'
+       AND (rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb)
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : geoforest_app possède un attribut administratif interdit.';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM pg_auth_members m
+      JOIN pg_roles member_role ON member_role.oid = m.member
+     WHERE member_role.rolname = 'geoforest_app'
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : geoforest_app hérite d''un autre rôle.';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = 'geoforest_app')
+  ) THEN
+    RAISE EXCEPTION 'P0 RLS : geoforest_app est propriétaire d''un objet public.';
+  END IF;
+  IF has_schema_privilege('geoforest_app', 'public', 'CREATE') THEN
+    RAISE EXCEPTION 'P0 RLS : geoforest_app conserve CREATE sur public.';
+  END IF;
+
   SELECT c.relname INTO fuite
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public'
@@ -308,6 +338,8 @@ BEGIN
     OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'UPDATE')
     OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'DELETE')
     OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'TRUNCATE')
+    OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'REFERENCES')
+    OR has_table_privilege('geoforest_app', 'public.spatial_ref_sys', 'TRIGGER')
   ) THEN
     RAISE EXCEPTION 'P0 RLS : spatial_ref_sys doit être en lecture seule.';
   END IF;
@@ -316,6 +348,9 @@ BEGIN
     OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'INSERT')
     OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'UPDATE')
     OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'DELETE')
+    OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'TRUNCATE')
+    OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'REFERENCES')
+    OR has_table_privilege('geoforest_app', 'public.geometry_columns', 'TRIGGER')
   ) THEN
     RAISE EXCEPTION 'P0 RLS : geometry_columns doit être en lecture seule.';
   END IF;
@@ -324,6 +359,9 @@ BEGIN
     OR has_table_privilege('geoforest_app', 'public.geography_columns', 'INSERT')
     OR has_table_privilege('geoforest_app', 'public.geography_columns', 'UPDATE')
     OR has_table_privilege('geoforest_app', 'public.geography_columns', 'DELETE')
+    OR has_table_privilege('geoforest_app', 'public.geography_columns', 'TRUNCATE')
+    OR has_table_privilege('geoforest_app', 'public.geography_columns', 'REFERENCES')
+    OR has_table_privilege('geoforest_app', 'public.geography_columns', 'TRIGGER')
   ) THEN
     RAISE EXCEPTION 'P0 RLS : geography_columns doit être en lecture seule.';
   END IF;
@@ -368,8 +406,9 @@ BEGIN
     SELECT 1
       FROM pg_default_acl d
       JOIN pg_namespace n ON n.oid = d.defaclnamespace
+      CROSS JOIN LATERAL aclexplode(d.defaclacl) a
      WHERE n.nspname = 'public'
-       AND d.defaclacl::text LIKE '%geoforest_app%'
+       AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'geoforest_app')
   ) THEN
     RAISE EXCEPTION 'P0 RLS : un privilège par défaut accorde encore des droits à geoforest_app.';
   END IF;
