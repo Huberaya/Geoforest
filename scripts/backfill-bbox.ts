@@ -1,118 +1,143 @@
 /**
- * Remplit `bbox_min_lon/lat`, `bbox_max_lon/lat` des parcelles créées avant C8.
+ * Remplit les cadres englobants des parcelles historiques.
  *
- * ⚠️ Pourquoi ce script est nécessaire, et pourquoi il n'est PAS une migration.
+ * Sécurité : ce script est une opération d'écriture administrative. Il exige
+ * DATABASE_URL_ADMIN et refuse tout rôle qui ne possède ni SUPERUSER ni
+ * BYPASSRLS. Il ne retombe jamais sur DATABASE_URL (rôle applicatif).
  *
- *   Les quatre colonnes sont NULLABLES : une parcelle antérieure à C8 n'a pas
- *   de cadre englobant. Or le pré-filtre de détection de chevauchement écarte
- *   en SQL toute parcelle dont la borne est nulle (`bbox_min_lon is not null`).
- *   Sans remplissage, les parcelles existantes seraient **invisibles** à la
- *   détection : on croirait le contrôle en place alors qu'il ne voit que les
- *   parcelles créées après le déploiement.
+ * --essai compte les lignes éligibles sans écrire.
+ * --recalculer recalcule les quatre bornes de toutes les parcelles.
  *
- *   Ce n'est pas une migration SQL parce que le calcul demande le même code que
- *   le produit (`bboxDeGeometrie`), et que dupliquer cette logique en SQL est
- *   exactement la façon dont deux verdicts finissent par diverger. Le
- *   remplissage est donc idempotent, rejouable, et utilise la fonction de
- *   référence.
- *
- * ⚠️ Idempotent : une parcelle qui a déjà une borne est laissée intacte, sauf
- *   `--recalculer`, qui refait tout. Un script qui écrase des valeurs à chaque
- *   exécution est un script qu'on n'ose plus lancer.
- *
- * Usage :
- *   npm run db:backfill-bbox              # lecture + écriture des manquantes
- *   npm run db:backfill-bbox -- --essai   # compte sans écrire
- *   npm run db:backfill-bbox -- --recalculer
- *
- * Sortie : 0 si tout est rempli, 1 en cas d'échec.
+ * Le traitement est idempotent : sans --recalculer, toute ligne dont au moins
+ * une des quatre bornes est NULL est recalculée. Les lignes complètes restent
+ * intactes. Chaque UPDATE est comptabilisé via RETURNING.
  */
 import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
 import { Pool } from "pg";
-
 import { bboxDeGeometrie } from "../src/lib/eudr/chevauchement";
 
-const url = process.env.DATABASE_URL_ADMIN ?? process.env.DATABASE_URL;
+const url = process.env.DATABASE_URL_ADMIN;
 if (!url) {
-  console.error("🔴 DATABASE_URL_ADMIN (ou DATABASE_URL) n'est pas défini.");
+  console.error("🔴 DATABASE_URL_ADMIN est obligatoire. DATABASE_URL est volontairement refusé.");
   process.exit(1);
 }
 
 const essai = process.argv.includes("--essai");
 const recalculer = process.argv.includes("--recalculer");
-
-/** Taille de lot : borne la mémoire, et rend l'interruption sans gravité. */
 const LOT = 200;
 
 async function main(): Promise<void> {
   const pool = new Pool({ connectionString: url, max: 1 });
   try {
-    const total = await pool.query<{ n: string }>("select count(*)::text as n from gf_plots");
-    console.log(`Parcelles : ${total.rows[0].n}`);
+    const identite = await pool.query<{
+      role_name: string;
+      is_superuser: boolean;
+      bypass_rls: boolean;
+    }>(`
+      SELECT r.rolname AS role_name,
+             r.rolsuper AS is_superuser,
+             r.rolbypassrls AS bypass_rls
+        FROM pg_roles r
+       WHERE r.rolname = current_user
+    `);
+
+    const role = identite.rows[0];
+    if (!role || (!role.is_superuser && !role.bypass_rls)) {
+      throw new Error(
+        `Rôle PostgreSQL "${role?.role_name ?? "inconnu"}" insuffisant : SUPERUSER ou BYPASSRLS requis.`,
+      );
+    }
+
+    console.log(`Connexion administrative vérifiée : ${role.role_name} (SUPERUSER=${role.is_superuser}, BYPASSRLS=${role.bypass_rls})`);
+
+    const filtre = recalculer
+      ? ""
+      : "WHERE bbox_min_lon IS NULL OR bbox_min_lat IS NULL OR bbox_max_lon IS NULL OR bbox_max_lat IS NULL";
+
+    const total = await pool.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM gf_plots ${filtre}`,
+    );
+    const attendu = Number(total.rows[0]?.n ?? "0");
+    console.log(`Parcelles à traiter : ${attendu}${recalculer ? " (recalcul complet)" : " (au moins une borne manquante)"}`);
 
     let lues = 0;
     let remplies = 0;
-    let illisibles = 0;
+    let sansSurface = 0;
     let dernier: string | null = null;
 
     for (;;) {
-      const filtre = recalculer ? "" : "and bbox_min_lon is null";
       const page: { rows: Array<{ id: string; geometry: unknown }> } = await pool.query<{ id: string; geometry: unknown }>(
-        `select id, geometry from gf_plots
-          where true ${filtre}
-            and ($1::uuid is null or id > $1::uuid)
-          order by id
-          limit $2`,
+        `SELECT id, geometry
+           FROM gf_plots
+          WHERE (${recalculer
+            ? "true"
+            : "bbox_min_lon IS NULL OR bbox_min_lat IS NULL OR bbox_max_lon IS NULL OR bbox_max_lat IS NULL"})
+            AND ($1::uuid IS NULL OR id > $1::uuid)
+          ORDER BY id
+          LIMIT $2`,
         [dernier, LOT],
       );
       if (page.rows.length === 0) break;
 
-      for (const ligne of page.rows) {
+      for (const ligne of page.rows as Array<{ id: string; geometry: unknown }>) {
         lues += 1;
         dernier = ligne.id;
         const bbox = bboxDeGeometrie(ligne.geometry);
         if (!bbox) {
-          // Une géométrie sans anneau exploitable (point seul, ou tracé
-          // illisible) n'a pas de surface : elle ne peut pas se recouvrir.
-          // La laisser nulle est correct — et le script le compte, pour que le
-          // chiffre soit visible plutôt que silencieux.
-          illisibles += 1;
+          sansSurface += 1;
           continue;
         }
-        if (!essai) {
-          await pool.query(
-            `update gf_plots
-                set bbox_min_lon = $2, bbox_min_lat = $3, bbox_max_lon = $4, bbox_max_lat = $5
-              where id = $1`,
-            [ligne.id, bbox[0], bbox[1], bbox[2], bbox[3]],
-          );
+
+        if (essai) {
+          remplies += 1; // nombre de géométries calculables, sans écriture
+          continue;
         }
-        remplies += 1;
+
+        const update = await pool.query<{ id: string }>(
+          `UPDATE gf_plots
+              SET bbox_min_lon = $2, bbox_min_lat = $3,
+                  bbox_max_lon = $4, bbox_max_lat = $5
+            WHERE id = $1
+              AND (${recalculer
+                ? "true"
+                : "bbox_min_lon IS NULL OR bbox_min_lat IS NULL OR bbox_max_lon IS NULL OR bbox_max_lat IS NULL"})
+          RETURNING id`,
+          [ligne.id, bbox[0], bbox[1], bbox[2], bbox[3]],
+        );
+        remplies += update.rowCount ?? update.rows.length;
       }
       if (page.rows.length < LOT) break;
     }
 
-    console.log(
-      `${essai ? "[essai] " : ""}lues : ${lues} · ${essai ? "à remplir" : "remplies"} : ${remplies} · sans surface : ${illisibles}`,
+    if (essai) {
+      console.log(`[ESSAI] Calculs BBOX possibles : ${remplies} · sans surface : ${sansSurface} · lignes examinées : ${lues}`);
+      if (lues !== attendu || remplies + sansSurface !== lues) {
+        throw new Error("Essai non concluant : les compteurs ne concordent pas.");
+      }
+      console.log("✅ Essai terminé, aucune écriture effectuée.");
+      return;
+    }
+
+    const restant = await pool.query<{ n: string }>(
+      "SELECT count(*)::text AS n FROM gf_plots WHERE bbox_min_lon IS NULL OR bbox_min_lat IS NULL OR bbox_max_lon IS NULL OR bbox_max_lat IS NULL",
     );
-    if (illisibles > 0) {
-      console.log(
-        "⚠️ Les parcelles « sans surface » (point seul) ne participent pas à la détection\n" +
-          "   de chevauchement : un point n'a pas de surface à recouvrir.",
-      );
+    const nonTraitees = Number(restant.rows[0]?.n ?? "0");
+
+    console.log(`Lues : ${lues} · mises à jour confirmées : ${remplies} · sans surface : ${sansSurface} · bornes encore incomplètes : ${nonTraitees}`);
+
+    if (lues !== attendu || remplies + sansSurface !== lues || nonTraitees > 0) {
+      throw new Error("Contrôle final non satisfait : les compteurs ne concordent pas ou des bornes restent incomplètes.");
     }
-    if (!essai && remplies > 0) {
-      console.log("✅ Cadres englobants à jour.");
-    }
+    console.log("✅ Backfill terminé et compteurs vérifiés.");
   } finally {
     await pool.end();
   }
 }
 
 main().catch((err: unknown) => {
-  console.error("🔴 Remplissage impossible :", err instanceof Error ? err.message : String(err));
+  console.error("🔴 Backfill impossible :", err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
