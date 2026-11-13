@@ -42,11 +42,11 @@ Architecture documentée dans `README.md` et `docs/ARCHITECTURE.md` : Next.js Ap
 
 | PR | Sujet | État vérifié | Référence |
 |---|---|---|---|
-| #8 / #10 puis consolidation #11 | Socle produit, parcours et consolidation A/B/C, frontières pays, migrations et documentation | #11 fusionnée le 10/11/2026, merge SHA `cc61cfebe7c37b3540b3410ff64a00d3cfea2f59` | https://github.com/Huberaya/Geoforest/pull/11 |
+| #11 | Consolidation des chantiers A/B/C, frontières pays, migrations et documentation | Fusionnée le 10/11/2026, merge SHA `cc61cfebe7c37b3540b3410ff64a00d3cfea2f59` | https://github.com/Huberaya/Geoforest/pull/11 |
 | #19 | P0 privilèges SQL, RLS, ACL, fonctions SECURITY DEFINER | Fusionnée le 12/11/2026, merge SHA `bfd872920cf032bb13335d1e49689bad4ef46e36` | https://github.com/Huberaya/Geoforest/pull/19 |
 | #22 | Isolation des secrets Neon dans GitHub Actions | Fusionnée le 12/11/2026, merge SHA `9f786246c3b32286285743c0c3351595aa7a0b55` | https://github.com/Huberaya/Geoforest/pull/22 |
 
-La PR #11 porte la consolidation de plusieurs travaux antérieurs. Sa description précise que le SHA de code validé était `94c5f14` et que le commit final `3650c43` ajoutait de la documentation. Consulter son corps et `docs/RAPPORT_CLOTURE_CHANTIERS_2026-10-29.md` pour la reconstitution détaillée. Ne pas réinterpréter les branches historiques comme des changements encore à intégrer sans comparer leur contenu à `main`.
+La PR #11 porte la consolidation de plusieurs travaux antérieurs. Sa description précise que le SHA de code validé était `94c5f14` et que le commit final `3650c43` ajoutait de la documentation. Consulter son corps et `docs/RAPPORT_CLOTURE_CHANTIERS_2026-10-29.md` pour la reconstitution détaillée. La PR #10 (backend SQLite) est une PR distincte, restée ouverte dans l'instantané du 13/11/2026 ; elle n'est pas déclarée intégrée par ce tableau. Ne pas réinterpréter les branches historiques comme des changements encore à intégrer sans comparer leur contenu à `main`.
 
 ### 3.3 PR ouvertes observées le 13/11/2026
 
@@ -251,6 +251,7 @@ Ne jamais écrire de secret, de mot de passe, de chaîne de connexion, de donné
 - Snapshot manuel `snap-lively-mud-b1n6qm8i` créé et relu ; restauration de ce snapshot non prouvée.
 - Calendrier de snapshot Neon lu : `schedule: []`.
 - PR #21 ouverte, tête `c8268bc5013476184806cbd4f691549410a78f74`, à réconcilier avec main.
+- PR #23 ouverte en brouillon pour ce dossier de reprise : branche `docs/geoforest-reprise-2026-11-13`, tête `ecc6d8cbe347308ea2b1fa184b6dd4d3effc2060`, base `main` @ `9f786246c3b32286285743c0c3351595aa7a0b55`. Run CI associé : `43406426276` ; au moment de la dernière lecture, Backend (pytest) était encore en attente et le job Neon privilégié était ignoré comme prévu sur une PR.
 - Aucune migration, backfill, modification de données métier, changement de schéma, révocation ACL ou déploiement production effectué pendant cette passe de consolidation.
 
 **Prochaine action :** reprendre PR #21 et la réconciliation read-only Neon. Conserver les réserves du forfait et de l'absence d'approbateur indépendant.
