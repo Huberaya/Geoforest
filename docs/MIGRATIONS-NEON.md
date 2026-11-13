@@ -1,6 +1,6 @@
 # Qualification Neon Production — migrations et BBOX
 
-**Contrôle en lecture seule : 13/11/2026.** Ce document remplace les anciennes procédures qui demandaient encore d'appliquer les migrations 0007–0009. Aucune migration, écriture de données, modification du registre Drizzle, restauration ou changement de rôle n'a été exécuté pendant ce contrôle.
+**Contrôle en lecture seule : 13/11/2026.** Ce document remplace les anciennes procédures qui demandaient encore d'appliquer les migrations 0007–0009. Aucune migration, écriture de données, modification du registre Drizzle, restauration ou changement de rôle n'a été exécuté pendant ce contrôle initial.
 
 ## 1. Décision immédiate
 
@@ -15,7 +15,7 @@
 
 ## 2. Preuves Neon consultées
 
-Projet `sparkling-brook-79507514`, branche Production `br-delicate-brook-b1h226a9`.
+Projet `sparkling-brook-79507514`, branche Production observée lors du contrôle initial `br-delicate-brook-b1h226a9`.
 
 | Contrôle | Résultat observé |
 |---|---:|
@@ -37,7 +37,7 @@ Les deux entrées supplémentaires du registre sont **non réconciliées** à ce
 Le contrôle des attributs PostgreSQL a confirmé :
 
 - `geoforest_app` : `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOBYPASSRLS` — attendu pour le rôle applicatif ;
-- `neondb_owner` : `NOBYPASSRLS` faux (rôle avec `BYPASSRLS`) et privilèges administratifs — ne pas utiliser dans l'application.
+- `neondb_owner` : rôle administratif avec `BYPASSRLS` — ne pas utiliser dans l'application.
 
 Le backfill doit exiger explicitement `DATABASE_URL_ADMIN` et vérifier le rôle connecté avant toute lecture métier ou écriture. Il ne doit jamais retomber sur `DATABASE_URL`.
 
@@ -74,6 +74,51 @@ Le test de garde `scripts/ci/check-backfill-bbox.test.cjs` est inclus dans `npm 
 - Ne jamais rattacher les analyses historiques à des parcelles sans preuve métier.
 - Ne jamais présenter une sortie `--essai` comme une preuve d'écriture réussie.
 
-## 7. État de la preuve
+## 7. État de la preuve au contrôle initial
 
-Les contrôles SQL ci-dessus sont des lectures directes de Neon Production au 13/11/2026. Ils ne prouvent pas qu'un snapshot a été restauré, qu'une sauvegarde automatique est planifiée, ni que les deux entrées Drizzle supplémentaires ont été expliquées. Ces sujets restent distincts et ouverts.
+Les contrôles SQL ci-dessus sont des lectures directes de Neon Production au 13/11/2026 avant le test de restauration. Ils ne prouvaient pas alors qu'un snapshot avait été restauré, qu'une sauvegarde automatique était planifiée, ni que les deux entrées Drizzle supplémentaires avaient été expliquées.
+
+## 8. Test de restauration du snapshot Production — 13/11/2026
+
+Snapshot source : `snap-lively-mud-b1n6qm8i` (`geoforest-p0-security-baseline-20261113`), créé le 13/11/2026 à 09:40:24 UTC sur l'ancienne branche Production.
+
+**Restauration exécutée et finalisée avec succès**. Neon a effectué un échange de branche (finalize) : la branche restaurée est devenue la branche par défaut `production`, et l'ancienne branche Production a été conservée comme branche de sauvegarde.
+
+| Rôle actuel | ID Neon | Nom |
+|---|---|---|
+| Production active / default | `br-young-base-b1n4tbxi` | `production` |
+| Ancienne Production conservée | `br-delicate-brook-b1h226a9` | `p0-restore-verify-20261113 (1)` |
+
+La restauration a été vérifiée par connexion SQL sur les deux branches. Les résultats suivants sont identiques :
+
+| Contrôle comparatif | Production restaurée | Ancienne Production sauvegardée |
+|---|---:|---:|
+| `gf_users` | 5 | 5 |
+| `gf_suppliers` | 0 | 0 |
+| `gf_plots` | 23 | 23 |
+| Parcelles actives | 0 | 0 |
+| Parcelles avec BBOX incomplet | 0 | 0 |
+| Lignes du registre Drizzle | 16 | 16 |
+| Tables publiques | 55 | 55 |
+| Colonnes publiques | 635 | 635 |
+| Révision Alembic | `0007` | `0007` |
+
+Le rôle `geoforest_app` sur la branche Production restaurée conserve les attributs attendus : `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOBYPASSRLS`. Aucun SQL de migration ou de modification de données n'a été exécuté pendant cette opération.
+
+**Limite de preuve :** l'égalité des comptes et des structures critiques est vérifiée, mais ce contrôle ne constitue pas une comparaison cryptographique exhaustive de chaque ligne de toutes les tables. L'ancienne branche est conservée ; ne pas la supprimer avant une validation fonctionnelle de l'application et une décision explicite de rétention.
+
+## 9. Sauvegardes automatiques et protection native Neon
+
+- Le schedule de snapshots est vide (`schedule: []`) sur la branche Production active.
+- Le projet est sur le plan Neon `free_v3`. La documentation Neon indique que les schedules automatiques de snapshots sont réservés aux plans payants (avec exception Agent sur demande). **La planification automatique native est donc bloquée par le plan actuel.**
+- La branche Production active est `protected: false`. La tentative antérieure d'activation de la protection native Neon a été refusée par la limite de branches protégées du plan Free. Les restrictions Vercel sur certaines opérations ne remplacent pas une protection native complète.
+- Le ruleset GitHub et les contrôles CI sont indépendants de ces limites Neon ; ils ne protègent pas à eux seuls la base de données.
+
+**Décision P0 :** la restauration du snapshot est prouvée et l'ancienne branche est conservée. En revanche, les sauvegardes automatiques natives et la protection native de branche restent des réserves explicites liées au plan Neon Free. Ne pas présenter ces deux contrôles comme « verts ».
+
+## 10. Interdictions complémentaires après restauration
+
+- Ne pas supprimer `br-delicate-brook-b1h226a9` : elle contient l'ancienne Production et constitue le point de retour conservé.
+- Ne pas lancer une seconde restauration, un reset, une migration ou un backfill Production sans nouvelle vérification et autorisation spécifique.
+- Vérifier les connexions Vercel et les parcours applicatifs Production après le changement d'identité de branche.
+- Ne pas activer une planification arbitraire : le plan Free ne la prend pas en charge ; toute solution de sauvegarde externe nécessite une destination sécurisée, des secrets dédiés et un test de restauration indépendant.
