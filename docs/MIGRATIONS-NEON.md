@@ -1,130 +1,79 @@
-# Migrations à appliquer sur Neon — procédure vérifiée
+# Qualification Neon Production — migrations et BBOX
 
-**Rédigé le 06/11/2026, avant la fusion de la PR #18.** Chaque point de ce
-document a été vérifié par exécution sur un PostgreSQL 18 local, base vierge,
-et non déduit du code.
+**Contrôle en lecture seule : 13/11/2026.** Ce document remplace les anciennes procédures qui demandaient encore d'appliquer les migrations 0007–0009. Aucune migration, écriture de données, modification du registre Drizzle, restauration ou changement de rôle n'a été exécuté pendant ce contrôle.
 
----
+## 1. Décision immédiate
 
-## 1. Ce qu'il faut appliquer : **une seule migration**
+- **Aucune migration Drizzle courante à appliquer n'a été identifiée** : le journal de `main` contient 14 entrées (0000–0013) et les 14 timestamps correspondants sont présents dans `drizzle.__drizzle_migrations` sur Production.
+- Le registre Neon contient 16 lignes, soit deux timestamps supplémentaires hors du journal courant. Leur provenance exacte n'est pas démontrée par le seul rapprochement des timestamps. **Les conserver** : ne pas les supprimer et ne pas modifier le registre manuellement.
+- `public.alembic_version` contient `0007`. Alembic est distinct de Drizzle ; ce point reste à rapprocher du code backend et de ses révisions Alembic.
+- Les quatre colonnes BBOX existent et sont nullable. Les 23 lignes `gf_plots` ont toutes leurs quatre bornes renseignées ; aucune n'est incomplète.
+- Les 23 cadres BBOX observés concordent avec les enveloppes PostGIS recalculées à partir des géométries JSONB. Aucune divergence n'a été détectée.
+- Les 23 parcelles sont en suppression logique ; aucune parcelle active n'a été observée.
 
-Sur Neon, la base est en retard de **trois** migrations par rapport au code
-(`0007`, `0008`, `0009`). Elles sont appliquées **ensemble** par une seule
-commande, dans l'ordre, une seule fois :
+**Conclusion : ne pas lancer `db:migrate`, `db:push`, `db:rollback` ni le backfill sur Production pour le seul motif du nombre de lignes du registre. Le backfill n'a actuellement aucune ligne incomplète à traiter.**
 
-```bash
-DATABASE_URL_ADMIN='postgresql://…neon.tech/neondb?sslmode=require' \
-  npm run db:migrate
-```
+## 2. Preuves Neon consultées
 
-`DATABASE_URL_ADMIN` — **jamais** `DATABASE_URL`. La migration crée des rôles,
-des politiques RLS et des contraintes : le rôle applicatif `geoforest_app` n'a
-pas ces droits, et c'est voulu.
+Projet `sparkling-brook-79507514`, branche Production `br-delicate-brook-b1h226a9`.
 
-Puis, **immédiatement après**, le remplissage du cadre englobant :
+| Contrôle | Résultat observé |
+|---|---:|
+| Entrées du journal Drizzle courant | 14 |
+| Timestamps courants retrouvés dans le registre Neon | 14/14 |
+| Lignes totales du registre Neon | 16 |
+| Timestamps supplémentaires hors journal courant | 2 |
+| Révision Alembic | `0007` |
+| Parcelles `gf_plots` | 23 |
+| Parcelles actives | 0 |
+| Parcelles en suppression logique | 23 |
+| Parcelles avec au moins une borne BBOX NULL | 0 |
+| BBOX divergents de l'enveloppe PostGIS | 0 |
 
-```bash
-DATABASE_URL_ADMIN='…' npm run db:backfill-bbox -- --essai   # compte d'abord
-DATABASE_URL_ADMIN='…' npm run db:backfill-bbox              # puis remplit
-```
+Les deux entrées supplémentaires du registre sont **non réconciliées** à ce stade. Leur présence n'autorise ni suppression ni réécriture. Une réconciliation complète devra comparer chaque hash et timestamp aux fichiers de migration et à l'historique Git, puis expliquer explicitement les deux entrées historiques.
 
-⚠️ **Les deux commandes vont ensemble.** La migration `0009` ajoute les colonnes
-`bbox_*` **nullable**. Sans le remplissage, les parcelles créées avant C8 ont une
-borne nulle, et le pré-filtre de détection de chevauchement les écarte **toutes**.
-On croirait le contrôle actif alors qu'il ne verrait que les parcelles nouvelles.
-C'est le défaut le plus probable de cette mise en production, et il est silencieux.
+## 3. Rôles
 
----
+Le contrôle des attributs PostgreSQL a confirmé :
 
-## 2. Ce que fait chaque migration
+- `geoforest_app` : `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOBYPASSRLS` — attendu pour le rôle applicatif ;
+- `neondb_owner` : `NOBYPASSRLS` faux (rôle avec `BYPASSRLS`) et privilèges administratifs — ne pas utiliser dans l'application.
 
-| # | Contenu | Effet sur les données existantes |
-|---|---|---|
-| **0007** | `parcel_audits.risk_level` perd son `NOT NULL` et son défaut ; ajout de `country_statut` (`NOT NULL`, défaut `'RESOLU'`) | **Aucune perte.** Les lignes existantes reçoivent `'RESOLU'`, ce qui est juste pour toute analyse antérieure : la colonne n'existait pas, mais la résolution du pays était déjà faite. |
-| **0008** | `parcel_audits.plot_id` + clé étrangère **composite** + index | Colonne nullable. Les analyses antérieures gardent `plot_id = NULL` — elles ne sont rattachées à aucune parcelle, et le validateur le dit (`ANALYSE_NON_PROBANTE`), il ne l'invente pas. |
-| **0009** | `gf_plots.bbox_min_lon/lat`, `bbox_max_lon/lat`, nullable | Bornes nulles pour les parcelles existantes → **`db:backfill-bbox` obligatoire**. |
+Le backfill doit exiger explicitement `DATABASE_URL_ADMIN` et vérifier le rôle connecté avant toute lecture métier ou écriture. Il ne doit jamais retomber sur `DATABASE_URL`.
 
----
+## 4. Garde-fous du backfill
 
-## 3. Conflits vérifiés, et leur résultat
+Le correctif de `scripts/backfill-bbox.ts` :
 
-### Sécurité
+1. refuse l'absence de `DATABASE_URL_ADMIN` ;
+2. refuse un rôle sans `SUPERUSER` ni `BYPASSRLS` ;
+3. sélectionne les lignes dont **au moins une** des quatre bornes est NULL ;
+4. utilise `UPDATE ... RETURNING id` pour compter les écritures réelles ;
+5. vérifie les compteurs et les bornes encore incomplètes après exécution ;
+6. conserve `--essai` comme parcours sans écriture ;
+7. conserve `--recalculer` comme opération distincte, à ne pas utiliser en Production sans justification spécifique.
 
-| Vérification | Résultat |
-|---|---|
-| RLS sur les tables métier | **13/13**, y compris `parcel_audits` (0007/0008) et `gf_document_versions`. `gf_sessions` et `gf_login_attempts` restent hors RLS car ce sont des tables d'authentification globales, utilisées avant le contexte d'organisation : `gf_sessions` est réservée à `dbAdmin` ; `gf_login_attempts` ne donne au rôle applicatif que les droits sur `window_key`, `attempts`, `first_attempt_at` et `last_attempt_at`, nécessaires au compteur atomique. Les tests vérifient ces droits effectifs. |
-| Rattachement inter-organisations via `parcel_audits.plot_id` | **Fermé.** La clé étrangère est **composite** `(plot_id, organization_id) → gf_plots(id, organization_id)`. Une organisation ne peut pas référencer la parcelle d'une autre. |
-| Rattachement inter-organisations via `gf_documents.plot_id` | **Fermé**, par la contrainte composite `fk_gf_documents_plot_tenant`. Vérifié par tentative d'insertion réelle : refusée. |
-| Double clé étrangère sur `gf_documents.plot_id` | **Constatée** : une FK simple (`plot_id → plots.id`) et une FK composite coexistent. La composite rattrape la simple, donc **pas de faille** — mais la simple est redondante et pourrait un jour être choisie à la place de l'autre. Signalée, non corrigée : la retirer demanderait une nouvelle migration et la retirer n'apporte aucune sécurité supplémentaire. |
-| Contrôle applicatif du rattachement de parcelle | **Présent** dans `documents/route.ts` et `audit/parcel/route.ts` : la parcelle est vérifiée comme appartenant à l'organisation, avec un 404 plutôt qu'un 403 (répondre « interdit » confirmerait l'existence). Double barrière : applicative et base. |
-| Migration exécutée par un rôle superutilisateur sur la production | **Non** : `db:migrate` exige `DATABASE_URL_ADMIN`. Le rôle applicatif reste sans `BYPASSRLS` et sans droit de destruction — le contrôle au démarrage le vérifie à chaque démarrage. |
+Le test de garde `scripts/ci/check-backfill-bbox.test.cjs` est inclus dans `npm run test:ci`. Ces assertions statiques complètent les tests PostgreSQL de CI ; elles ne remplacent pas une exécution contrôlée du script sur une base jetable.
 
-### Code
+## 5. Procédure avant toute future écriture
 
-| Vérification | Résultat |
-|---|---|
-| `src/db/schema.ts` et `drizzle/` concordent | **Oui.** `npm run check:schema` → aucune dérive. |
-| Base construite **uniquement** par les migrations, puis application démarrée | **Oui.** Base vierge → 10/10 migrations, 15 tables → `check:e2e:complet` **68/68**. Rien ne dépend d'un état antérieur. |
-| Le code lit-il une colonne que la migration n'ajoute pas ? | **Non.** Vérifié sur `countryStatut`, `plotId`, `bbox*` : ajoutées par 0007/0008/0009, présentes dans l'ordre. |
-| Rejeu de la migration (idempotence) | **Sans effet**, vérifié. |
+1. Vérifier le SHA de la branche et obtenir une CI verte.
+2. Vérifier hors ambiguïté que `DATABASE_URL_ADMIN` vise le projet et la branche attendus.
+3. Exécuter `--essai` et archiver la sortie.
+4. Si le résultat est zéro ligne, **arrêter** : aucune écriture n'est justifiée.
+5. Si des lignes sont identifiées, vérifier leur périmètre métier, leur état (actif/archivé), la géométrie source et le résultat attendu.
+6. Obtenir une approbation explicite du rapport d'essai avant toute écriture Production.
+7. Après écriture autorisée, vérifier les lignes effectivement modifiées, les quatre bornes et leur concordance avec la géométrie.
 
-### Procédure
+## 6. Interdictions
 
-| Vérification | Résultat |
-|---|---|
-| Retour arrière de `0009` | **Vérifié** : les 4 colonnes `bbox_*` disparaissent, la migration est désenregistrée. ⚠️ Le script descend **toute** la pile : pour annuler seulement la dernière, relancer `db:migrate` après. |
-| Retour arrière puis remontée de `0008` | **Vérifié** sur base réelle : `plot_id` disparaît, puis revient. |
-| `0005_tracabilite` n'a pas de `.down.sql` | **Constaté.** Un retour arrière sur une base antérieure à `0005` refusera de s'exécuter — c'est le comportement voulu (« une descente manquante ne doit pas être prise pour une descente sans effet »). Sur Neon, la base est déjà au-delà : **sans effet**. |
-| La CI migre-t-elle la production ? | **Non.** Les trois `db:migrate` de la CI tournent sur des bases jetables de runner. Aucun risque de collision. |
-| Vercel exécute-t-il les migrations ? | **Non** — et c'est volontaire. `vercel.json` ne porte aucun hook de migration. Une migration déclenchée par un déploiement s'exécuterait plusieurs fois (build, preview, production) et sans supervision. **C'est à vous de la lancer.** |
+- Ne jamais utiliser `db:push` sur Production.
+- Ne jamais modifier manuellement `drizzle.__drizzle_migrations`.
+- Ne jamais lancer migration ou rollback pour corriger un simple écart de nombre d'entrées.
+- Ne jamais exécuter le backfill sur Production sans essai et approbation explicite.
+- Ne jamais rattacher les analyses historiques à des parcelles sans preuve métier.
+- Ne jamais présenter une sortie `--essai` comme une preuve d'écriture réussie.
 
----
+## 7. État de la preuve
 
-## 4. Ordre d'exécution, sans ambiguïté
-
-1. **Fusionner la PR #18** (ou pas — la migration peut être faite avant, le code
-   tolère une base en avance ; l'inverse n'est pas vrai).
-2. `DATABASE_URL_ADMIN='…' npm run db:migrate`
-   → attendre `✅ Schéma à jour et cloisonnement vérifié.`
-3. `DATABASE_URL_ADMIN='…' npm run db:backfill-bbox -- --essai`
-   → lire le compte annoncé.
-4. `DATABASE_URL_ADMIN='…' npm run db:backfill-bbox`
-   → attendre `✅ Cadres englobants à jour.`
-5. Redéployer sur Vercel, puis vérifier `GET /api/health`.
-
-⚠️ **L'étape 2 avant le redéploiement.** Le code fusionné lit `bbox_*`,
-`plot_id` et `country_statut`. Un déploiement sur une base non migrée produit des
-**500 à la première écriture**, avec un message qui ne parle pas de migration.
-
-⚠️ **Ne jamais utiliser `npm run db:push`.** Il recrée les tables et **efface les
-politiques RLS**. C'est écrit dans `scripts/migrate.ts`, et c'est la raison pour
-laquelle les migrations versionnées existent.
-
----
-
-## 5. Ce qui a été vérifié par exécution, pas par lecture
-
-- Base vierge → migrations → application démarrée → **68/68** contrôles de bout
-  en bout (sondes, RLS, authentification, parcours DDR, export RGPD, isolation
-  multi-tenant).
-- Tentative réelle de rattacher le document d'une organisation à la parcelle
-  d'une autre → **refusée** par la clé composite.
-- Parcelle antérieure à C8 insérée avec une borne nulle → `db:backfill-bbox` la
-  remplit ; rejoué → sans effet ; `--recalculer` → refait.
-- `db:rollback` sur `0009` puis `0008`, avec vérification en base de la
-  disparition des colonnes, puis remontée.
-- Aucune dérive entre `src/db/schema.ts` et la base issue des migrations.
-
-## 6. Ce que cette vérification ne couvre pas
-
-- **Aucune exécution sur Neon.** Je n'ai pas d'accès à la base de production ;
-  tout a été fait sur un PostgreSQL 18 local, base vierge puis base migrée. Neon
-  est PostgreSQL : le risque résiduel est faible, mais il n'est pas nul — d'où
-  l'étape 3 (`--essai`) avant l'étape 4.
-- **La durée.** Sur une base peuplée, `0009` ajoute quatre colonnes nullables à
-  `gf_plots` : instantané. `db:backfill-bbox` traite par lots de 200 — compter
-  une seconde par lot environ.
-- **Le retour arrière en production.** `0009.down` supprime des colonnes. Sur
-  une base réelle, le retour arrière est d'abord une **restauration**, la
-  descente ne faisant que remettre le schéma en cohérence avec le code
-  redéployé.
+Les contrôles SQL ci-dessus sont des lectures directes de Neon Production au 13/11/2026. Ils ne prouvent pas qu'un snapshot a été restauré, qu'une sauvegarde automatique est planifiée, ni que les deux entrées Drizzle supplémentaires ont été expliquées. Ces sujets restent distincts et ouverts.
