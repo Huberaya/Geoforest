@@ -1,0 +1,76 @@
+name: Purge RGPD mensuelle (traces de sécurité)
+
+on:
+  # Exécution mensuelle (1er du mois à 03:00 UTC) : anonymise gf_sessions.ip /
+  # user_agent au-delà de 90 jours et supprime gf_login_attempts au-delà de 7 jours.
+  schedule:
+    - cron: "0 3 1 * *"
+  # Déclenchement manuel depuis main uniquement ; le mode par défaut est `essai`
+  # (lecture/comptage seul, aucune écriture).
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode d'exécution : essai (comptage seul) ou executer (purge effective)"
+        required: true
+        default: "essai"
+        type: choice
+        options:
+          - essai
+          - executer
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geoforest-rgpd-purge
+  cancel-in-progress: false
+
+jobs:
+  purge-rgpd:
+    name: Purge RGPD des traces de sécurité
+    if: github.ref == 'refs/heads/main'
+    environment: rgpd-purge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances verrouillées
+        run: npm ci
+
+      - name: Vérifier la présence du secret d'administration
+        env:
+          DATABASE_URL_ADMIN: ${{ secrets.DATABASE_URL_ADMIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL_ADMIN:-}" ]; then
+            echo "🔴 Secret DATABASE_URL_ADMIN absent de l'environnement GitHub 'rgpd-purge'."
+            echo "Configurer DATABASE_URL_ADMIN dans Settings → Environments → rgpd-purge (limité à main)."
+            exit 1
+          fi
+
+      - name: Comptage préalable (--essai, sans écriture)
+        env:
+          DATABASE_URL_ADMIN: ${{ secrets.DATABASE_URL_ADMIN }}
+        run: |
+          set -euo pipefail
+          AUJOURDHUI="$(date -u +%Y-%m-%d)"
+          GF_PURGE_CONFIRMEE="$AUJOURDHUI" npm run db:purge-rgpd -- --essai --json
+
+      - name: Exécuter la purge des traces expirées
+        if: github.event_name == 'schedule' || inputs.mode == 'executer'
+        env:
+          DATABASE_URL_ADMIN: ${{ secrets.DATABASE_URL_ADMIN }}
+        run: |
+          set -euo pipefail
+          AUJOURDHUI="$(date -u +%Y-%m-%d)"
+          GF_PURGE_CONFIRMEE="$AUJOURDHUI" npm run db:purge-rgpd -- --json

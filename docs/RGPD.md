@@ -71,17 +71,23 @@ Ce qui **s'efface** effectivement :
 
 - les données de sécurité (adresse IP, agent utilisateur) après la fenêtre de
   purge ;
-- les coordonnées de contact d'un fournisseur, sur demande, lorsque la relation
-  est terminée ;
+- les coordonnées de contact d'un fournisseur (`contact_name`, `contact_email`,
+  `contact_phone`) via la route encadrée `POST /api/v1/rgpd/effacement`
+  (`cible: "fournisseur_contact"`), réservée à l'administrateur de
+  l'organisation (`guard("org:manage")`), cloisonnée par RLS et journalisée
+  sans recopier les valeurs effacées ;
 - les données personnelles recopiées dans le journal d'audit **à l'écriture**
   (`assainir-audit.ts`) — parce que le journal est immuable, et qu'un effacement
   qui laisserait la donnée dans une copie ne serait qu'un déplacement.
 
-⚠️ **Ce que le produit ne fait pas encore :** il n'existe pas de route
-d'effacement en libre-service. Une demande d'effacement se traite par
-l'administrateur de l'organisation, avec l'assistance de l'éditeur. C'est une
-lacune d'ergonomie, pas de conformité — mais elle est écrite, parce qu'un
-document qui ne liste pas ses manques se lit comme complet.
+Toute demande via `POST /api/v1/rgpd/effacement` ciblant un `dossier_ddr`, une
+`parcelle`, une `analyse` ou le `journal_audit` renvoie un refus motivé **409
+Conflict** citant l'art. 17.3.b du RGPD et la conservation obligatoire de 5 ans
+(art. 12 EUDR).
+
+⚠️ **Ce qui reste manuel :** il n'existe pas encore d'écran dédié côté interface
+utilisateur ni d'offboarding automatisé d'un compte utilisateur interne (`gf_users`,
+qui reste lié aux traces d'audit et nécessite une procédure d'organisation dédiée).
 
 ---
 
@@ -89,7 +95,8 @@ document qui ne liste pas ses manques se lit comme complet.
 
 ```bash
 npm run db:purge-rgpd -- --essai                      # compte, n'efface rien
-GF_PURGE_CONFIRMEE=2026-11-06 npm run db:purge-rgpd   # exécute
+npm run db:purge-rgpd -- --essai --json               # sortie structurée (CI)
+GF_PURGE_CONFIRMEE=2026-11-21 DATABASE_URL_ADMIN=... npm run db:purge-rgpd
 ```
 
 - **Sessions expirées depuis plus de 90 jours :** `ip` et `user_agent` passent à
@@ -101,17 +108,32 @@ GF_PURGE_CONFIRMEE=2026-11-06 npm run db:purge-rgpd   # exécute
 
 **Garde-fous**, vérifiés par exécution : refus si `NODE_ENV=production`, refus si
 la base n'est pas déclarée jetable et qu'aucune confirmation datée du jour n'est
-fournie. Une purge accidentelle ne se rattrape pas.
+fournie, refus si `DATABASE_URL_ADMIN` est absent sur une base non jetable (le
+rôle applicatif `geoforest_app` n'a volontairement aucun privilège sur
+`gf_sessions`). Une purge accidentelle ne se rattrape pas.
 
 **Ce que la purge ne touche jamais :** les données métier (dossiers, parcelles,
 analyses, documents) et le journal d'audit.
 
-### Fréquence
+### Fréquence et automatisation (GitHub Actions)
 
-La purge doit être **planifiée** — un cron mensuel suffit pour les durées en jeu.
-⚠️ **Elle ne l'est pas encore.** Tant que personne ne l'exécute, les durées du
-tableau §2 sont une intention, pas un fait. C'est le seul point de ce document
-qui dépend d'une action d'exploitation, et il est nommé pour cette raison.
+Le workflow `.github/workflows/rgpd-purge.yml` planifie l'exécution **le 1er de
+chaque mois à 03h00 UTC** (`cron: "0 3 1 * *"`), avec déclenchement manuel
+(`workflow_dispatch`) configuré par défaut en mode **`essai`** (dry-run).
+
+Sécurité du workflow :
+- verrouillé sur `refs/heads/main`, permissions `contents: read`,
+  `persist-credentials: false` ;
+- isolé dans l'environnement GitHub **`rgpd-purge`** (distinct de `neon-ci`)
+  contenant uniquement le secret `DATABASE_URL_ADMIN` ;
+- exécute toujours un comptage `--essai --json` préalable et publie un résumé
+  sans aucune donnée personnelle ni secret.
+
+⚠️ **Prérequis d'exploitation :** pour que la planification mensuelle tourne en
+production, l'exploitant doit créer l'environnement GitHub `rgpd-purge` (restreint
+à `main`) et y déposer le secret `DATABASE_URL_ADMIN`, puis observer une première
+exécution réelle (`essai` puis `execution`). Tant que ce secret n'est pas
+configuré sur GitHub, la planification est codée mais non active en production.
 
 ---
 
@@ -190,8 +212,8 @@ Ce document serait faux s'il s'arrêtait avant cette section.
 |---|---|---|
 | **Facturation** | **Absente du produit** — aucun code, aucun prestataire | Un compte prestataire et une décision commerciale. Ce n'est pas un chantier technique : c'est une décision que le dépôt ne peut pas prendre. |
 | **Conditions générales** | **Absentes** | Un texte juridique engageant, rédigé et relu par un juriste. Un fichier de plus dans `docs/` ne vaudrait pas CGU. |
-| **Purge planifiée** | **Non planifiée** | Un cron mensuel. Le script existe, personne ne l'appelle. |
-| **Effacement en libre-service** | **Absent** | Une route et un écran. Aujourd'hui : traitement manuel par l'administrateur. |
+| **Purge planifiée** | **Workflow prêt (`.github/workflows/rgpd-purge.yml`), à activer côté GitHub** | Créer l'environnement GitHub `rgpd-purge` sur `main`, y injecter `DATABASE_URL_ADMIN`, et vérifier la première exécution réelle. |
+| **Effacement en libre-service** | **Route API `POST /api/v1/rgpd/effacement` implémentée (contacts fournisseur + refus EUDR 409) ; pas d'UI ni d'offboarding compte utilisateur** | Ajouter un écran d'administration dédié et définir la procédure d'offboarding/anonymisation des comptes `gf_users`. |
 | **Registre des sous-traitants** | **Non tenu** | La liste des prestataires (hébergeur, e-mail, antivirus s'il est activé) avec leur localisation. Dépend de l'exploitation réelle. |
 | **Analyse d'impact (AIPD)** | **Non faite** | Le produit traite des données de localisation à grande échelle : une AIPD est probablement requise. À décider avec le responsable de traitement. |
 | **Transferts hors UE** | **Non évalués** | Dépend de l'hébergeur et du fournisseur satellite retenus. Non tranchable depuis le code. |
@@ -202,7 +224,7 @@ Ce document serait faux s'il s'arrêtait avant cette section.
 ## 9. Comment vérifier ce document
 
 ```bash
-npm run check:rgpd          # 33 contrôles : carte, export, purge, journal, quota, traceurs, procédure
+npm run check:rgpd          # 38 contrôles : carte, export, purge, effacement, workflow, journal, quota, traceurs, procédure
 npm run db:purge-rgpd -- --essai   # ce que la purge effacerait, sans rien effacer
 ```
 

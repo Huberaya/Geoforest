@@ -175,3 +175,28 @@ test('privileged workflows and all their jobs retain read-only permissions', () 
     }
   }
 });
+
+test('RGPD scheduled purge workflow is restricted to main, isolated in rgpd-purge environment and defaults manual dispatch to dry-run', () => {
+  const rgpd = yaml.load(readFileSync('.github/workflows/rgpd-purge.yml', 'utf8'));
+  assert.deepEqual(rgpd.permissions, { contents: 'read' });
+  assert.deepEqual(Object.keys(rgpd.on).sort(), ['schedule', 'workflow_dispatch']);
+  assert.ok(!Object.hasOwn(rgpd.on, 'pull_request'));
+  assert.ok(!Object.hasOwn(rgpd.on, 'pull_request_target'));
+  assert.equal(rgpd.on.workflow_dispatch.inputs.mode.default, 'essai');
+
+  const job = rgpd.jobs['purge-rgpd'];
+  assert.equal(job.if, "github.ref == 'refs/heads/main'");
+  assert.equal(job.environment, 'rgpd-purge');
+
+  const checkout = job.steps.find(s => String(s.uses || '').startsWith('actions/checkout@'));
+  assert.ok(checkout);
+  assert.equal(checkout.with['persist-credentials'], false);
+  assert.ok(!checkout.with.ref);
+
+  const refs = collectStrings(rgpd);
+  for (const neonSecret of neonSecretNames) {
+    assert.ok(!refs.some(v => v.includes(`secrets.${neonSecret}`)),
+      `rgpd-purge workflow must not reference Neon CI secret ${neonSecret}`);
+  }
+  assert.ok(refs.some(v => v.includes('--essai')), 'dry-run step must exist before execution');
+});
