@@ -3,6 +3,8 @@
 Micro-SaaS de diligence raisonnée géospatiale : validation GIS des parcelles, détection de déforestation
 post-31/12/2020 (Hansen / Global Forest Watch) et export du dossier DDS au format TRACES-NT.
 
+> **Reprise du projet :** avant toute nouvelle intervention, lire [`docs/REPRISE_GEOFOREST.md`](docs/REPRISE_GEOFOREST.md). Ce dossier centralise l'état daté, les décisions, les preuves, les réserves et les prochaines actions pour éviter de recommencer les audits déjà réalisés.
+
 ```
 geoforest-trace/
 ├── docker-compose.yml            # postgres + frontend Next.js (le service FastAPI est retiré du déploiement)
