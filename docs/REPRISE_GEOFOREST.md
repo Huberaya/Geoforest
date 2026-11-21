@@ -164,7 +164,7 @@ Ne pas exécuter sur Neon Production :
 6. **OUVERT (gouvernance)** — Absence d'approbateur humain indépendant (dépôt solo).
 
 ### P1 — chantiers techniques code & qualification pilote
-- **Chantier B (code)** : durcir la **CSP** (`src/proxy.ts` : inventaire Leaflet/tuiles, passage de `Report-Only` à bloquante + tests).
+- **FAIT (code, chantier B)** — **CSP bloquante** (`src/lib/security/csp.ts`, `src/proxy.ts`, `src/app/layout.tsx`, `next.config.ts`) : nonce cryptographique par requête + `'strict-dynamic'`, retrait de `'unsafe-eval'` en production, de `unpkg.com` et de `globalforestwatch.org` côté navigateur, alignement `X-Frame-Options: DENY`, correction XSS DOM dans `MultiPlotMap.tsx` et `MapViewer.tsx`, tests unitaires (`tests/unit/csp.test.ts`) et HTTP réels (`tests/http/csp.test.ts`). Réserve restante : validation visuelle navigateur en conditions réelles de production (tuiles Esri).
 - **Chantier C (code)** : automatiser la **purge RGPD** (`npm run db:purge-rgpd`, workflow/endpoint cron sécurisé) et traiter l'effacement RGPD.
 - **Chantier D (code)** : fiabiliser les tests/hygiène du dépôt (parité / validation `backend/`, contrôles de sécurité/déploiement, réconciliation des contrôles utiles).
 - **Preuve satellite GFW réelle (`BLOQUÉ externe`)** : géométries expertes A/B/E + `GFW_API_KEY` + exécution `scripts/satellite/validate-reference.ts`.
@@ -204,3 +204,12 @@ Ne pas exécuter sur Neon Production :
 - Intégration et actualisation de `docs/REPRISE_GEOFOREST.md`, ajout du lien depuis `README.md`, mise à jour de `docs/PROTECTION-MAIN.md` (retrait des 2 checks fantômes et réserve 0 approbation), et création de l'audit complet des 39 branches distantes (`docs/AUDIT_BRANCHES_2026-11-21.md`).
 - Aucune opération destructive ni modification Neon/Vercel/GitHub distante effectuée.
 - **Prochaine étape :** attente du GO utilisateur pour attaquer le **Chantier B (durcissement CSP)**.
+
+### 2026-11-21 — Chantier B : durcissement CSP bloquant, nonces par requête et correction XSS cartes
+
+- Branche locale `feat/chantiers-abcd-stabilisation` (base `main @ f5f7db4`).
+- Inventaire réel des ressources navigateur : Leaflet est empaqueté localement (`unpkg.com` inutilisé), GFW est appelé côté serveur uniquement, seules les tuiles Esri (`https://server.arcgisonline.com`) sont chargées via `<img>`.
+- Passage de `Content-Security-Policy-Report-Only` à `Content-Security-Policy` **bloquant** (`src/lib/security/csp.ts`, `src/proxy.ts`, `src/app/layout.tsx` en `force-dynamic`) : nonce cryptographique 128 bits par requête + `'strict-dynamic'`, retrait de `'unsafe-eval'` et `'unsafe-inline'` script en production, `connect-src 'self'`, `object-src 'none'`, `frame-src 'none'`, `frame-ancestors 'none'`, `upgrade-insecure-requests` en production, `style-src 'self' 'unsafe-inline'` conservé et documenté pour Leaflet.
+- Alignement `X-Frame-Options: DENY` dans `next.config.ts` ; remplacement de l'interpolation HTML brute dans `MultiPlotMap.tsx` (XSS stocké potentiel via nom de parcelle/fournisseur) et `MapViewer.tsx` par construction DOM (`textContent`).
+- Preuves vérifiées : `tests/unit/csp.test.ts` (6 tests), `tests/http/csp.test.ts` (propagation réelle du nonce sur toutes les balises `<script>` Next.js sur serveur démarré), `check:docs` (23/23), `typecheck`, `lint`, `test:http`, `build`.
+- **Prochaine étape :** attente du GO utilisateur pour attaquer le **Chantier C (automatisation purge RGPD et effacement RGPD)**.
