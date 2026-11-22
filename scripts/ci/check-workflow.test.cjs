@@ -207,3 +207,29 @@ test('RGPD scheduled purge workflow is restricted to main, isolated in rgpd-purg
   }
   assert.ok(refs.some(v => v.includes('--essai')), 'dry-run step must exist before execution');
 });
+
+test('secret-scan workflow runs read-only with pinned checksum-verified gitleaks, redaction and no secret expressions', () => {
+  const scan = yaml.load(readFileSync('.github/workflows/secret-scan.yml', 'utf8'));
+  assert.deepEqual(scan.permissions, { contents: 'read' });
+  assert.ok(!Object.hasOwn(scan.on, 'pull_request_target'));
+  assert.ok(Object.hasOwn(scan.on, 'push'));
+  assert.ok(Object.hasOwn(scan.on, 'pull_request'));
+  assert.ok(!hasSecretsExpression(scan), 'secret-scan workflow must not reference any repository secret');
+
+  const job = scan.jobs['secret-scan'];
+  assert.ok(!job.permissions);
+  assert.ok(!job['continue-on-error']);
+  assert.ok(!Object.hasOwn(job, 'uses'));
+  for (const step of job.steps) assert.ok(!step['continue-on-error']);
+
+  const checkout = job.steps.find(s => String(s.uses || '').startsWith('actions/checkout@'));
+  assert.ok(checkout);
+  assert.equal(checkout.with['persist-credentials'], false);
+  assert.equal(checkout.with['fetch-depth'], 0);
+
+  const runs = job.steps.map(s => s.run || '').join('\n');
+  assert.match(runs, /sha256sum -c -/);
+  assert.match(runs, /--config \.gitleaks\.toml/);
+  assert.match(runs, /--redact/);
+  assert.match(runs, /check-secrets\.ts/);
+});

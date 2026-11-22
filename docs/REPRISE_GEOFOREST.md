@@ -238,3 +238,15 @@ Ne pas exécuter sur Neon Production :
 - **Verrouillage CI** : ajout de `scripts/ci/check-deploy-hygiene.test.cjs` (exécuté par `npm run test:ci`).
 - **Réserve honnête :** aucun démon Docker dans le sandbox ; `docker build` et `docker compose up` devront être validés sur un poste/runner équipé de Docker.
 - **Clôture des chantiers A–D** : la branche `feat/chantiers-abcd-stabilisation` est prête pour revue/PR ; la commercialisation reste en **NO-GO** tant que les prérequis externes (GFW réel, S3/antivirus, sauvegarde planifiée/plan Neon, vérification Vercel, juridique/CGU/facturation) ne sont pas levés.
+
+### 2026-11-22 — Merge PR #26, vérification ruleset 26568220 et ajout du scan de secrets CI (B2)
+
+- `main` vérifié à `a7b9e53c7711b282b9a2072f541146853a5078af` (PR #26 `feat/chantiers-abcd-stabilisation` fusionnée) ; nouvelle branche `security/b2-secret-scan-ci`.
+- **Ruleset GitHub `26568220` relu en direct** (`GET /repos/Huberaya/Geoforest/rules/branches/main` et `rulesets/26568220`) : `enforcement: "active"`, exactement les 4 checks requis (`integration_id: 15368`), **0 check fantôme**.
+- **CI sur `main @ a7b9e53`** : 5/5 jobs sans secret Neon (`Qualité`, `Backend (pytest)`, `Contrôles SQL`, `Bout en bout`, `Base de données et contrats HTTP (PGlite)`) en `success` ; job `Database & HTTP contracts (Neon branch)` (`run 45005647679`) et `Preuve de restauration PostgreSQL` (`run 45005647878`) en attente d'approbation sur l'environnement `neon-ci`.
+- **Vercel Production (`a7b9e53`)** : déploiement `7976504785` en `success`, mais **lecture des sondes `/api/health`, `/api/ready`, des variables d'environnement et vérification visuelle CSP/Leaflet bloquées** depuis le sandbox (connecteur Vercel en `Access denied`, et URL de déploiement protégée par Vercel Authentication `HTTP 302 → vercel.com/sso-api`).
+- **Purge RGPD GitHub (`rgpd-purge`) et preuve de rotation B2 sur Neon/Vercel** : **bloquées externe** (aucun accès écriture GitHub Environments ni secret `DATABASE_URL_ADMIN` / accès Neon/Vercel dans le sandbox).
+- **Livrable code B2 ajouté sur `security/b2-secret-scan-ci`** :
+  - `.gitleaks.toml` (extension des règles par défaut + règles dédiées URL PostgreSQL, `CREATE/ALTER ROLE ... PASSWORD`, `napi_`, `vcp_` + allowlist bornée aux 2 fixtures de tests HTTP) ;
+  - `.github/workflows/secret-scan.yml` (lecture seule `contents: read`, `persist-credentials: false`, Gitleaks `v8.30.1` vérifié par SHA-256, scan `--redact` de `HEAD` et de la plage de nouveaux commits + `scripts/check-secrets.ts`) ;
+  - `scripts/check-secrets.ts` (`npm run check:secrets`), `tests/unit/secrets-scan.test.ts`, et tests workflow dans `scripts/ci/check-workflow.test.cjs`.
