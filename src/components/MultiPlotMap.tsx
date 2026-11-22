@@ -88,19 +88,53 @@ export default function MultiPlotMap({ plots, selectedPlotId, onSelectPlot }: Mu
               fillOpacity: isSelected ? 0.6 : 0.4,
             },
             onEachFeature: (_, layer) => {
-              layer.bindPopup(`
-                <div style="font-family: sans-serif; font-size: 12px; min-width: 180px;">
-                  <strong style="color: #0f172a; font-size: 13px;">${p.name}</strong><br/>
-                  <span style="color: #64748b;">${p.commodity.toUpperCase()} · ${p.countryCode}</span><br/>
-                  <div style="margin: 6px 0; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; background: ${
-                    isCompliant ? "#dcfce7; color: #166534;" : "#fee2e2; color: #991b1b;"
-                  }">
-                    ${isCompliant ? "✓ CONFORME EUDR" : `⚠️ DÉFORESTATION (${p.lossYear ?? "post-2020"})`}
-                  </div>
-                  <div>Surface : <strong>${p.areaHa.toFixed(2)} ha</strong></div>
-                  <div>Fournisseur : <em>${p.supplierName ?? "Non lié"}</em></div>
-                </div>
-              `);
+              // Construction DOM sans interpolation HTML : protège contre les
+              // injections XSS via le nom de parcelle ou de fournisseur.
+              const conteneur = document.createElement("div");
+              conteneur.style.fontFamily = "sans-serif";
+              conteneur.style.fontSize = "12px";
+              conteneur.style.minWidth = "180px";
+
+              const titre = document.createElement("strong");
+              titre.style.color = "#0f172a";
+              titre.style.fontSize = "13px";
+              titre.textContent = p.name;
+              conteneur.appendChild(titre);
+              conteneur.appendChild(document.createElement("br"));
+
+              const sousTitre = document.createElement("span");
+              sousTitre.style.color = "#64748b";
+              sousTitre.textContent = `${p.commodity.toUpperCase()} · ${p.countryCode}`;
+              conteneur.appendChild(sousTitre);
+
+              const badge = document.createElement("div");
+              badge.style.margin = "6px 0";
+              badge.style.padding = "4px 8px";
+              badge.style.borderRadius = "6px";
+              badge.style.fontWeight = "bold";
+              badge.style.fontSize = "11px";
+              badge.style.background = isCompliant ? "#dcfce7" : "#fee2e2";
+              badge.style.color = isCompliant ? "#166534" : "#991b1b";
+              badge.textContent = isCompliant
+                ? "✓ CONFORME EUDR"
+                : `⚠️ DÉFORESTATION (${p.lossYear ?? "post-2020"})`;
+              conteneur.appendChild(badge);
+
+              const ligneSurface = document.createElement("div");
+              ligneSurface.append("Surface : ");
+              const valeurSurface = document.createElement("strong");
+              valeurSurface.textContent = `${p.areaHa.toFixed(2)} ha`;
+              ligneSurface.appendChild(valeurSurface);
+              conteneur.appendChild(ligneSurface);
+
+              const ligneFournisseur = document.createElement("div");
+              ligneFournisseur.append("Fournisseur : ");
+              const valeurFournisseur = document.createElement("em");
+              valeurFournisseur.textContent = p.supplierName ?? "Non lié";
+              ligneFournisseur.appendChild(valeurFournisseur);
+              conteneur.appendChild(ligneFournisseur);
+
+              layer.bindPopup(conteneur);
 
               layer.on("click", () => {
                 if (onSelectPlot) onSelectPlot(p);

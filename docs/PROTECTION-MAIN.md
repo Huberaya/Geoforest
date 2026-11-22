@@ -1,6 +1,6 @@
 # Protéger `main` — état, preuve, et dette restante
 
-**Dernière mesure : 05/11/2026. Protection vérifiée, C1 clos.**
+**Mise à jour documentaire : 21/11/2026** (consolidation des mesures du 05/11/2026 et du 13/11/2026 ; relecture API GitHub en direct à confirmer par le propriétaire).
 
 | Mesure | Valeur |
 |---|---|
@@ -9,8 +9,9 @@
 | Branches ciblées | ✅ **`["~DEFAULT_BRANCH"]`** (soit `main`) |
 | Bypass | ✅ aucun |
 | Règles actives | `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks` |
-| Fusion d'une PR à check rouge | ✅ **refusée** (PR #16, mesuré) |
-| Checks fantômes subsistants | ⚠️ `contrôles`, `Verify Frontend & Backend` |
+| Fusion d'une PR à check rouge | ✅ **refusée** (PR #16, mesuré le 05/11/2026) |
+| Checks exigés | ✅ **4 contextes réels** verrouillés par `scripts/ci/check-workflow.test.cjs` (les 2 fantômes ont été retirés, consigné le 05/11/2026 dans `502797c`) |
+| Approbations humaines requises | ⚠️ **0** (dépôt solo — réserve de gouvernance ouverte, voir §8) |
 
 ---
 
@@ -215,3 +216,31 @@ ouvre la PR et celui qui l'approuve doivent être distincts. Procédure :
 ⚠️ Ne pas laisser cette configuration dans le doute : une barrière qui bloque
 une mise en production légitime est aussi coûteuse qu'une barrière absente, et
 elle pousse à utiliser `--admin`, ce qui annule tout le dispositif.
+
+---
+
+## 8. Mise à jour du 21/11/2026 — état consolidé et réserves ouvertes
+
+### 8.1 Checks fantômes soldés et contrat CI vérifié dans le dépôt
+
+- Le retrait des deux contextes fantômes (`contrôles` et `Verify Frontend & Backend`) a été consigné dès le 05/11/2026 (`502797c` sur `origin/arena/1d5298ca-geoforest`, jamais fusionné dans `main` jusqu'à cette passe).
+- Les **4 contextes requis** exacts produits par `.github/workflows/ci.yml` et verrouillés par `npm run test:ci` (`scripts/ci/check-workflow.test.cjs`) sont :
+  1. `Qualité (types, lint, règles EUDR, dépendances)`
+  2. `Backend (pytest)`
+  3. `Contrôles SQL (PostgreSQL)`
+  4. `Bout en bout (application démarrée, PostgreSQL)`
+- Deux jobs supplémentaires existent dans `.github/workflows/ci.yml` sans faire partie des 4 contextes requis sur PR :
+  - `Base de données et contrats HTTP (PGlite)` (exécuté sur PR et `main`) ;
+  - `Database & HTTP contracts (Neon branch)` (restreint à `main` derrière l'environnement `neon-ci` depuis la PR #22 / `9f78624` pour empêcher l'exposition des secrets Neon sur les branches non fiables).
+
+### 8.2 Approbation humaine à 0 — réserve de gouvernance ouverte
+
+Conformément au constat §7 et à l'état rapporté le 13/11/2026 (`docs/REPRISE_GEOFOREST.md` §4.1), `required_approving_review_count` est réglé à **0** car le dépôt n'a qu'un seul compte contributeur et GitHub interdit l'auto-approbation.
+
+- **Ce qui protège réellement `main`** : `enforcement: active`, interdiction de suppression / force-push, passage par PR obligatoire, et les 4 jobs CI bloquants.
+- **Ce qui reste une réserve de gouvernance ouverte** : l'absence d'une seconde paire d'yeux humaine indépendante. Dès qu'un second mainteneur rejoint le dépôt, remonter `required_approving_review_count` à **1**.
+
+### 8.3 Vérification en direct à confirmer par le propriétaire
+
+Cette mise à jour consolide les preuves versionnées dans le dépôt (`502797c`, `9f78624`, `.github/workflows/ci.yml`, `scripts/ci/check-workflow.test.cjs`). Le sandbox d'analyse ne disposant pas d'un jeton GitHub administrateur, exécuter les commandes de la section §4 depuis un poste authentifié pour confirmer l'absence de dérive sur le ruleset `26568220`.
+

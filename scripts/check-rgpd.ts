@@ -417,6 +417,44 @@ verifier(
 );
 
 /* ==========================================================================
+ * 5 ter. Effacement encadré (art. 17) et purge planifiée (GitHub Actions)
+ * ========================================================================== */
+
+const cheminEffacement = join("src", "app", "api", "v1", "rgpd", "effacement", "route.ts");
+const routeEffacement = existsSync(cheminEffacement) ? readFileSync(cheminEffacement, "utf-8") : "";
+verifier(
+  "la route d'effacement RGPD existe et exige guard(\"org:manage\")",
+  routeEffacement.includes('guard("org:manage")'),
+  "seul un administrateur de l'organisation (session + MFA) peut effacer des coordonnées personnelles",
+);
+verifier(
+  "la route d'effacement ne fait pas confiance à un organizationId fourni par le client",
+  routeEffacement.includes("validerDemandeEffacement") &&
+    !routeEffacement.includes("body.organizationId"),
+  "le tenant doit provenir uniquement de la session authentifiée",
+);
+verifier(
+  "la route d'effacement journalise l'opération sans recopier les valeurs effacées",
+  routeEffacement.includes("logAction(") &&
+    routeEffacement.includes("champsEffaces") &&
+    !routeEffacement.includes("contactEmail") &&
+    !routeEffacement.includes("contactPhone"),
+  "le journal d'audit doit tracer le fait (PURGE + noms de champs), jamais la donnée personnelle supprimée",
+);
+
+const cheminWorkflowPurge = join(".github", "workflows", "rgpd-purge.yml");
+const workflowPurge = existsSync(cheminWorkflowPurge) ? readFileSync(cheminWorkflowPurge, "utf-8") : "";
+verifier(
+  "le workflow de purge RGPD planifiée est verrouillé sur main et isolé dans rgpd-purge",
+  workflowPurge.includes("schedule:") &&
+    workflowPurge.includes("github.ref == 'refs/heads/main'") &&
+    workflowPurge.includes("environment: rgpd-purge") &&
+    workflowPurge.includes("DATABASE_URL_ADMIN") &&
+    workflowPurge.includes("--essai"),
+  "la purge automatisée doit rester isolée sur main, avec dry-run préalable et secret dédié",
+);
+
+/* ==========================================================================
  * 6. La déclaration de sinistre et la procédure
  * ========================================================================== */
 

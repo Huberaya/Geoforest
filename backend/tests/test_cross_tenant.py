@@ -3,8 +3,9 @@
 Constat, mesuré le 14/10/2026 : ce service n'a **aucune notion d'organisation**.
 Sa base (SQLite) n'a pas de colonne d'organisation, et un seul jeton partagé
 (`BACKEND_API_TOKEN`) ouvre toutes les routes. Le produit Next.js ne l'appelle
-pas (le navigateur ne l'atteint pas ; cf. next.config.ts), mais docker-compose
-publie son port 8000 : tant que ce n'est pas tranché, il n'est pas cloisonné.
+pas (retiré de `docker-compose.yml` et `vercel.json` ; cf. chantier 2 / B-8),
+mais le service lui-même n'est toujours pas cloisonné tant qu'il subsiste dans
+le dépôt.
 
 Depuis C5 (`main`, PR #18), `GET /api/v1/audits` est **fermée** (410) précisément
 parce qu'elle était inter-tenant ; les tests ci-dessous décrivent toujours la
@@ -31,8 +32,8 @@ CLOISONNEMENT_NON_LIVRE = pytest.mark.xfail(
     strict=True,
     reason=(
         "Service FastAPI sans notion d'organisation : base partagée, jeton unique. "
-        "Aucune isolation entre tenants. Hors chemin produit, mais port 8000 publié "
-        "par docker-compose. Décision à prendre : retirer du déploiement ou cloisonner."
+        "Aucune isolation entre tenants. Retiré de docker-compose et vercel.json ; "
+        "décision finale à prendre : archiver le dossier ou cloisonner."
     ),
 )
 

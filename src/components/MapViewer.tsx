@@ -90,14 +90,19 @@ export default function MapViewer({ geometry, status, areaHa, lossYear }: MapVie
           pointToLayer: (_feature, latlng) =>
             L.circleMarker(latlng, { radius: 9, color: palette.stroke, weight: 3, fillColor: palette.fill, fillOpacity: 0.7 }),
         });
-        const tooltip = [
-          `<strong>${palette.label}</strong>`,
-          areaHa !== null && areaHa !== undefined && areaHa > 0 ? `${areaHa.toFixed(2)} ha` : "",
-          lossYear ? `Perte détectée : ${lossYear}` : "",
-        ]
-          .filter(Boolean)
-          .join("<br/>");
-        layer.bindTooltip(tooltip, { sticky: true });
+        const tooltipNode = document.createElement("div");
+        const titre = document.createElement("strong");
+        titre.textContent = palette.label;
+        tooltipNode.appendChild(titre);
+        if (areaHa !== null && areaHa !== undefined && areaHa > 0) {
+          tooltipNode.appendChild(document.createElement("br"));
+          tooltipNode.append(`${areaHa.toFixed(2)} ha`);
+        }
+        if (lossYear) {
+          tooltipNode.appendChild(document.createElement("br"));
+          tooltipNode.append(`Perte détectée : ${lossYear}`);
+        }
+        layer.bindTooltip(tooltipNode, { sticky: true });
         layer.addTo(map);
         layerRef.current = layer;
 

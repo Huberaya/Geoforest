@@ -19,7 +19,7 @@
 |---|---|---|
 | Types TypeScript | **0 erreur** | `npx tsc --noEmit` |
 | Lint ESLint | **0 erreur, 0 avertissement** | `npx eslint .` |
-| Build de production | **67 routes sources** (46 API + 21 pages) — `_not-found` en plus au build, généré par Next | `npm run build` |
+| Build de production | **68 routes sources** (47 API + 21 pages) — `_not-found` en plus au build, généré par Next | `npm run build` |
 | Tests backend (pytest) | **180 réussis, 3 ignorés, 2 xfail** (moteur géospatial multi-sources non livré) | `cd backend && pytest -q --strict-markers` |
 | Contrôles de règles métier | **170 contrôles, tous verts** (73 + 16 + 40 + 26 + 10 + 5) | `npm run check:eudr && npm run check:topologie && npm run check:regles && npm run check:csv && npm run check:seed && npm run check:version` |
 | Tests unitaires / SQL (PGlite) / HTTP (PGlite) | **52 / 52 / 34**, tous verts | `npm run test:unit && npm run test:sql && npm run test:http` |

@@ -56,19 +56,17 @@ Toutes les entités du domaine EUDR sont isolées au niveau organisationnel (`or
 ## 3. Sécurité & Durcissement (Security Hardening)
 
 1. **En-têtes HTTP de Sécurité** — valeurs **exactes**, vérifiées dans
-   `src/proxy.ts` et `next.config.ts` le 05/11/2026 :
+   `src/proxy.ts`, `src/lib/security/csp.ts` et `next.config.ts` le 21/11/2026 :
 
    | En-tête | Valeur réelle | Remarque |
    |---|---|---|
-   | `Content-Security-Policy-Report-Only` | posé | ⚠️ **Report-Only** : aucun blocage effectif, seulement des signalements |
-   | `X-Frame-Options` | `SAMEORIGIN` | |
+   | `Content-Security-Policy` | **bloquant** (`src/lib/security/csp.ts`) | Nonce cryptographique par requête + `'strict-dynamic'` sur `script-src`, sans `'unsafe-eval'` ni `'unsafe-inline'` script en production, sans `unpkg.com` ; `style-src 'self' 'unsafe-inline'` conservé pour le positionnement DOM Leaflet ; `img-src` restreint à `https://server.arcgisonline.com` ; `connect-src 'self'` ; `object-src 'none'`, `frame-src 'none'`, `frame-ancestors 'none'` ; `upgrade-insecure-requests` en production |
+   | `X-Frame-Options` | `DENY` | Aligné sur `frame-ancestors 'none'` dans `src/proxy.ts` et `next.config.ts` |
    | `X-Content-Type-Options` | `nosniff` | |
    | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains` | ⚠️ **sans `preload`** |
    | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(self)` | |
 
-   ⚠️ Une version antérieure de ce document annonçait une CSP applicative et un
-   HSTS `preload`. Les deux étaient faux. C'est mesurable : `grep -n
-   "Content-Security-Policy\|Strict-Transport" src/proxy.ts`.
+   ⚠️ Historiquement, ce document annonçait une CSP applicative alors que `src/proxy.ts` ne posait qu'un en-tête Report-Only, et un HSTS `preload` absent du code. La CSP est désormais bloquante depuis le 21/11/2026 (Chantier B) ; HSTS reste volontairement sans `preload`. Vérifiable par `npm run test:unit` (`tests/unit/csp.test.ts`) et `npm run check:docs`.
 2. **Isolation des Données & Anti-Fuite** :
    - Aucune visibilité inter-tenants.
    - Contrôle strict des paramètres d'ingestion GeoJSON/KML (limites de sommets, détection d'auto-intersection, fermeture des anneaux polygonaux).
@@ -89,8 +87,7 @@ Ajouté le 05/11/2026, après relevé d'écarts entre la documentation et le cod
 - **Backend Python** : il est décrit ici comme un « moteur GIS Shapely &
   GeoPandas ». Il tourne sur **SQLite**, **sans authentification**, et expose
   cinq routes. Sa place dans l'architecture est à trancher au chantier C5.
-- **CSP** : en mode *Report-Only*. Une politique qui signale sans bloquer n'est
-  pas une protection.
+- **CSP** : bloquante depuis le 21/11/2026 (`Content-Security-Policy` avec nonce par requête, sans `'unsafe-eval'` ni `'unsafe-inline'` script en production ; `style-src` conserve `'unsafe-inline'` pour Leaflet). Une validation navigateur réelle sur les écrans cartographiques en production reste à confirmer lors du passage en pilote.
 - **PostGIS** : absent. Toute affirmation sur l'indexation spatiale ou la
   détection de chevauchement entre parcelles serait fausse.
 

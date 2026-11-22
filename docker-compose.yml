@@ -1,7 +1,12 @@
-# GeoForest Trace — lancement complet : `docker-compose up --build`
-#   Frontend (Next.js)  : http://localhost:3000
+# GeoForest Trace — lancement local / conteneurisé :
+#   1. Base + migrations versionnées + RLS (étape ponctuelle dédiée) :
+#        docker compose up -d db
+#        docker compose --profile migrate run --rm migrate
+#   2. Application Next.js (rôle geoforest_app, sans DATABASE_URL_ADMIN) :
+#        docker compose up --build frontend
+#   Frontend (Next.js)  : http://127.0.0.1:3000
 #   Backend  (FastAPI)  : retiré du déploiement (chantier 2, « B-8 ») : le produit ne l'appelle pas
-#   PostgreSQL          : localhost:5432 (persistance des audits côté Next.js)
+#   PostgreSQL          : 127.0.0.1:5432 (boucle locale uniquement)
 services:
   db:
     image: postgres:16-alpine
@@ -13,7 +18,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}
       POSTGRES_DB: app_db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - geoforest-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,16 +27,34 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geoforest-migrate
+    profiles:
+      - migrate
+    environment:
+      # Seule cette tâche ponctuelle détient le rôle d'administration pour jouer
+      # `drizzle/` + `scripts/sql/post-migrate/` (RLS, privilèges, journal d'audit).
+      DATABASE_URL_ADMIN: postgresql://postgres:${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}@db:5432/app_db
+      GF_APP_DB_PASSWORD: ${GF_APP_DB_PASSWORD:?définir GF_APP_DB_PASSWORD}
+    command: ["npm", "run", "db:migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: geoforest-frontend
     environment:
-      # L'application se connecte avec le rôle geoforest_app, soumis à la RLS.
-      # Le superutilisateur ne sert qu'aux migrations (DATABASE_URL_ADMIN).
+      # L'application se connecte uniquement avec le rôle geoforest_app (NOBYPASSRLS).
+      # DATABASE_URL_ADMIN n'est volontairement jamais injectée dans ce conteneur.
       DATABASE_URL: postgresql://geoforest_app:${GF_APP_DB_PASSWORD:?définir GF_APP_DB_PASSWORD}@db:5432/app_db
-      DATABASE_URL_ADMIN: postgresql://postgres:${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD}@db:5432/app_db
+      GF_STORAGE_DIR: /app/var/storage
       GFW_API_KEY: ${GFW_API_KEY:-}
       GFW_LIVE_ENABLED: ${GFW_LIVE_ENABLED:-true}
       # B-2 (chantier 5) : secrets obligatoires en production. Sans eux, l'application
@@ -40,6 +63,8 @@ services:
       GF_STORAGE_SIGNING_SECRET: ${GF_STORAGE_SIGNING_SECRET:?définir GF_STORAGE_SIGNING_SECRET (≥ 32 caractères)}
     ports:
       - "3000:3000"
+    volumes:
+      - geoforest-storage:/app/var/storage
     depends_on:
       db:
         condition: service_healthy
@@ -47,3 +72,4 @@ services:
 
 volumes:
   geoforest-pgdata:
+  geoforest-storage:

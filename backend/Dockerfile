@@ -22,7 +22,11 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/data
+RUN adduser --disabled-password --gecos "" appuser \
+    && mkdir -p /app/data \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 # Service historique hors du chemin produit et sans isolation multi-tenant.
 # Lier à loopback par défaut empêche une publication réseau accidentelle.

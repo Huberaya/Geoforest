@@ -19,6 +19,12 @@ import {
   retryAfter,
 } from "@/lib/api/limits";
 import { adresseClient, verifierCadence } from "@/lib/rate-limit";
+import {
+  EN_TETE_CSP,
+  EN_TETE_NONCE,
+  construireCsp,
+  genererNonceCsp,
+} from "@/lib/security/csp";
 
 /**
  * Contrôle d'accès **deny-by-default**.
@@ -150,11 +156,16 @@ function identifiantDeRequete(request: NextRequest): { id: string; entetes: Head
 /**
  * En-têtes de sécurité.
  *
- * ⚠️ La CSP est posée en **Report-Only** : l'application charge Leaflet et les
- * tuiles Esri depuis des CDN. Une CSP bloquante casserait la carte — elle ne
- * sera activée qu'après inventaire des ressources externes (cf. P2-10).
+ * CSP bloquante (`Content-Security-Policy`) avec nonce cryptographique par
+ * requête — voir l'inventaire des ressources dans `src/lib/security/csp.ts`.
+ * `unpkg.com`, `data-api.globalforestwatch.org` et `'unsafe-eval'` (en
+ * production) ont été retirés.
  */
-function withSecurityHeaders(response: NextResponse, idRequete?: string): NextResponse {
+function withSecurityHeaders(
+  response: NextResponse,
+  idRequete?: string,
+  csp?: string,
+): NextResponse {
   // ⚠️ L'identifiant est renvoyé au client : c'est ce qui rend le journal
   //   exploitable par le support. Sans lui, un utilisateur qui signale « ça ne
   //   marche pas » ne peut désigner aucune ligne.
@@ -167,19 +178,13 @@ function withSecurityHeaders(response: NextResponse, idRequete?: string): NextRe
   if (process.env.NODE_ENV === "production") {
     response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
   }
-  response.headers.set(
-    "Content-Security-Policy-Report-Only",
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com",
-      "style-src 'self' 'unsafe-inline' https://unpkg.com",
-      "img-src 'self' data: blob: https://*.arcgisonline.com https://unpkg.com",
-      "connect-src 'self' https://*.arcgisonline.com https://data-api.globalforestwatch.org",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; "),
-  );
+  const valeurCsp =
+    csp ??
+    construireCsp({
+      nonce: genererNonceCsp(),
+      isProd: process.env.NODE_ENV === "production",
+    });
+  response.headers.set(EN_TETE_CSP, valeurCsp);
   return response;
 }
 
@@ -189,7 +194,7 @@ function withSecurityHeaders(response: NextResponse, idRequete?: string): NextRe
  * L'en-tête `Retry-After` est renseigné : un client bien élevé attendra au
  * lieu de marteler, et un client hostile se heurtera à une borne prévisible.
  */
-function limiteAtteinte(reessayerDans: number): NextResponse {
+function limiteAtteinte(reessayerDans: number, idRequete?: string, csp?: string): NextResponse {
   const message = `Trop de requêtes. Réessayer dans ${reessayerDans} seconde(s).`;
   return withSecurityHeaders(
     NextResponse.json(
@@ -203,6 +208,8 @@ function limiteAtteinte(reessayerDans: number): NextResponse {
       },
       { status: 429, headers: { "Retry-After": retryAfter(reessayerDans) } },
     ),
+    idRequete,
+    csp,
   );
 }
 
@@ -213,9 +220,10 @@ function jsonUnauthorized(
   message: string,
   status: number,
   idRequete?: string,
+  csp?: string,
 ) {
   const response = NextResponse.json({ error: { code, message } }, { status });
-  return withSecurityHeaders(response, idRequete);
+  return withSecurityHeaders(response, idRequete, csp);
 }
 
 /**
@@ -256,6 +264,16 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // proxy n'a plus à y penser, et les réponses d'erreur le portent aussi —
   // c'est précisément là qu'il sert.
   const { id: idRequete, entetes } = identifiantDeRequete(request);
+  // Nonce cryptographique unique par requête transmis à Next.js via les
+  // en-têtes de requête pour estampiller les scripts d'hydratation / RSC.
+  const nonce = genererNonceCsp();
+  const csp = construireCsp({
+    nonce,
+    isProd: process.env.NODE_ENV === "production",
+  });
+  entetes.set(EN_TETE_NONCE, nonce);
+  entetes.set(EN_TETE_CSP, csp);
+
   const suite = () => NextResponse.next({ request: { headers: entetes } });
 
   // ---------------------------------------------------------------- P1-07
@@ -276,6 +294,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
         },
         { status: 413 },
       ),
+      idRequete,
+      csp,
     );
   }
 
@@ -295,8 +315,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const v = limitationActive
       ? verifierCadence(`auth:${ip}`, CADENCE_AUTH, CADENCE_AUTH_FENETRE_MS)
       : null;
-    if (v && !v.autorise) return limiteAtteinte(v.reessayerDans);
-    return withSecurityHeaders(suite(), idRequete);
+    if (v && !v.autorise) return limiteAtteinte(v.reessayerDans, idRequete, csp);
+    return withSecurityHeaders(suite(), idRequete, csp);
   }
 
   for (const [cle, max, fenetre] of [
@@ -305,7 +325,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   ] as const) {
     if (!limitationActive) break;
     const v = verifierCadence(cle, max, fenetre);
-    if (!v.autorise) return limiteAtteinte(v.reessayerDans);
+    if (!v.autorise) return limiteAtteinte(v.reessayerDans, idRequete, csp);
   }
 
   // Supervision : un jeton explicite vaut session, pour un appelant qui ne
@@ -313,7 +333,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // limites de taille et de cadence : le jeton identifie l'appelant, il ne
   // l'autorise pas à marteler.
   if (CHEMINS_SUPERVISION.has(pathname) && (await jetonSupervisionValide(request))) {
-    return withSecurityHeaders(suite(), idRequete);
+    return withSecurityHeaders(suite(), idRequete, csp);
   }
 
   const token = request.cookies.get(ACCESS_COOKIE)?.value;
@@ -322,9 +342,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   if (isPublic(pathname)) {
     // Déjà authentifié : inutile de retourner sur la page de connexion.
     if (claims && pathname === "/login") {
-      return withSecurityHeaders(NextResponse.redirect(new URL("/", request.url)), idRequete);
+      return withSecurityHeaders(NextResponse.redirect(new URL("/", request.url)), idRequete, csp);
     }
-    return withSecurityHeaders(suite(), idRequete);
+    return withSecurityHeaders(suite(), idRequete, csp);
   }
 
   // Cadence par organisation : elle complète celle par adresse IP. Deux
@@ -336,7 +356,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       [`org-soutenu:${claims.org}`, CADENCE_ORG_SOUTENUE, CADENCE_ORG_SOUTENUE_FENETRE_MS],
     ] as const) {
       const v = verifierCadence(cle, max, fenetre);
-      if (!v.autorise) return limiteAtteinte(v.reessayerDans);
+      if (!v.autorise) return limiteAtteinte(v.reessayerDans, idRequete, csp);
     }
   }
 
@@ -348,11 +368,12 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
         "Authentification requise.",
         401,
         idRequete,
+        csp,
       );
     }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", `${pathname}${search}`);
-    return withSecurityHeaders(NextResponse.redirect(loginUrl), idRequete);
+    return withSecurityHeaders(NextResponse.redirect(loginUrl), idRequete, csp);
   }
 
   // Les rôles soumis à la MFA doivent présenter une session validée par le second facteur.
@@ -363,10 +384,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       "Double authentification requise pour cette action.",
       403,
       idRequete,
+      csp,
     );
   }
 
-  return withSecurityHeaders(suite(), idRequete);
+  return withSecurityHeaders(suite(), idRequete, csp);
 }
 
 export const config = {

@@ -137,12 +137,20 @@ if (!sentinelCode || !worldcoverCode) {
 /* --- En-têtes de sécurité : valeurs réelles ------------------------------ */
 
 const proxy = lire("src/proxy.ts");
+const cspModule = lire("src/lib/security/csp.ts");
+const cspEstReportOnly =
+  /Content-Security-Policy-Report-Only/.test(proxy) ||
+  /Content-Security-Policy-Report-Only/.test(cspModule);
 
 verifier(
-  "la CSP est décrite comme Report-Only si elle l'est",
-  !/Content-Security-Policy-Report-Only/.test(proxy) ||
-    /Report-Only/.test(architecture),
-  "src/proxy.ts pose une CSP en Report-Only, mais ARCHITECTURE.md ne le mentionne pas",
+  "la CSP est décrite fidèlement (Report-Only ou bloquante)",
+  cspEstReportOnly
+    ? /Report-Only/.test(architecture)
+    : /EN_TETE_CSP\s*=\s*"Content-Security-Policy"/.test(cspModule) &&
+        /Content-Security-Policy`\s*\|\s*\*\*bloquant\*\*/.test(architecture),
+  cspEstReportOnly
+    ? "src/proxy.ts pose une CSP en Report-Only, mais ARCHITECTURE.md ne le mentionne pas"
+    : "ARCHITECTURE.md doit documenter la CSP bloquante définie dans src/lib/security/csp.ts",
 );
 
 verifier(
