@@ -187,6 +187,13 @@ test('RGPD scheduled purge workflow is restricted to main, isolated in rgpd-purg
   const job = rgpd.jobs['purge-rgpd'];
   assert.equal(job.if, "github.ref == 'refs/heads/main'");
   assert.equal(job.environment, 'rgpd-purge');
+  assert.ok(!job.permissions);
+  assert.ok(!job['continue-on-error']);
+  assert.ok(!Object.hasOwn(job, 'uses'));
+  assert.ok(!Object.hasOwn(job, 'secrets'));
+  for (const step of job.steps) assert.ok(!step['continue-on-error']);
+  const { jobs: _rgpdJobs, ...rgpdScope } = rgpd;
+  assert.ok(!hasSecretsExpression(rgpdScope), 'secret expression at workflow scope in rgpd-purge.yml');
 
   const checkout = job.steps.find(s => String(s.uses || '').startsWith('actions/checkout@'));
   assert.ok(checkout);

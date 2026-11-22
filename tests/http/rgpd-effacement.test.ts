@@ -115,6 +115,19 @@ describe("HTTP — Effacement RGPD encadré (POST /api/v1/rgpd/effacement)", () 
     assert.equal(r409.corps.statut, "refuse_conservation_legale");
     assert.match(r409.corps.base_legale ?? "", /17\.3\.b/);
     assert.match(r409.corps.duree_conservation ?? "", /5 ans/);
+
+    // Protection P1-07 : une structure JSON trop profondément imbriquée est
+    // rejetée en 422 par `lireCorpsJson` avec en-têtes privés conservés.
+    let imbrique: unknown = "fin";
+    for (let i = 0; i < 40; i += 1) imbrique = { a: imbrique };
+    const rProfondeur = await adminA.json<{ detail?: string }>("/api/v1/rgpd/effacement", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ cible: "fournisseur_contact", motif: imbrique }),
+    });
+    assert.equal(rProfondeur.statut, 422);
+    assert.equal(rProfondeur.entetes.get("cache-control"), "no-store");
+    assert.equal(rProfondeur.entetes.get("x-robots-tag"), "noindex");
   });
 
   it("efface les coordonnées de contact du fournisseur A, préserve la fiche, est idempotent et ne fuite rien dans le journal d'audit", async () => {

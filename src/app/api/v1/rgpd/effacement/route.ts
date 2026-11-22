@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { logAction } from "@/lib/api/audit-log";
+import { lireCorpsJson } from "@/lib/api/body";
 import { guard } from "@/lib/auth/guard";
 import {
   effacerContactsFournisseur,
@@ -13,6 +14,13 @@ const ENTETES_PRIVES = {
   "Cache-Control": "no-store",
   "X-Robots-Tag": "noindex",
 };
+
+function avecEntetesPrives(response: NextResponse): NextResponse {
+  for (const [k, v] of Object.entries(ENTETES_PRIVES)) {
+    response.headers.set(k, v);
+  }
+  return response;
+}
 
 /**
  * Effacement partiel encadré — art. 17 du RGPD (et exception art. 17.3.b / art. 12 EUDR).
@@ -32,15 +40,13 @@ export const POST = guard("org:manage")(async (
   _ctx,
   { tx, organizationId, session },
 ): Promise<Response> => {
-  let corps: unknown;
-  try {
-    corps = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: { code: "json_invalide", message: "Corps JSON invalide." } },
-      { status: 400, headers: ENTETES_PRIVES },
-    );
+  // Lecture bornée en octets et en profondeur JSON (P1-07) : protège contre
+  // les envois chunked non bornés et les structures JSON profondément imbriquées.
+  const lecture = await lireCorpsJson(request);
+  if (!lecture.ok) {
+    return avecEntetesPrives(lecture.response);
   }
+  const corps = lecture.value;
 
   const validation = validerDemandeEffacement(corps);
   if (!validation.ok) {
