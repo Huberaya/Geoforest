@@ -46,6 +46,12 @@ import {
 
 /** Chemins accessibles sans session. */
 const PUBLIC_PATHS = new Set<string>([
+  // Vitrine publique produit uniquement : `src/app/page.tsx` sert la page de
+  // présentation sans session et n'ouvre le tableau de bord qu'après
+  // vérification serveur complète (`getSession()` + MFA). Toutes les autres
+  // pages applicatives (`/plots`, `/suppliers`, etc.) et `/api/v1/*` restent
+  // strictement protégées en deny-by-default.
+  "/",
   "/login",
   // Chantier 6 : activation d'un compte fournisseur par lien d'invitation (sans session).
   "/accepter-invitation",
