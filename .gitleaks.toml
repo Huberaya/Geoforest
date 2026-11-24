@@ -1,0 +1,65 @@
+title = "GeoForest Trace — Gitleaks secret scanning configuration (B2)"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "geoforest-postgres-url-with-password"
+description = "PostgreSQL connection URL with embedded non-placeholder password"
+regex = '''postgres(?:ql)?://[^:\s"'`$]+:([^@\s"'`$]{4,})@[^/\s"'`]+'''
+secretGroup = 1
+keywords = ["postgres://", "postgresql://"]
+
+  [[rules.allowlists]]
+  description = "Hôtes locaux/exemples et placeholders documentaires explicites"
+  regexTarget = "match"
+  regexes = [
+    '''@(?:127\.0\.0\.1|localhost|db|host|hote|hôte|serveur|example\.|exemple\.)''',
+    '''<[^>]+>''',
+    '''MOT_DE_PASSE|NOUVEAU_MDP|ANCIEN_MDP|REMPLACER|VOTRE_|\.\.\.|…|\*\*\*''',
+  ]
+
+[[rules]]
+id = "geoforest-sql-role-password"
+description = "SQL CREATE/ALTER ROLE or USER statement with literal password"
+regex = "(?i)\\b(?:CREATE|ALTER)\\s+(?:ROLE|USER)\\s+[A-Za-z_][A-Za-z0-9_]*[^\\n;]{0,80}\\bPASSWORD\\s+'([^'\\n]{4,})'"
+secretGroup = 1
+keywords = ["password"]
+
+  [[rules.allowlists]]
+  description = "Exemples documentaires ou scripts de recette locaux sur base jetable"
+  paths = [
+    '''^docs/''',
+    '''^README\.md$''',
+    '''^scripts/recette/''',
+  ]
+  regexTarget = "match"
+  regexes = [
+    '''…en clair…''',
+    '''<[^>]+>''',
+    '''MOT_DE_PASSE|NOUVEAU_MDP|REMPLACER|VOTRE_''',
+  ]
+
+[[rules]]
+id = "geoforest-neon-api-key"
+description = "Neon API key"
+regex = '''\bnapi_[A-Za-z0-9_-]{20,}\b'''
+keywords = ["napi_"]
+
+[[rules]]
+id = "geoforest-vercel-token"
+description = "Vercel token"
+regex = '''\bvcp_[A-Za-z0-9_-]{20,}\b'''
+keywords = ["vcp_"]
+
+[allowlist]
+description = "Allowlist strictement bornée aux deux fixtures synthétiques de tests HTTP locaux"
+paths = [
+  '''^\.venv/''',
+  '''^node_modules/''',
+  '''^\.next/''',
+]
+regexes = [
+  '''eyJhbGciOiJIUzI1NiJ9\.faux\.signature''',
+  '''secret-de-test-suffisamment-long-0123456789''',
+]

@@ -61,7 +61,8 @@
     "check:chevauchement": "tsx --conditions=react-server scripts/check-chevauchement.ts",
     "check:satellite": "tsx --conditions=react-server scripts/check-satellite.ts",
     "db:purge-rgpd": "tsx scripts/purge-donnees-personnelles.ts",
-    "check:rgpd": "tsx --conditions=react-server scripts/check-rgpd.ts"
+    "check:rgpd": "tsx --conditions=react-server scripts/check-rgpd.ts",
+    "check:secrets": "tsx scripts/check-secrets.ts"
   },
   "overrides": {
     "esbuild": "^0.25.12",

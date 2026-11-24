@@ -240,7 +240,14 @@ Conformément au constat §7 et à l'état rapporté le 13/11/2026 (`docs/REPRIS
 - **Ce qui protège réellement `main`** : `enforcement: active`, interdiction de suppression / force-push, passage par PR obligatoire, et les 4 jobs CI bloquants.
 - **Ce qui reste une réserve de gouvernance ouverte** : l'absence d'une seconde paire d'yeux humaine indépendante. Dès qu'un second mainteneur rejoint le dépôt, remonter `required_approving_review_count` à **1**.
 
-### 8.3 Vérification en direct à confirmer par le propriétaire
+### 8.3 Vérification en direct sur l'API GitHub (22/11/2026)
 
-Cette mise à jour consolide les preuves versionnées dans le dépôt (`502797c`, `9f78624`, `.github/workflows/ci.yml`, `scripts/ci/check-workflow.test.cjs`). Le sandbox d'analyse ne disposant pas d'un jeton GitHub administrateur, exécuter les commandes de la section §4 depuis un poste authentifié pour confirmer l'absence de dérive sur le ruleset `26568220`.
+Relecture effectuée le **22/11/2026** sur `GET /repos/Huberaya/Geoforest/rules/branches/main` et `GET /repos/Huberaya/Geoforest/rulesets/26568220` :
+- `enforcement: "active"` sur `~DEFAULT_BRANCH` (`main`) ;
+- règles actives : `deletion`, `non_fast_forward`, `pull_request` (`required_approving_review_count: 0`, `dismiss_stale_reviews_on_push: true`, `required_review_thread_resolution: true`), `required_status_checks` (`strict_required_status_checks_policy: true`) ;
+- **exactement 4 contextes requis (`integration_id: 15368`) et 0 check fantôme** :
+  1. `Contrôles SQL (PostgreSQL)`
+  2. `Bout en bout (application démarrée, PostgreSQL)`
+  3. `Qualité (types, lint, règles EUDR, dépendances)`
+  4. `Backend (pytest)`
 
