@@ -2,6 +2,7 @@
 
 import AuditHistory from "@/components/AuditHistory";
 import AuditResultCard from "@/components/AuditResultCard";
+import EudrLegalDates from "@/components/dashboard/EudrLegalDates";
 import GeoUploader from "@/components/GeoUploader";
 import MapViewer, { type MapStatus } from "@/components/MapViewer";
 import { ApiError, auditParcel, getAudit, getDashboardSummary, listAudits } from "@/lib/api";
@@ -145,9 +146,7 @@ export default function DashboardPage() {
       <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-6 text-white shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-              Règlement (UE) 2023/1115 · Date butoir 31/12/2020
-            </div>
+            <EudrLegalDates />
             <h1 className="mt-2 text-xl font-bold tracking-tight sm:text-2xl">
               Cockpit de conformité EUDR — {summary?.organizationName ?? "organisation"}
             </h1>
